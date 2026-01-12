@@ -73,7 +73,7 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
             const radians = (angle * Math.PI) / 180
             const outerRadius = 98
             const innerRadius = 83
-            const salesLabelRadius = 128  // Increased from 75 to move labels farther out
+            const salesLabelRadius = 115  // Reduced from 128 to bring labels closer to dial
             const productivityLabelRadius = 63
             
             const outerX = 120 + outerRadius * Math.cos(radians)
@@ -646,7 +646,7 @@ const dialStyles = {
     },
     dataGrid: {
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
+        gridTemplateColumns: '140px 1fr',
         gap: '0.5rem',
         marginBottom: '0.75rem',
     },
@@ -662,6 +662,7 @@ const dialStyles = {
         height: '32px',
         display: 'flex',
         alignItems: 'center',
+        whiteSpace: 'nowrap',
     },
     calculatedValue: {
         height: '32px',
