@@ -1,6 +1,6 @@
 import React, { useState } from "react"
 
-function DaypartDial({ title, salesRange, productivityRange, salesInput, setSalesInput }) {
+function DaypartDial({ title, salesRange, productivityRange, salesInput, setSalesInput, picData, setPicData, daypartKey }) {
     // Format number as currency
     const formatCurrency = (value) => {
         if (!value || value === '') return ''
@@ -14,6 +14,17 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
         if (!value) return ''
         const numValue = parseInt(value.replace(/[^0-9]/g, ''))
         return isNaN(numValue) ? '' : numValue.toString()
+    }
+
+    // Handle PIC data changes
+    const handlePicDataChange = (field, value) => {
+        setPicData(prev => ({
+            ...prev,
+            [daypartKey]: {
+                ...prev[daypartKey],
+                [field]: value
+            }
+        }))
     }
     // Generate 17 evenly spaced ticks for each range (for even sales labels)
     const generateRange = (min, max, count = 17) => {
@@ -206,8 +217,8 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                     
                     {/* Center dot */}
                     <circle
-                        cx="80"
-                        cy="80"
+                        cx="120"
+                        cy="120"
                         r="3"
                         fill="#fff"
                     />
@@ -383,96 +394,60 @@ export default function DaypartDashboard() {
         document.body.removeChild(link)
     }
 
-    const dayparts = [
-        {
-            title: "Breakfast",
-            salesRange: { min: 4000, max: 8000 },
-            productivityRange: { min: 60, max: 80 },
-            salesInput: breakfastSales,
-            setSalesInput: setBreakfastSales
-        },
-        {
-            title: "Lunch", 
-            salesRange: { min: 8000, max: 12000 },
-            productivityRange: { min: 100, max: 120 },
-            salesInput: lunchSales,
-            setSalesInput: setLunchSales
-        },
-        {
-            title: "Afternoon",
-            salesRange: { min: 5000, max: 9000 },
-            productivityRange: { min: 90, max: 100 },
-            salesInput: afternoonSales,
-            setSalesInput: setAfternoonSales
-        },
-        {
-            title: "Dinner",
-            salesRange: { min: 8000, max: 12000 },
-            productivityRange: { min: 80, max: 90 },
-            salesInput: dinnerSales,
-            setSalesInput: setDinnerSales
-        }
-    ]
-
-    return (
-        <div style={dashboardStyles.container}>
             <h1 style={dashboardStyles.title}>Daypart Productivity Guide</h1>
             
             <div style={dashboardStyles.dialGrid}>
-                {dayparts.map((daypart, index) => (
-                    <DaypartDial key={index} {...daypart} />
-                ))}
+                <DaypartDial
+                    title="Breakfast"
+                    salesRange={{ min: 4000, max: 8000 }}
+                    productivityRange={{ min: 60, max: 80 }}
+                    salesInput={breakfastSales}
+                    setSalesInput={setBreakfastSales}
+                    picData={picData}
+                    setPicData={setPicData}
+                    daypartKey="breakfast"
+                />
+                <DaypartDial
+                    title="Lunch"
+                    salesRange={{ min: 6000, max: 12000 }}
+                    productivityRange={{ min: 70, max: 90 }}
+                    salesInput={lunchSales}
+                    setSalesInput={setLunchSales}
+                    picData={picData}
+                    setPicData={setPicData}
+                    daypartKey="lunch"
+                />
+                <DaypartDial
+                    title="Afternoon"
+                    salesRange={{ min: 3000, max: 7000 }}
+                    productivityRange={{ min: 55, max: 75 }}
+                    salesInput={afternoonSales}
+                    setSalesInput={setAfternoonSales}
+                    picData={picData}
+                    setPicData={setPicData}
+                    daypartKey="afternoon"
+                />
+                <DaypartDial
+                    title="Dinner"
+                    salesRange={{ min: 8000, max: 15000 }}
+                    productivityRange={{ min: 75, max: 95 }}
+                    salesInput={dinnerSales}
+                    setSalesInput={setDinnerSales}
+                    picData={picData}
+                    setPicData={setPicData}
+                    daypartKey="dinner"
+                />
             </div>
 
-            <div style={dashboardStyles.legend}>
-                <div style={dashboardStyles.legendItem}>
-                    <div style={{...dashboardStyles.legendColor, background: '#44ff44'}}></div>
-                    <span>On Track</span>
-                </div>
-                <div style={dashboardStyles.legendItem}>
-                    <div style={{...dashboardStyles.legendColor, background: '#ff4444'}}></div>
-                    <span>Reduce Labor Hours</span>
-                </div>
+            {/* Download Button */}
+            <div style={dashboardStyles.buttonContainer}>
+                <button onClick={downloadWeeklyReport} style={dashboardStyles.reportButton}>
+                    Download Weekly Report
+                </button>
             </div>
 
-            {/* Data Entry Section */}
-            <div style={dashboardStyles.dataSection}>
-                <h3 style={dashboardStyles.dataSectionTitle}>Daily Data Entry</h3>
-                
-                <div style={dashboardStyles.dataGrid}>
-                    {['breakfast', 'lunch', 'afternoon', 'dinner'].map((daypart) => (
-                        <div key={daypart} style={dashboardStyles.dataRow}>
-                            <label style={dashboardStyles.daypartLabel}>
-                                {daypart.charAt(0).toUpperCase() + daypart.slice(1)}:
-                            </label>
-                            <input
-                                type="text"
-                                placeholder="PIC Name"
-                                value={picData[daypart].pic}
-                                onChange={(e) => handlePicDataChange(daypart, 'pic', e.target.value)}
-                                style={dashboardStyles.dataInput}
-                            />
-                            <input
-                                type="number"
-                                placeholder="Actual Productivity"
-                                value={picData[daypart].actualProductivity}
-                                onChange={(e) => handlePicDataChange(daypart, 'actualProductivity', e.target.value)}
-                                style={dashboardStyles.dataInput}
-                                step="0.1"
-                            />
-                        </div>
-                    ))}
-                </div>
-                
-                <div style={dashboardStyles.buttonContainer}>
-                    <button onClick={downloadWeeklyReport} style={dashboardStyles.reportButton}>
-                        Download Weekly Report
-                    </button>
-                </div>
-
-                <div style={dashboardStyles.autoSaveInfo}>
-                    💾 Data automatically saves at 11 PM daily
-                </div>
+            <div style={dashboardStyles.autoSaveInfo}>
+                💾 Data automatically saves at 11 PM daily
             </div>
         </div>
     )
@@ -607,46 +582,76 @@ const dialStyles = {
         minWidth: '280px',
     },
     title: {
-        fontSize: '1rem',
-        marginBottom: '0.75rem',
+        fontSize: '1.3rem',
+        marginBottom: '0.5rem',
+        marginTop: '-0.5rem',
         color: '#fff',
         textAlign: 'center',
         fontWeight: 'bold',
     },
     dialContainer: {
-        marginBottom: '0.75rem',
+        marginBottom: '1rem',
     },
     svg: {
         overflow: 'visible',
     },
-    inputSection: {
+    dataSection: {
+        width: '100%',
+        marginTop: '0.5rem',
+    },
+    dataGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '0.5rem',
+        marginBottom: '0.75rem',
+    },
+    dataColumn: {
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
         gap: '0.5rem',
-        width: '100%',
+    },
+    label: {
+        fontSize: '0.8rem',
+        color: '#aaa',
+        fontWeight: 'bold',
+        height: '32px',
+        display: 'flex',
+        alignItems: 'center',
+    },
+    calculatedValue: {
+        height: '32px',
+        display: 'flex',
+        alignItems: 'center',
+        fontSize: '0.9rem',
+        color: '#fff',
+        fontWeight: 'bold',
+        background: '#2a2a2a',
+        border: '1px solid #444',
+        borderRadius: '4px',
+        padding: '6px 10px',
+    },
+    dynamicLegend: {
+        display: 'flex',
+        justifyContent: 'center',
+        minHeight: '20px',
+    },
+    legendItem: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+        fontSize: '0.8rem',
+        fontWeight: 'bold',
     },
     input: {
         padding: '6px 10px',
         fontSize: '13px',
-        width: '120px',
+        height: '32px',
         borderRadius: '4px',
-        border: 'none',
+        border: '1px solid #444',
         textAlign: 'center',
         background: '#fff',
         color: '#000',
-    },
-    display: {
-        textAlign: 'center',
-        minHeight: '35px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-    },
-    value: {
-        fontSize: '0.85rem',
-        color: '#fff',
-        fontWeight: 'bold',
+        boxSizing: 'border-box',
     },
     productivity: {
         fontSize: '0.75rem',
