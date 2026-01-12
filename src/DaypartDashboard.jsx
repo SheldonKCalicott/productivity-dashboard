@@ -225,30 +225,73 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                 </svg>
             </div>
 
-            <div style={dialStyles.inputSection}>
-                <input
-                    type="text"
-                    value={formatCurrency(salesInput)}
-                    onChange={(e) => setSalesInput(parseCurrency(e.target.value))}
-                    style={dialStyles.input}
-                    placeholder={`$${(salesRange.min/1000).toFixed(0)}k-${(salesRange.max/1000).toFixed(0)}k`}
-                />
-                
-                <div style={dialStyles.display}>
-                    {isInRange && salesInput !== '' ? (
-                        <>
-                            <div style={dialStyles.value}>
-                                Productivity Target
-                            </div>
-                            <div style={dialStyles.productivity}>
-                                {currentProductivity?.toFixed(1)} or higher
-                            </div>
-                        </>
-                    ) : (
-                        <div style={dialStyles.placeholder}>
-                            {salesInput === '' ? 'Enter sales above' : 'Out of range'}
+            <div style={dialStyles.dataSection}>
+                <div style={dialStyles.dataGrid}>
+                    <div style={dialStyles.dataColumn}>
+                        <div style={dialStyles.label}>Sales:</div>
+                        <div style={dialStyles.label}>Productivity Target:</div>
+                        <div style={dialStyles.label}>PIC Name:</div>
+                        <div style={dialStyles.label}>Actual Productivity:</div>
+                    </div>
+                    <div style={dialStyles.dataColumn}>
+                        <input
+                            type="text"
+                            value={formatCurrency(salesInput)}
+                            onChange={(e) => setSalesInput(parseCurrency(e.target.value))}
+                            placeholder={`$${(salesRange.min/1000).toFixed(0)}k-${(salesRange.max/1000).toFixed(0)}k`}
+                            style={dialStyles.input}
+                        />
+                        <div style={dialStyles.calculatedValue}>
+                            {currentProductivity ? Math.round(currentProductivity) : '--'}
                         </div>
-                    )}
+                        <input
+                            type="text"
+                            placeholder="PIC Name"
+                            value={picData[daypartKey]?.pic || ''}
+                            onChange={(e) => handlePicDataChange('pic', e.target.value)}
+                            style={dialStyles.input}
+                        />
+                        <input
+                            type="number"
+                            placeholder="Actual"
+                            value={picData[daypartKey]?.actualProductivity || ''}
+                            onChange={(e) => handlePicDataChange('actualProductivity', e.target.value)}
+                            style={dialStyles.input}
+                            step="0.1"
+                        />
+                    </div>
+                </div>
+                
+                <div style={dialStyles.dynamicLegend}>
+                    {(() => {
+                        const actual = parseFloat(picData[daypartKey]?.actualProductivity || 0)
+                        const target = currentProductivity || 0
+                        const hasData = salesInput && picData[daypartKey]?.pic && picData[daypartKey]?.actualProductivity
+                        
+                        if (!hasData) {
+                            return (
+                                <div style={dialStyles.placeholderText}>
+                                    Enter sales, PIC name, and actual productivity to see performance status
+                                </div>
+                            )
+                        }
+                        
+                        const isOnTrack = actual >= target
+                        return (
+                            <div style={{
+                                ...dialStyles.legendItem,
+                                color: isOnTrack ? '#44ff44' : '#ff4444'
+                            }}>
+                                <div style={{
+                                    width: '12px',
+                                    height: '12px',
+                                    background: isOnTrack ? '#44ff44' : '#ff4444',
+                                    borderRadius: '2px'
+                                }}></div>
+                                {isOnTrack ? 'On Track' : 'Reduce Labor Hours'}
+                            </div>
+                        )
+                    })()} 
                 </div>
             </div>
         </div>
@@ -644,6 +687,13 @@ const dialStyles = {
         fontSize: '0.8rem',
         fontWeight: 'bold',
     },
+    placeholderText: {
+        fontSize: '0.7rem',
+        color: '#666',
+        textAlign: 'center',
+        fontStyle: 'italic',
+        lineHeight: '1.2',
+    },
     input: {
         padding: '6px 10px',
         fontSize: '13px',
@@ -654,13 +704,5 @@ const dialStyles = {
         background: '#fff',
         color: '#000',
         boxSizing: 'border-box',
-    },
-    productivity: {
-        fontSize: '0.75rem',
-        color: '#aaa',
-    },
-    placeholder: {
-        fontSize: '0.75rem',
-        color: '#666',
     },
 }
