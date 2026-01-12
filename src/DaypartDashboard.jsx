@@ -226,12 +226,12 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                                 Sales: ${salesValue.toLocaleString()}
                             </div>
                             <div style={dialStyles.productivity}>
-                                Productivity: >{currentProductivity?.toFixed(1)}
+                                Productivity: &gt;{currentProductivity?.toFixed(1)}
                             </div>
                         </>
                     ) : (
                         <div style={dialStyles.placeholder}>
-                            {salesInput === '' ? 'Enter sales' : 'Out of range'}
+                            {salesInput === '' ? 'Enter sales above' : 'Out of range'}
                         </div>
                     )}
                 </div>
@@ -245,6 +245,48 @@ export default function DaypartDashboard() {
     const [lunchSales, setLunchSales] = useState('')
     const [afternoonSales, setAfternoonSales] = useState('')
     const [dinnerSales, setDinnerSales] = useState('')
+
+    // PIC and actual productivity tracking
+    const [picData, setPicData] = useState({
+        breakfast: { pic: '', actualProductivity: '' },
+        lunch: { pic: '', actualProductivity: '' },
+        afternoon: { pic: '', actualProductivity: '' },
+        dinner: { pic: '', actualProductivity: '' }
+    })
+
+    const [savedData, setSavedData] = useState([])
+
+    const handlePicDataChange = (daypart, field, value) => {
+        setPicData(prev => ({
+            ...prev,
+            [daypart]: { ...prev[daypart], [field]: value }
+        }))
+    }
+
+    const saveData = () => {
+        const currentDate = new Date().toLocaleDateString()
+        const dataToSave = {
+            date: currentDate,
+            breakfast: { sales: breakfastSales, ...picData.breakfast },
+            lunch: { sales: lunchSales, ...picData.lunch },
+            afternoon: { sales: afternoonSales, ...picData.afternoon },
+            dinner: { sales: dinnerSales, ...picData.dinner }
+        }
+        
+        setSavedData(prev => [dataToSave, ...prev.slice(0, 9)]) // Keep last 10 entries
+        
+        // Clear inputs after saving
+        setBreakfastSales('')
+        setLunchSales('')
+        setAfternoonSales('')
+        setDinnerSales('')
+        setPicData({
+            breakfast: { pic: '', actualProductivity: '' },
+            lunch: { pic: '', actualProductivity: '' },
+            afternoon: { pic: '', actualProductivity: '' },
+            dinner: { pic: '', actualProductivity: '' }
+        })
+    }
 
     const dayparts = [
         {
@@ -297,6 +339,56 @@ export default function DaypartDashboard() {
                     <span>Reduce Labor Hours</span>
                 </div>
             </div>
+
+            {/* Data Entry Section */}
+            <div style={dashboardStyles.dataSection}>
+                <h3 style={dashboardStyles.dataSectionTitle}>Daily Data Entry</h3>
+                
+                <div style={dashboardStyles.dataGrid}>
+                    {['breakfast', 'lunch', 'afternoon', 'dinner'].map((daypart) => (
+                        <div key={daypart} style={dashboardStyles.dataRow}>
+                            <label style={dashboardStyles.daypartLabel}>
+                                {daypart.charAt(0).toUpperCase() + daypart.slice(1)}:
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="PIC Name"
+                                value={picData[daypart].pic}
+                                onChange={(e) => handlePicDataChange(daypart, 'pic', e.target.value)}
+                                style={dashboardStyles.dataInput}
+                            />
+                            <input
+                                type="number"
+                                placeholder="Actual Productivity"
+                                value={picData[daypart].actualProductivity}
+                                onChange={(e) => handlePicDataChange(daypart, 'actualProductivity', e.target.value)}
+                                style={dashboardStyles.dataInput}
+                                step="0.1"
+                            />
+                        </div>
+                    ))}
+                </div>
+                
+                <button onClick={saveData} style={dashboardStyles.saveButton}>
+                    Save Daily Data
+                </button>
+
+                {/* Recent Entries */}
+                {savedData.length > 0 && (
+                    <div style={dashboardStyles.recentData}>
+                        <h4 style={dashboardStyles.recentTitle}>Recent Entries</h4>
+                        {savedData.slice(0, 3).map((entry, index) => (
+                            <div key={index} style={dashboardStyles.recentEntry}>
+                                <strong>{entry.date}</strong> - 
+                                B: {entry.breakfast.pic} ({entry.breakfast.actualProductivity}) | 
+                                L: {entry.lunch.pic} ({entry.lunch.actualProductivity}) | 
+                                A: {entry.afternoon.pic} ({entry.afternoon.actualProductivity}) | 
+                                D: {entry.dinner.pic} ({entry.dinner.actualProductivity})
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
         </div>
     )
 }
@@ -347,6 +439,74 @@ const dashboardStyles = {
         height: '14px',
         borderRadius: '2px',
         opacity: 0.7,
+    },
+    dataSection: {
+        marginTop: '2rem',
+        padding: '1.5rem',
+        background: '#1a1a1a',
+        borderRadius: '8px',
+        border: '1px solid #333',
+        maxWidth: '800px',
+        width: '100%',
+    },
+    dataSectionTitle: {
+        fontSize: '1.2rem',
+        marginBottom: '1rem',
+        color: '#fff',
+        textAlign: 'center',
+    },
+    dataGrid: {
+        display: 'grid',
+        gap: '0.5rem',
+        marginBottom: '1rem',
+    },
+    dataRow: {
+        display: 'grid',
+        gridTemplateColumns: '120px 1fr 1fr',
+        gap: '0.5rem',
+        alignItems: 'center',
+    },
+    daypartLabel: {
+        color: '#aaa',
+        fontSize: '0.9rem',
+        fontWeight: 'bold',
+    },
+    dataInput: {
+        padding: '6px 10px',
+        fontSize: '13px',
+        borderRadius: '4px',
+        border: '1px solid #555',
+        background: '#2a2a2a',
+        color: '#fff',
+    },
+    saveButton: {
+        padding: '10px 20px',
+        fontSize: '14px',
+        borderRadius: '6px',
+        border: 'none',
+        background: '#007acc',
+        color: 'white',
+        cursor: 'pointer',
+        display: 'block',
+        margin: '0 auto',
+    },
+    recentData: {
+        marginTop: '1rem',
+        padding: '1rem',
+        background: '#0f0f0f',
+        borderRadius: '6px',
+        border: '1px solid #333',
+    },
+    recentTitle: {
+        fontSize: '1rem',
+        marginBottom: '0.5rem',
+        color: '#fff',
+    },
+    recentEntry: {
+        fontSize: '0.8rem',
+        color: '#ccc',
+        marginBottom: '0.3rem',
+        lineHeight: '1.4',
     },
 }
 
