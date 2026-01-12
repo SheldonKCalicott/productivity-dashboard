@@ -223,9 +223,6 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                     {isInRange && salesInput !== '' ? (
                         <>
                             <div style={dialStyles.value}>
-                                Sales: ${salesValue.toLocaleString()}
-                            </div>
-                            <div style={dialStyles.productivity}>
                                 Productivity: {currentProductivity?.toFixed(1)} or greater
                             </div>
                         </>
