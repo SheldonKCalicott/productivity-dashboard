@@ -279,7 +279,7 @@ export default function DaypartDashboard() {
 
     return (
         <div style={dashboardStyles.container}>
-            <h1 style={dashboardStyles.title}>Daypart Productivity Guide v2.0</h1>
+            <h1 style={dashboardStyles.title}>Daypart Productivity Guide v1.0</h1>
             
             <div style={dashboardStyles.dialGrid}>
                 {dayparts.map((daypart, index) => (
