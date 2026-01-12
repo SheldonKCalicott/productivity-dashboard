@@ -223,10 +223,10 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                     {isInRange && salesInput !== '' ? (
                         <>
                             <div style={dialStyles.value}>
-                                ${salesValue.toLocaleString()}
+                                Sales: ${salesValue.toLocaleString()}
                             </div>
                             <div style={dialStyles.productivity}>
-                                {currentProductivity?.toFixed(1)}
+                                Productivity: >{currentProductivity?.toFixed(1)}
                             </div>
                         </>
                     ) : (
@@ -290,11 +290,11 @@ export default function DaypartDashboard() {
             <div style={dashboardStyles.legend}>
                 <div style={dashboardStyles.legendItem}>
                     <div style={{...dashboardStyles.legendColor, background: '#44ff44'}}></div>
-                    <span>Above Target</span>
+                    <span>On Track</span>
                 </div>
                 <div style={dashboardStyles.legendItem}>
                     <div style={{...dashboardStyles.legendColor, background: '#ff4444'}}></div>
-                    <span>Underperforming - Reduce Labor</span>
+                    <span>Reduce Labor Hours</span>
                 </div>
             </div>
         </div>
