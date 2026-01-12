@@ -226,7 +226,7 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                                 Sales: ${salesValue.toLocaleString()}
                             </div>
                             <div style={dialStyles.productivity}>
-                                Productivity: &gt;{currentProductivity?.toFixed(1)}
+                                Productivity: {currentProductivity?.toFixed(1)} or greater
                             </div>
                         </>
                     ) : (
