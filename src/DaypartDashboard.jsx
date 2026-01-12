@@ -254,7 +254,45 @@ export default function DaypartDashboard() {
         dinner: { pic: '', actualProductivity: '' }
     })
 
-    const [savedData, setSavedData] = useState([])
+    const [savedData, setSavedData] = useState(() => {
+        // Load saved data from localStorage on component mount
+        const saved = localStorage.getItem('productivity-data')
+        return saved ? JSON.parse(saved) : []
+    })
+
+    const [lastAutoSave, setLastAutoSave] = useState(() => {
+        return localStorage.getItem('last-auto-save') || ''
+    })
+
+    // Auto-save functionality
+    React.useEffect(() => {
+        const checkAutoSave = () => {
+            const now = new Date()
+            const currentDate = now.toLocaleDateString()
+            const currentHour = now.getHours()
+            
+            // Auto-save at 11 PM if data exists and hasn't been saved today
+            if (currentHour === 23 && lastAutoSave !== currentDate) {
+                const hasData = breakfastSales || lunchSales || afternoonSales || dinnerSales ||
+                               Object.values(picData).some(d => d.pic || d.actualProductivity)
+                
+                if (hasData) {
+                    saveData(true) // true indicates auto-save
+                    setLastAutoSave(currentDate)
+                    localStorage.setItem('last-auto-save', currentDate)
+                }
+            }
+        }
+
+        // Check every hour
+        const interval = setInterval(checkAutoSave, 3600000)
+        return () => clearInterval(interval)
+    }, [breakfastSales, lunchSales, afternoonSales, dinnerSales, picData, lastAutoSave])
+
+    // Save data to localStorage whenever savedData changes
+    React.useEffect(() => {
+        localStorage.setItem('productivity-data', JSON.stringify(savedData))
+    }, [savedData])
 
     const handlePicDataChange = (daypart, field, value) => {
         setPicData(prev => ({
@@ -263,29 +301,82 @@ export default function DaypartDashboard() {
         }))
     }
 
-    const saveData = () => {
+    const saveData = (isAutoSave = false) => {
         const currentDate = new Date().toLocaleDateString()
+        const currentTime = new Date().toLocaleTimeString()
         const dataToSave = {
             date: currentDate,
+            time: currentTime,
+            savedBy: isAutoSave ? 'Auto-save' : 'Manual',
             breakfast: { sales: breakfastSales, ...picData.breakfast },
             lunch: { sales: lunchSales, ...picData.lunch },
             afternoon: { sales: afternoonSales, ...picData.afternoon },
             dinner: { sales: dinnerSales, ...picData.dinner }
         }
         
-        setSavedData(prev => [dataToSave, ...prev.slice(0, 9)]) // Keep last 10 entries
+        setSavedData(prev => [dataToSave, ...prev])
         
-        // Clear inputs after saving
-        setBreakfastSales('')
-        setLunchSales('')
-        setAfternoonSales('')
-        setDinnerSales('')
-        setPicData({
-            breakfast: { pic: '', actualProductivity: '' },
-            lunch: { pic: '', actualProductivity: '' },
-            afternoon: { pic: '', actualProductivity: '' },
-            dinner: { pic: '', actualProductivity: '' }
+        // Clear inputs after saving (only for manual saves)
+        if (!isAutoSave) {
+            setBreakfastSales('')
+            setLunchSales('')
+            setAfternoonSales('')
+            setDinnerSales('')
+            setPicData({
+                breakfast: { pic: '', actualProductivity: '' },
+                lunch: { pic: '', actualProductivity: '' },
+                afternoon: { pic: '', actualProductivity: '' },
+                dinner: { pic: '', actualProductivity: '' }
+            })
+        }
+    }
+
+    // Generate and download weekly report
+    const downloadWeeklyReport = () => {
+        const now = new Date()
+        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+        
+        // Filter data from last 7 days
+        const weeklyData = savedData.filter(entry => {
+            const entryDate = new Date(entry.date)
+            return entryDate >= oneWeekAgo && entryDate <= now
         })
+
+        // Create CSV content
+        const csvHeader = 'Date,Time,Saved By,Breakfast Sales,Breakfast PIC,Breakfast Actual Productivity,Lunch Sales,Lunch PIC,Lunch Actual Productivity,Afternoon Sales,Afternoon PIC,Afternoon Actual Productivity,Dinner Sales,Dinner PIC,Dinner Actual Productivity\n'
+        
+        const csvRows = weeklyData.map(entry => {
+            return [
+                entry.date,
+                entry.time,
+                entry.savedBy,
+                entry.breakfast.sales || '',
+                entry.breakfast.pic || '',
+                entry.breakfast.actualProductivity || '',
+                entry.lunch.sales || '',
+                entry.lunch.pic || '',
+                entry.lunch.actualProductivity || '',
+                entry.afternoon.sales || '',
+                entry.afternoon.pic || '',
+                entry.afternoon.actualProductivity || '',
+                entry.dinner.sales || '',
+                entry.dinner.pic || '',
+                entry.dinner.actualProductivity || ''
+            ].join(',')
+        }).join('\n')
+
+        const csvContent = csvHeader + csvRows
+        
+        // Create and download file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+        const link = document.createElement('a')
+        const url = URL.createObjectURL(blob)
+        link.setAttribute('href', url)
+        link.setAttribute('download', `productivity-report-${now.toISOString().split('T')[0]}.csv`)
+        link.style.visibility = 'hidden'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
     }
 
     const dayparts = [
@@ -369,25 +460,15 @@ export default function DaypartDashboard() {
                     ))}
                 </div>
                 
-                <button onClick={saveData} style={dashboardStyles.saveButton}>
-                    Save Daily Data
-                </button>
+                <div style={dashboardStyles.buttonContainer}>
+                    <button onClick={downloadWeeklyReport} style={dashboardStyles.reportButton}>
+                        Download Weekly Report
+                    </button>
+                </div>
 
-                {/* Recent Entries */}
-                {savedData.length > 0 && (
-                    <div style={dashboardStyles.recentData}>
-                        <h4 style={dashboardStyles.recentTitle}>Recent Entries</h4>
-                        {savedData.slice(0, 3).map((entry, index) => (
-                            <div key={index} style={dashboardStyles.recentEntry}>
-                                <strong>{entry.date}</strong> - 
-                                B: {entry.breakfast.pic} ({entry.breakfast.actualProductivity}) | 
-                                L: {entry.lunch.pic} ({entry.lunch.actualProductivity}) | 
-                                A: {entry.afternoon.pic} ({entry.afternoon.actualProductivity}) | 
-                                D: {entry.dinner.pic} ({entry.dinner.actualProductivity})
-                            </div>
-                        ))}
-                    </div>
-                )}
+                <div style={dashboardStyles.autoSaveInfo}>
+                    💾 Data automatically saves at 11 PM daily
+                </div>
             </div>
         </div>
     )
@@ -487,26 +568,26 @@ const dashboardStyles = {
         background: '#007acc',
         color: 'white',
         cursor: 'pointer',
-        display: 'block',
-        margin: '0 auto',
     },
-    recentData: {
-        marginTop: '1rem',
-        padding: '1rem',
-        background: '#0f0f0f',
+    reportButton: {
+        padding: '10px 20px',
+        fontSize: '14px',
         borderRadius: '6px',
-        border: '1px solid #333',
+        border: 'none',
+        background: '#28a745',
+        color: 'white',
+        cursor: 'pointer',
     },
-    recentTitle: {
-        fontSize: '1rem',
-        marginBottom: '0.5rem',
-        color: '#fff',
+    buttonContainer: {
+        display: 'flex',
+        justifyContent: 'center',
+        marginBottom: '1rem',
     },
-    recentEntry: {
+    autoSaveInfo: {
+        textAlign: 'center',
         fontSize: '0.8rem',
-        color: '#ccc',
-        marginBottom: '0.3rem',
-        lineHeight: '1.4',
+        color: '#888',
+        fontStyle: 'italic',
     },
 }
 
