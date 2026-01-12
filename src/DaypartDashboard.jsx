@@ -394,6 +394,8 @@ export default function DaypartDashboard() {
         document.body.removeChild(link)
     }
 
+    return (
+        <div style={dashboardStyles.container}>
             <h1 style={dashboardStyles.title}>Daypart Productivity Guide</h1>
             
             <div style={dashboardStyles.dialGrid}>
