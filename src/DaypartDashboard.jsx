@@ -60,19 +60,19 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
             if (angle >= 360) angle -= 360
 
             const radians = (angle * Math.PI) / 180
-            const outerRadius = 65
-            const innerRadius = 55
-            const salesLabelRadius = 85  // Increased from 75 to move labels farther out
-            const productivityLabelRadius = 42
+            const outerRadius = 98
+            const innerRadius = 83
+            const salesLabelRadius = 128  // Increased from 75 to move labels farther out
+            const productivityLabelRadius = 63
             
-            const outerX = 80 + outerRadius * Math.cos(radians)
-            const outerY = 80 + outerRadius * Math.sin(radians)
-            const innerX = 80 + innerRadius * Math.cos(radians)
-            const innerY = 80 + innerRadius * Math.sin(radians)
-            const salesLabelX = 80 + salesLabelRadius * Math.cos(radians)
-            const salesLabelY = 80 + salesLabelRadius * Math.sin(radians)
-            const productivityLabelX = 80 + productivityLabelRadius * Math.cos(radians)
-            const productivityLabelY = 80 + productivityLabelRadius * Math.sin(radians)
+            const outerX = 120 + outerRadius * Math.cos(radians)
+            const outerY = 120 + outerRadius * Math.sin(radians)
+            const innerX = 120 + innerRadius * Math.cos(radians)
+            const innerY = 120 + innerRadius * Math.sin(radians)
+            const salesLabelX = 120 + salesLabelRadius * Math.cos(radians)
+            const salesLabelY = 120 + salesLabelRadius * Math.sin(radians)
+            const productivityLabelX = 120 + productivityLabelRadius * Math.cos(radians)
+            const productivityLabelY = 120 + productivityLabelRadius * Math.sin(radians)
 
             return (
                 <g key={index}>
@@ -120,15 +120,19 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
     const generateZones = () => {
         if (!needleAngle) return null
         
+        // Calculate green zone: starts at needle, extends 5 productivity units to the right
+        const currentProductivityValue = currentProductivity
+        const greenEndProductivity = Math.min(currentProductivityValue + 5, productivityRange.max)
+        const greenEndAngle = productivityToAngle(greenEndProductivity)
+        
         const greenStartAngle = needleAngle
-        const greenEndAngle = END_ANGLE
         const redStartAngle = START_ANGLE
         const redEndAngle = needleAngle
 
         const createArc = (startAngle, endAngle, color, opacity = 0.2) => {
-            const radius = 48
-            const centerX = 80
-            const centerY = 80
+            const radius = 72
+            const centerX = 120
+            const centerY = 120
             
             let actualEndAngle = endAngle
             if (endAngle < startAngle) {
@@ -159,7 +163,7 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
         return (
             <g>
                 {createArc(redStartAngle, redEndAngle, "#ff4444")}
-                {createArc(greenStartAngle, greenEndAngle, "#44ff44")}
+                {greenEndAngle && createArc(greenStartAngle, greenEndAngle, "#44ff44")}
             </g>
         )
     }
@@ -169,12 +173,12 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
             <h3 style={dialStyles.title}>{title}</h3>
             
             <div style={dialStyles.dialContainer}>
-                <svg width="160" height="160" style={dialStyles.svg}>
+                <svg width="240" height="240" style={dialStyles.svg}>
                     {/* Background circle */}
                     <circle
-                        cx="80"
-                        cy="80"
-                        r="70"
+                        cx="120"
+                        cy="120"
+                        r="105"
                         fill="#15161A"
                         stroke="#444"
                         strokeWidth="2"
@@ -189,10 +193,10 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                     {/* Needle */}
                     {needleAngle !== null && (
                         <line
-                            x1="80"
-                            y1="80"
-                            x2={80 + 48 * Math.cos((needleAngle * Math.PI) / 180)}
-                            y2={80 + 48 * Math.sin((needleAngle * Math.PI) / 180)}
+                            x1="120"
+                            y1="120"
+                            x2={120 + 72 * Math.cos((needleAngle * Math.PI) / 180)}
+                            y2={120 + 72 * Math.sin((needleAngle * Math.PI) / 180)}
                             stroke="#fff"
                             strokeWidth="2"
                             strokeLinecap="round"
@@ -223,7 +227,10 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                     {isInRange && salesInput !== '' ? (
                         <>
                             <div style={dialStyles.value}>
-                                Productivity: {currentProductivity?.toFixed(1)} or greater
+                                Productivity Target
+                            </div>
+                            <div style={dialStyles.productivity}>
+                                {currentProductivity?.toFixed(1)} or higher
                             </div>
                         </>
                     ) : (
@@ -348,17 +355,17 @@ export default function DaypartDashboard() {
                 entry.time,
                 entry.savedBy,
                 entry.breakfast.sales || '',
-                entry.breakfast.pic || '',
                 entry.breakfast.actualProductivity || '',
+                entry.breakfast.pic || '',
                 entry.lunch.sales || '',
-                entry.lunch.pic || '',
                 entry.lunch.actualProductivity || '',
+                entry.lunch.pic || '',
                 entry.afternoon.sales || '',
-                entry.afternoon.pic || '',
                 entry.afternoon.actualProductivity || '',
+                entry.afternoon.pic || '',
                 entry.dinner.sales || '',
-                entry.dinner.pic || '',
-                entry.dinner.actualProductivity || ''
+                entry.dinner.actualProductivity || '',
+                entry.dinner.pic || ''
             ].join(',')
         }).join('\n')
 
@@ -409,7 +416,7 @@ export default function DaypartDashboard() {
 
     return (
         <div style={dashboardStyles.container}>
-            <h1 style={dashboardStyles.title}>Daypart Productivity Guide v1.0</h1>
+            <h1 style={dashboardStyles.title}>Daypart Productivity Guide</h1>
             
             <div style={dashboardStyles.dialGrid}>
                 {dayparts.map((daypart, index) => (
@@ -494,7 +501,7 @@ const dashboardStyles = {
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
         gap: '1rem',
-        maxWidth: '1000px',
+        maxWidth: '1400px',
         width: '100%',
         marginBottom: '1rem',
         '@media (max-width: 900px)': {
@@ -597,7 +604,7 @@ const dialStyles = {
         borderRadius: '8px',
         padding: '1rem',
         border: '1px solid #333',
-        minWidth: '200px',
+        minWidth: '280px',
     },
     title: {
         fontSize: '1rem',
