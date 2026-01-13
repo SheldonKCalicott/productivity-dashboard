@@ -246,7 +246,7 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                         />
                         <input
                             type="text"
-                            placeholder="Actual Productivity"
+                            placeholder="67"
                             value={picData[daypartKey]?.actualProductivity || ''}
                             onChange={(e) => {
                                 const value = e.target.value.replace(/[^0-9.]/g, '');
