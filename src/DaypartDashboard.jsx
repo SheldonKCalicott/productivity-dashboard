@@ -228,12 +228,15 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
             <div style={dialStyles.dataSection}>
                 <div style={dialStyles.dataGrid}>
                     <div style={dialStyles.dataColumn}>
-                        <div style={dialStyles.label}>Sales:</div>
                         <div style={dialStyles.label}>Productivity Target:</div>
+                        <div style={dialStyles.label}>Sales:</div>
                         <div style={dialStyles.label}>PIC Name:</div>
                         <div style={dialStyles.label}>Actual Productivity:</div>
                     </div>
                     <div style={dialStyles.dataColumn}>
+                        <div style={dialStyles.calculatedValue}>
+                            {currentProductivity ? Math.round(currentProductivity) : '--'}
+                        </div>
                         <input
                             type="text"
                             value={formatCurrency(salesInput)}
@@ -241,9 +244,6 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                             placeholder={`$${(salesRange.min/1000).toFixed(0)}k-${(salesRange.max/1000).toFixed(0)}k`}
                             style={dialStyles.input}
                         />
-                        <div style={dialStyles.calculatedValue}>
-                            {currentProductivity ? Math.round(currentProductivity) : '--'}
-                        </div>
                         <input
                             type="text"
                             placeholder="PIC Name"
@@ -377,16 +377,48 @@ export default function DaypartDashboard() {
     }
 
     const saveData = (isAutoSave = false) => {
-        const saveDate = isAutoSave ? new Date().toLocaleDateString() : new Date(selectedDate).toLocaleDateString()
+        let saveDate
+        if (isAutoSave) {
+            const today = new Date()
+            saveDate = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`
+        } else {
+            const selected = new Date(selectedDate + 'T00:00:00')
+            saveDate = `${selected.getMonth() + 1}/${selected.getDate()}/${selected.getFullYear()}`
+        }
+        
         const currentTime = new Date().toLocaleTimeString()
+        
+        // Calculate productivity targets for this entry
+        const calculateTarget = (sales, salesRange, productivityRange) => {
+            if (!sales || sales < salesRange.min || sales > salesRange.max) return null
+            const salesRatio = (sales - salesRange.min) / (salesRange.max - salesRange.min)
+            return Math.round(productivityRange.min + (salesRatio * (productivityRange.max - productivityRange.min)))
+        }
+        
         const dataToSave = {
             date: saveDate,
             time: currentTime,
             savedBy: isAutoSave ? 'Auto-save' : 'Manual',
-            breakfast: { sales: breakfastSales, ...picData.breakfast },
-            lunch: { sales: lunchSales, ...picData.lunch },
-            afternoon: { sales: afternoonSales, ...picData.afternoon },
-            dinner: { sales: dinnerSales, ...picData.dinner }
+            breakfast: { 
+                sales: breakfastSales, 
+                targetProductivity: calculateTarget(Number(breakfastSales), { min: 4000, max: 8000 }, { min: 60, max: 80 }),
+                ...picData.breakfast 
+            },
+            lunch: { 
+                sales: lunchSales, 
+                targetProductivity: calculateTarget(Number(lunchSales), { min: 8000, max: 12000 }, { min: 100, max: 120 }),
+                ...picData.lunch 
+            },
+            afternoon: { 
+                sales: afternoonSales, 
+                targetProductivity: calculateTarget(Number(afternoonSales), { min: 5000, max: 9000 }, { min: 90, max: 100 }),
+                ...picData.afternoon 
+            },
+            dinner: { 
+                sales: dinnerSales, 
+                targetProductivity: calculateTarget(Number(dinnerSales), { min: 8000, max: 12000 }, { min: 80, max: 90 }),
+                ...picData.dinner 
+            }
         }
         
         setSavedData(prev => [dataToSave, ...prev])
@@ -418,7 +450,7 @@ export default function DaypartDashboard() {
         })
 
         // Create CSV content
-        const csvHeader = 'Date,Time,Saved By,Breakfast Sales,Breakfast PIC,Breakfast Actual Productivity,Lunch Sales,Lunch PIC,Lunch Actual Productivity,Afternoon Sales,Afternoon PIC,Afternoon Actual Productivity,Dinner Sales,Dinner PIC,Dinner Actual Productivity\n'
+        const csvHeader = 'Date,Time,Saved By,Breakfast Sales,Breakfast Target Productivity,Breakfast Actual Productivity,Breakfast PIC,Lunch Sales,Lunch Target Productivity,Lunch Actual Productivity,Lunch PIC,Afternoon Sales,Afternoon Target Productivity,Afternoon Actual Productivity,Afternoon PIC,Dinner Sales,Dinner Target Productivity,Dinner Actual Productivity,Dinner PIC\n'
         
         const csvRows = reportData.map(entry => {
             return [
@@ -426,17 +458,21 @@ export default function DaypartDashboard() {
                 entry.time,
                 entry.savedBy,
                 entry.breakfast.sales || '',
-                entry.breakfast.pic || '',
+                entry.breakfast.targetProductivity || '',
                 entry.breakfast.actualProductivity || '',
+                entry.breakfast.pic || '',
                 entry.lunch.sales || '',
-                entry.lunch.pic || '',
+                entry.lunch.targetProductivity || '',
                 entry.lunch.actualProductivity || '',
+                entry.lunch.pic || '',
                 entry.afternoon.sales || '',
-                entry.afternoon.pic || '',
+                entry.afternoon.targetProductivity || '',
                 entry.afternoon.actualProductivity || '',
+                entry.afternoon.pic || '',
                 entry.dinner.sales || '',
-                entry.dinner.pic || '',
-                entry.dinner.actualProductivity || ''
+                entry.dinner.targetProductivity || '',
+                entry.dinner.actualProductivity || '',
+                entry.dinner.pic || ''
             ].join(',')
         }).join('\n')
 
@@ -471,8 +507,8 @@ export default function DaypartDashboard() {
                 />
                 <DaypartDial
                     title="Lunch"
-                    salesRange={{ min: 6000, max: 12000 }}
-                    productivityRange={{ min: 70, max: 90 }}
+                    salesRange={{ min: 8000, max: 12000 }}
+                    productivityRange={{ min: 100, max: 120 }}
                     salesInput={lunchSales}
                     setSalesInput={setLunchSales}
                     picData={picData}
@@ -481,8 +517,8 @@ export default function DaypartDashboard() {
                 />
                 <DaypartDial
                     title="Afternoon"
-                    salesRange={{ min: 3000, max: 7000 }}
-                    productivityRange={{ min: 55, max: 75 }}
+                    salesRange={{ min: 5000, max: 9000 }}
+                    productivityRange={{ min: 90, max: 100 }}
                     salesInput={afternoonSales}
                     setSalesInput={setAfternoonSales}
                     picData={picData}
@@ -491,8 +527,8 @@ export default function DaypartDashboard() {
                 />
                 <DaypartDial
                     title="Dinner"
-                    salesRange={{ min: 8000, max: 15000 }}
-                    productivityRange={{ min: 75, max: 95 }}
+                    salesRange={{ min: 8000, max: 12000 }}
+                    productivityRange={{ min: 80, max: 90 }}
                     salesInput={dinnerSales}
                     setSalesInput={setDinnerSales}
                     picData={picData}
