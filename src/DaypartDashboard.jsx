@@ -230,8 +230,8 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                     <div style={dialStyles.dataColumn}>
                         <div style={dialStyles.label}>Productivity Target:</div>
                         <div style={dialStyles.label}>Sales:</div>
-                        <div style={dialStyles.label}>PIC Name:</div>
                         <div style={dialStyles.label}>Actual Productivity:</div>
+                        <div style={dialStyles.label}>PIC Name:</div>
                     </div>
                     <div style={dialStyles.dataColumn}>
                         <div style={dialStyles.calculatedValue}>
@@ -246,19 +246,19 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                         />
                         <input
                             type="text"
-                            placeholder="PIC Name"
-                            value={picData[daypartKey]?.pic || ''}
-                            onChange={(e) => handlePicDataChange('pic', e.target.value)}
-                            style={dialStyles.input}
-                        />
-                        <input
-                            type="text"
-                            placeholder="Actual"
+                            placeholder="Actual Productivity"
                             value={picData[daypartKey]?.actualProductivity || ''}
                             onChange={(e) => {
                                 const value = e.target.value.replace(/[^0-9.]/g, '');
                                 handlePicDataChange('actualProductivity', value);
                             }}
+                            style={dialStyles.input}
+                        />
+                        <input
+                            type="text"
+                            placeholder="PIC Name"
+                            value={picData[daypartKey]?.pic || ''}
+                            onChange={(e) => handlePicDataChange('pic', e.target.value)}
                             style={dialStyles.input}
                         />
                     </div>
@@ -268,12 +268,12 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                     {(() => {
                         const actual = parseFloat(picData[daypartKey]?.actualProductivity || 0)
                         const target = currentProductivity || 0
-                        const hasData = salesInput && picData[daypartKey]?.pic && picData[daypartKey]?.actualProductivity
+                        const hasData = salesInput && picData[daypartKey]?.actualProductivity
                         
                         if (!hasData) {
                             return (
                                 <div style={dialStyles.placeholderText}>
-                                    Enter sales, PIC name, and actual productivity to see performance status
+                                    Enter sales and actual productivity to see performance status
                                 </div>
                             )
                         }
@@ -382,8 +382,12 @@ export default function DaypartDashboard() {
             const today = new Date()
             saveDate = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`
         } else {
-            const selected = new Date(selectedDate + 'T00:00:00')
-            saveDate = `${selected.getMonth() + 1}/${selected.getDate()}/${selected.getFullYear()}`
+            // Parse date properly to avoid timezone issues
+            const parts = selectedDate.split('-')
+            const year = parseInt(parts[0])
+            const month = parseInt(parts[1])
+            const day = parseInt(parts[2])
+            saveDate = `${month}/${day}/${year}`
         }
         
         const currentTime = new Date().toLocaleTimeString()
@@ -788,11 +792,11 @@ const dialStyles = {
         whiteSpace: 'nowrap',
     },
     calculatedValue: {
-        height: '26px',
+        height: '28px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: '0.85rem',
+        fontSize: '0.75rem',
         color: '#fff',
         fontWeight: 'bold',
         background: '#2a2a2a',
