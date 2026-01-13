@@ -252,12 +252,14 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                             style={dialStyles.input}
                         />
                         <input
-                            type="number"
+                            type="text"
                             placeholder="Actual"
                             value={picData[daypartKey]?.actualProductivity || ''}
-                            onChange={(e) => handlePicDataChange('actualProductivity', e.target.value)}
+                            onChange={(e) => {
+                                const value = e.target.value.replace(/[^0-9.]/g, '');
+                                handlePicDataChange('actualProductivity', value);
+                            }}
                             style={dialStyles.input}
-                            step="0.1"
                         />
                     </div>
                 </div>
@@ -303,6 +305,21 @@ export default function DaypartDashboard() {
     const [lunchSales, setLunchSales] = useState('')
     const [afternoonSales, setAfternoonSales] = useState('')
     const [dinnerSales, setDinnerSales] = useState('')
+
+    // Date selection for saving and reports
+    const [selectedDate, setSelectedDate] = useState(() => {
+        const today = new Date()
+        return today.toISOString().split('T')[0]
+    })
+    const [reportStartDate, setReportStartDate] = useState(() => {
+        const weekAgo = new Date()
+        weekAgo.setDate(weekAgo.getDate() - 7)
+        return weekAgo.toISOString().split('T')[0]
+    })
+    const [reportEndDate, setReportEndDate] = useState(() => {
+        const today = new Date()
+        return today.toISOString().split('T')[0]
+    })
 
     // PIC and actual productivity tracking
     const [picData, setPicData] = useState({
@@ -360,10 +377,10 @@ export default function DaypartDashboard() {
     }
 
     const saveData = (isAutoSave = false) => {
-        const currentDate = new Date().toLocaleDateString()
+        const saveDate = isAutoSave ? new Date().toLocaleDateString() : new Date(selectedDate).toLocaleDateString()
         const currentTime = new Date().toLocaleTimeString()
         const dataToSave = {
-            date: currentDate,
+            date: saveDate,
             time: currentTime,
             savedBy: isAutoSave ? 'Auto-save' : 'Manual',
             breakfast: { sales: breakfastSales, ...picData.breakfast },
@@ -389,37 +406,37 @@ export default function DaypartDashboard() {
         }
     }
 
-    // Generate and download weekly report
-    const downloadWeeklyReport = () => {
-        const now = new Date()
-        const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    // Generate and download report for selected date range
+    const downloadReport = () => {
+        const startDate = new Date(reportStartDate)
+        const endDate = new Date(reportEndDate)
         
-        // Filter data from last 7 days
-        const weeklyData = savedData.filter(entry => {
+        // Filter data within selected date range
+        const reportData = savedData.filter(entry => {
             const entryDate = new Date(entry.date)
-            return entryDate >= oneWeekAgo && entryDate <= now
+            return entryDate >= startDate && entryDate <= endDate
         })
 
         // Create CSV content
         const csvHeader = 'Date,Time,Saved By,Breakfast Sales,Breakfast PIC,Breakfast Actual Productivity,Lunch Sales,Lunch PIC,Lunch Actual Productivity,Afternoon Sales,Afternoon PIC,Afternoon Actual Productivity,Dinner Sales,Dinner PIC,Dinner Actual Productivity\n'
         
-        const csvRows = weeklyData.map(entry => {
+        const csvRows = reportData.map(entry => {
             return [
                 entry.date,
                 entry.time,
                 entry.savedBy,
                 entry.breakfast.sales || '',
-                entry.breakfast.actualProductivity || '',
                 entry.breakfast.pic || '',
+                entry.breakfast.actualProductivity || '',
                 entry.lunch.sales || '',
-                entry.lunch.actualProductivity || '',
                 entry.lunch.pic || '',
+                entry.lunch.actualProductivity || '',
                 entry.afternoon.sales || '',
-                entry.afternoon.actualProductivity || '',
                 entry.afternoon.pic || '',
+                entry.afternoon.actualProductivity || '',
                 entry.dinner.sales || '',
-                entry.dinner.actualProductivity || '',
-                entry.dinner.pic || ''
+                entry.dinner.pic || '',
+                entry.dinner.actualProductivity || ''
             ].join(',')
         }).join('\n')
 
@@ -430,7 +447,7 @@ export default function DaypartDashboard() {
         const link = document.createElement('a')
         const url = URL.createObjectURL(blob)
         link.setAttribute('href', url)
-        link.setAttribute('download', `productivity-report-${now.toISOString().split('T')[0]}.csv`)
+        link.setAttribute('download', `productivity-report-${reportStartDate}-to-${reportEndDate}.csv`)
         link.style.visibility = 'hidden'
         document.body.appendChild(link)
         link.click()
@@ -484,11 +501,42 @@ export default function DaypartDashboard() {
                 />
             </div>
 
-            {/* Download Button */}
-            <div style={dashboardStyles.buttonContainer}>
-                <button onClick={downloadWeeklyReport} style={dashboardStyles.reportButton}>
-                    Download Weekly Report
-                </button>
+            {/* Save and Download Buttons */}
+            <div style={dashboardStyles.controlsSection}>
+                {/* Save Section */}
+                <div style={dashboardStyles.controlGroup}>
+                    <label style={dashboardStyles.label}>Save Date:</label>
+                    <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        style={dashboardStyles.dateInput}
+                    />
+                    <button onClick={() => saveData(false)} style={dashboardStyles.saveButton}>
+                        Save Data
+                    </button>
+                </div>
+
+                {/* Download Section */}
+                <div style={dashboardStyles.controlGroup}>
+                    <label style={dashboardStyles.label}>Report Range:</label>
+                    <input
+                        type="date"
+                        value={reportStartDate}
+                        onChange={(e) => setReportStartDate(e.target.value)}
+                        style={dashboardStyles.dateInput}
+                    />
+                    <span style={dashboardStyles.toLabel}>to</span>
+                    <input
+                        type="date"
+                        value={reportEndDate}
+                        onChange={(e) => setReportEndDate(e.target.value)}
+                        style={dashboardStyles.dateInput}
+                    />
+                    <button onClick={downloadReport} style={dashboardStyles.reportButton}>
+                        Download Report
+                    </button>
+                </div>
             </div>
 
             <div style={dashboardStyles.autoSaveInfo}>
@@ -606,6 +654,44 @@ const dashboardStyles = {
         display: 'flex',
         justifyContent: 'center',
         marginBottom: '1rem',
+    },
+    controlsSection: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1rem',
+        alignItems: 'center',
+        marginBottom: '1rem',
+        padding: '1rem',
+        background: '#1a1a1a',
+        borderRadius: '8px',
+        border: '1px solid #333',
+    },
+    controlGroup: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+    },
+    label: {
+        fontSize: '0.9rem',
+        color: '#aaa',
+        fontWeight: 'bold',
+        minWidth: '80px',
+    },
+    dateInput: {
+        padding: '6px 10px',
+        fontSize: '13px',
+        borderRadius: '4px',
+        border: '1px solid #444',
+        background: '#2a2a2a',
+        color: '#fff',
+        minWidth: '140px',
+    },
+    toLabel: {
+        fontSize: '0.9rem',
+        color: '#aaa',
+        margin: '0 4px',
     },
     autoSaveInfo: {
         textAlign: 'center',
