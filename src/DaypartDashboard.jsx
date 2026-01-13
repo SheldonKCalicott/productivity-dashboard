@@ -646,7 +646,7 @@ const dialStyles = {
     },
     dataGrid: {
         display: 'grid',
-        gridTemplateColumns: '140px 1fr',
+        gridTemplateColumns: '100px 1fr',
         gap: '0.5rem',
         marginBottom: '0.75rem',
     },
@@ -668,6 +668,7 @@ const dialStyles = {
         height: '32px',
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'center',
         fontSize: '0.9rem',
         color: '#fff',
         fontWeight: 'bold',
