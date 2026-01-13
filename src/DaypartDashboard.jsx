@@ -227,7 +227,7 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
 
             <div style={dialStyles.dataSection}>
                 <div style={dialStyles.dataGrid}>
-                    <div style={dialStyles.dataColumn}>
+                    <div style={{...dialStyles.dataColumn, alignItems: 'flex-start'}}>
                         <div style={dialStyles.label}>Productivity Target:</div>
                         <div style={dialStyles.label}>Sales:</div>
                         <div style={dialStyles.label}>Actual Productivity:</div>
@@ -394,8 +394,10 @@ export default function DaypartDashboard() {
         
         // Calculate productivity targets for this entry
         const calculateTarget = (sales, salesRange, productivityRange) => {
-            if (!sales || sales < salesRange.min || sales > salesRange.max) return null
-            const salesRatio = (sales - salesRange.min) / (salesRange.max - salesRange.min)
+            if (!sales || sales === '' || isNaN(Number(sales))) return ''
+            const numSales = Number(sales)
+            if (numSales < salesRange.min || numSales > salesRange.max) return ''
+            const salesRatio = (numSales - salesRange.min) / (salesRange.max - salesRange.min)
             return Math.round(productivityRange.min + (salesRatio * (productivityRange.max - productivityRange.min)))
         }
         
@@ -457,26 +459,32 @@ export default function DaypartDashboard() {
         const csvHeader = 'Date,Time,Saved By,Breakfast Sales,Breakfast Target Productivity,Breakfast Actual Productivity,Breakfast PIC,Lunch Sales,Lunch Target Productivity,Lunch Actual Productivity,Lunch PIC,Afternoon Sales,Afternoon Target Productivity,Afternoon Actual Productivity,Afternoon PIC,Dinner Sales,Dinner Target Productivity,Dinner Actual Productivity,Dinner PIC\n'
         
         const csvRows = reportData.map(entry => {
+            // Ensure all daypart objects exist with default values
+            const breakfast = entry.breakfast || {}
+            const lunch = entry.lunch || {}
+            const afternoon = entry.afternoon || {}
+            const dinner = entry.dinner || {}
+            
             return [
-                entry.date,
-                entry.time,
-                entry.savedBy,
-                entry.breakfast.sales || '',
-                entry.breakfast.targetProductivity || '',
-                entry.breakfast.actualProductivity || '',
-                entry.breakfast.pic || '',
-                entry.lunch.sales || '',
-                entry.lunch.targetProductivity || '',
-                entry.lunch.actualProductivity || '',
-                entry.lunch.pic || '',
-                entry.afternoon.sales || '',
-                entry.afternoon.targetProductivity || '',
-                entry.afternoon.actualProductivity || '',
-                entry.afternoon.pic || '',
-                entry.dinner.sales || '',
-                entry.dinner.targetProductivity || '',
-                entry.dinner.actualProductivity || '',
-                entry.dinner.pic || ''
+                entry.date || '',
+                entry.time || '',
+                entry.savedBy || '',
+                breakfast.sales || '',
+                breakfast.targetProductivity || '',
+                breakfast.actualProductivity || '',
+                breakfast.pic || '',
+                lunch.sales || '',
+                lunch.targetProductivity || '',
+                lunch.actualProductivity || '',
+                lunch.pic || '',
+                afternoon.sales || '',
+                afternoon.targetProductivity || '',
+                afternoon.actualProductivity || '',
+                afternoon.pic || '',
+                dinner.sales || '',
+                dinner.targetProductivity || '',
+                dinner.actualProductivity || '',
+                dinner.pic || ''
             ].join(',')
         }).join('\n')
 
@@ -775,6 +783,7 @@ const dialStyles = {
         gridTemplateColumns: '100px 1fr',
         gap: '0.5rem',
         marginBottom: '0.75rem',
+        alignItems: 'start',
     },
     dataColumn: {
         display: 'flex',
@@ -789,7 +798,9 @@ const dialStyles = {
         height: '28px',
         display: 'flex',
         alignItems: 'center',
+        justifyContent: 'flex-start',
         whiteSpace: 'nowrap',
+        paddingLeft: '4px',
     },
     calculatedValue: {
         height: '28px',
