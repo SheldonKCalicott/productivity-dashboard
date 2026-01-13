@@ -654,6 +654,7 @@ const dialStyles = {
         display: 'flex',
         flexDirection: 'column',
         gap: '0.5rem',
+        alignItems: 'center',
     },
     label: {
         fontSize: '0.75rem',
@@ -665,7 +666,7 @@ const dialStyles = {
         whiteSpace: 'nowrap',
     },
     calculatedValue: {
-        height: '28px',
+        height: '26px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
