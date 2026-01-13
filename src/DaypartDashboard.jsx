@@ -227,7 +227,7 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
 
             <div style={dialStyles.dataSection}>
                 <div style={dialStyles.dataGrid}>
-                    <div style={{...dialStyles.dataColumn, alignItems: 'flex-start'}}>
+                    <div style={dialStyles.dataColumn}>
                         <div style={dialStyles.label}>Productivity Target:</div>
                         <div style={dialStyles.label}>Sales:</div>
                         <div style={dialStyles.label}>Actual Productivity:</div>
@@ -798,9 +798,7 @@ const dialStyles = {
         height: '28px',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'flex-start',
         whiteSpace: 'nowrap',
-        paddingLeft: '4px',
     },
     calculatedValue: {
         height: '28px',
