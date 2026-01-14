@@ -504,7 +504,7 @@ export default function DaypartDashboard() {
 
     return (
         <div style={dashboardStyles.container}>
-            <h1 style={dashboardStyles.title}>Daypart Productivity Guide</h1>
+            <h1 style={dashboardStyles.title}>Daypart Productivity Guide (Tuskawilla)</h1>
             
             <div style={dashboardStyles.dialGrid}>
                 <DaypartDial
