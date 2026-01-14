@@ -792,7 +792,7 @@ const dialStyles = {
         alignItems: 'center',
     },
     label: {
-        fontSize: '0.75rem',
+        fontSize: '0.8rem',
         color: '#aaa',
         fontWeight: 'bold',
         height: '28px',
