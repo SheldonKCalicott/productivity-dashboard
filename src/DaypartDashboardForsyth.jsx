@@ -100,14 +100,6 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
                     {/* Colored zones */}
                     {generateZones()}
                     
-                    {/* Sales and Productivity Labels */}
-                    <text x="90" y="25" fill="#888" fontSize="10" textAnchor="middle" fontWeight="bold">
-                        Sales: ${(salesRange.min/1000).toFixed(0)}k-${(salesRange.max/1000).toFixed(0)}k
-                    </text>
-                    <text x="90" y="175" fill="#aaa" fontSize="10" textAnchor="middle" fontWeight="bold">
-                        Productivity: {productivityRange.min}-{productivityRange.max}
-                    </text>
-                    
                     {/* Needle */}
                     {needleAngle !== null && (
                         <line
@@ -959,7 +951,7 @@ const dashboardStyles = {
         alignItems: 'center',
         justifyContent: 'center',
         width: '750px', // Even wider to fit all text comfortably
-        height: '280px', // Match the height of Day/Night gauges
+        height: '350px', // Increased height to match Day/Night gauges
         padding: '1.5rem',
         background: '#1a1a1a',
         borderRadius: '12px',
@@ -1113,7 +1105,7 @@ const condensedDialStyles = {
         alignItems: 'center',
         justifyContent: 'flex-start',
         width: '280px',
-        height: '280px', // Reduced height but same formatting as main tiles
+        height: '350px', // Increased height for better visual presence
         padding: '1rem',
         background: '#1a1a1a',
         borderRadius: '12px',
