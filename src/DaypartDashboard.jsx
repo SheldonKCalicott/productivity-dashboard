@@ -86,7 +86,7 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
             <h3 style={condensedDialStyles.title}>{title}</h3>
             
             <div style={condensedDialStyles.dialContainer}>
-                <svg width="180" height="140" style={condensedDialStyles.svg}>
+                <svg width="180" height="120" style={condensedDialStyles.svg}>
                     {/* Background circle */}
                     <circle
                         cx="90"
@@ -99,14 +99,6 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
                     
                     {/* Colored zones */}
                     {generateZones()}
-                    
-                    {/* Sales and Productivity Labels */}
-                    <text x="90" y="25" fill="#888" fontSize="10" textAnchor="middle" fontWeight="bold">
-                        Sales: ${(salesRange.min/1000).toFixed(0)}k-${(salesRange.max/1000).toFixed(0)}k
-                    </text>
-                    <text x="90" y="175" fill="#aaa" fontSize="10" textAnchor="middle" fontWeight="bold">
-                        Productivity: {productivityRange.min}-{productivityRange.max}
-                    </text>
                     
                     {/* Needle */}
                     {needleAngle !== null && (
@@ -861,15 +853,16 @@ const dashboardStyles = {
     },
     secondRowGrid: {
         display: 'grid',
-        gridTemplateColumns: '280px 280px 280px 280px', // Four columns to match main gauge positions
+        gridTemplateColumns: '280px 280px 100px 750px', // Day, Night, larger spacer, wider Data Management
         gap: '1.5rem',
         width: '100%',
         alignItems: 'start',
+        justifyContent: 'start',
     },
     dataManagementContainer: {
-        gridColumn: '3 / 5', // Span across Afternoon and Dinner columns
+        gridColumn: '4', // Place in the fourth column for better right positioning
         display: 'flex',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         width: '100%',
     },
     legend: {
@@ -957,8 +950,8 @@ const dashboardStyles = {
         gap: '1rem',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '550px', // Even wider to prevent Report Range wrapping
-        height: '350px',
+        width: '750px', // Even wider to fit all text comfortably
+        height: '280px', // Match the height of Day/Night gauges
         padding: '1.5rem',
         background: '#1a1a1a',
         borderRadius: '12px',
@@ -1110,12 +1103,15 @@ const condensedDialStyles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        background: '#1a1a1a',
-        borderRadius: '8px',
+        justifyContent: 'flex-start',
+        width: '280px',
+        height: '280px', // Reduced height but same formatting as main tiles
         padding: '1rem',
-        border: '1px solid #333',
-        minWidth: '280px', // Match main dial width
-        width: '100%',
+        background: '#1a1a1a',
+        borderRadius: '12px',
+        border: '2px solid #333',
+        boxSizing: 'border-box',
+        gap: '0.5rem',
     },
     title: {
         fontSize: '1.3rem',
