@@ -1,13 +1,10 @@
 import React, { useState } from "react"
 
 // Condensed Day/Night Gauge Component
-function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTarget, averageProductivityActual }) {
+function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTarget, averageProductivityActual, salesRange, productivityRange }) {
     // Dial angles: 270° span from 135° to 45°
     const START_ANGLE = 135
     const END_ANGLE = 45
-
-    // Fixed ranges for Day/Night gauges
-    const productivityRange = { min: 60, max: 120 }
     
     const productivityToAngle = (productivity) => {
         if (productivity < productivityRange.min || productivity > productivityRange.max) return null
@@ -688,12 +685,16 @@ export default function DaypartDashboard() {
                             combinedSalesValue={dayValues.combinedSales}
                             averageProductivityTarget={dayValues.avgTarget}
                             averageProductivityActual={dayValues.avgActual}
+                            salesRange={{ min: 12000, max: 20000 }} // Combined Breakfast+Lunch ranges
+                            productivityRange={{ min: 60, max: 120 }}
                         />
                         <CondensedDaypartDial
                             title="Night"
                             combinedSalesValue={nightValues.combinedSales}
                             averageProductivityTarget={nightValues.avgTarget}
                             averageProductivityActual={nightValues.avgActual}
+                            salesRange={{ min: 13000, max: 21000 }} // Combined Afternoon+Dinner ranges
+                            productivityRange={{ min: 80, max: 100 }}
                         />
                         <div style={dashboardStyles.dataManagementContainer}>
                             <div style={dashboardStyles.controlsSection}>
@@ -788,7 +789,7 @@ const dashboardStyles = {
     },
     secondRowGrid: {
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr 2fr',
+        gridTemplateColumns: '280px 280px 1fr', // Fixed widths for Day/Night, flexible for Data Management
         gap: '1.5rem',
         width: '100%',
         alignItems: 'start',
@@ -883,7 +884,7 @@ const dashboardStyles = {
         gap: '1rem',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '350px',
+        width: '450px', // Wider to fit controls on one line
         height: '350px',
         padding: '1.5rem',
         background: '#1a1a1a',
@@ -901,9 +902,9 @@ const dashboardStyles = {
     controlGroup: {
         display: 'flex',
         alignItems: 'center',
-        gap: '0.5rem',
-        flexWrap: 'wrap',
+        gap: '0.75rem',
         justifyContent: 'center',
+        width: '100%',
     },
     label: {
         fontSize: '0.9rem',
