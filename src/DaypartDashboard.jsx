@@ -1,5 +1,86 @@
 import React, { useState } from "react"
 
+// Condensed Day/Night Gauge Component
+function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTarget, averageProductivityActual }) {
+    // Dial angles: 270° span from 135° to 45°
+    const START_ANGLE = 135
+    const END_ANGLE = 45
+
+    // Fixed ranges for Day/Night gauges
+    const productivityRange = { min: 60, max: 120 }
+    
+    const productivityToAngle = (productivity) => {
+        if (productivity < productivityRange.min || productivity > productivityRange.max) return null
+        const ratio = (productivity - productivityRange.min) / (productivityRange.max - productivityRange.min)
+        return START_ANGLE + ratio * 270
+    }
+
+    const formatCurrency = (value) => {
+        if (!value || value === 0) return '$0'
+        return `$${value.toLocaleString()}`
+    }
+
+    const targetAngle = productivityToAngle(averageProductivityTarget)
+    const actualAngle = productivityToAngle(averageProductivityActual)
+
+    return (
+        <div style={condensedDialStyles.container}>
+            <h3 style={condensedDialStyles.title}>{title}</h3>
+            
+            <div style={condensedDialStyles.dialContainer}>
+                <svg width="180" height="120" style={condensedDialStyles.svg}>
+                    {/* Background Arc */}
+                    <path
+                        d="M 25 95 A 65 65 0 0 1 155 95"
+                        stroke="#333"
+                        strokeWidth="12"
+                        fill="none"
+                    />
+                    
+                    {/* Target line */}
+                    {targetAngle !== null && (
+                        <line
+                            x1="90"
+                            y1="95"
+                            x2={90 + 50 * Math.cos((targetAngle - 90) * Math.PI / 180)}
+                            y2={95 + 50 * Math.sin((targetAngle - 90) * Math.PI / 180)}
+                            stroke="#ff6b35"
+                            strokeWidth="3"
+                        />
+                    )}
+                    
+                    {/* Actual line */}
+                    {actualAngle !== null && (
+                        <line
+                            x1="90"
+                            y1="95"
+                            x2={90 + 45 * Math.cos((actualAngle - 90) * Math.PI / 180)}
+                            y2={95 + 45 * Math.sin((actualAngle - 90) * Math.PI / 180)}
+                            stroke="#4CAF50"
+                            strokeWidth="4"
+                        />
+                    )}
+                </svg>
+            </div>
+
+            <div style={condensedDialStyles.dataSection}>
+                <div style={condensedDialStyles.infoRow}>
+                    <span style={condensedDialStyles.label}>Combined Sales:</span>
+                    <span style={condensedDialStyles.value}>{formatCurrency(combinedSalesValue)}</span>
+                </div>
+                <div style={condensedDialStyles.infoRow}>
+                    <span style={condensedDialStyles.label}>Avg Target:</span>
+                    <span style={condensedDialStyles.value}>{averageProductivityTarget ? averageProductivityTarget.toFixed(1) : '0.0'}%</span>
+                </div>
+                <div style={condensedDialStyles.infoRow}>
+                    <span style={condensedDialStyles.label}>Avg Actual:</span>
+                    <span style={condensedDialStyles.value}>{averageProductivityActual ? averageProductivityActual.toFixed(1) : '0.0'}%</span>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 function DaypartDial({ title, salesRange, productivityRange, salesInput, setSalesInput, picData, setPicData, daypartKey }) {
     // Format number as currency
     const formatCurrency = (value) => {
@@ -502,93 +583,164 @@ export default function DaypartDashboard() {
         document.body.removeChild(link)
     }
 
+    // Calculate Day and Night values
+    const calculateTarget = (sales, salesRange, productivityRange) => {
+        if (!sales || sales === '' || isNaN(Number(sales))) return 0
+        const numSales = Number(sales)
+        if (numSales < salesRange.min || numSales > salesRange.max) return 0
+        const salesRatio = (numSales - salesRange.min) / (salesRange.max - salesRange.min)
+        return productivityRange.min + (salesRatio * (productivityRange.max - productivityRange.min))
+    }
+    
+    const calculateDayValues = () => {
+        const breakfastSalesValue = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+        const lunchSalesValue = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+        
+        // Calculate targets based on sales (like the CSV export does)
+        const breakfastTarget = calculateTarget(breakfastSalesValue, { min: 4000, max: 8000 }, { min: 60, max: 80 })
+        const lunchTarget = calculateTarget(lunchSalesValue, { min: 8000, max: 12000 }, { min: 100, max: 120 })
+        
+        const breakfastActual = picData.breakfast?.actualProductivity ? parseFloat(picData.breakfast.actualProductivity) : 0
+        const lunchActual = picData.lunch?.actualProductivity ? parseFloat(picData.lunch.actualProductivity) : 0
+        
+        return {
+            combinedSales: breakfastSalesValue + lunchSalesValue,
+            avgTarget: breakfastTarget && lunchTarget ? (breakfastTarget + lunchTarget) / 2 : 0,
+            avgActual: breakfastActual && lunchActual ? (breakfastActual + lunchActual) / 2 : 0
+        }
+    }
+    
+    const calculateNightValues = () => {
+        const afternoonSalesValue = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+        const dinnerSalesValue = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+        
+        // Calculate targets based on sales (like the CSV export does)
+        const afternoonTarget = calculateTarget(afternoonSalesValue, { min: 5000, max: 9000 }, { min: 90, max: 100 })
+        const dinnerTarget = calculateTarget(dinnerSalesValue, { min: 8000, max: 12000 }, { min: 80, max: 90 })
+        
+        const afternoonActual = picData.afternoon?.actualProductivity ? parseFloat(picData.afternoon.actualProductivity) : 0
+        const dinnerActual = picData.dinner?.actualProductivity ? parseFloat(picData.dinner.actualProductivity) : 0
+        
+        return {
+            combinedSales: afternoonSalesValue + dinnerSalesValue,
+            avgTarget: afternoonTarget && dinnerTarget ? (afternoonTarget + dinnerTarget) / 2 : 0,
+            avgActual: afternoonActual && dinnerActual ? (afternoonActual + dinnerActual) / 2 : 0
+        }
+    }
+    
+    const dayValues = calculateDayValues()
+    const nightValues = calculateNightValues()
+
     return (
         <div style={dashboardStyles.container}>
             <h1 style={dashboardStyles.title}>Daypart Productivity Guide (Tuskawilla)</h1>
             
-            <div style={dashboardStyles.dialGrid}>
-                <DaypartDial
-                    title="Breakfast"
-                    salesRange={{ min: 4000, max: 8000 }}
-                    productivityRange={{ min: 60, max: 80 }}
-                    salesInput={breakfastSales}
-                    setSalesInput={setBreakfastSales}
-                    picData={picData}
-                    setPicData={setPicData}
-                    daypartKey="breakfast"
-                />
-                <DaypartDial
-                    title="Lunch"
-                    salesRange={{ min: 8000, max: 12000 }}
-                    productivityRange={{ min: 100, max: 120 }}
-                    salesInput={lunchSales}
-                    setSalesInput={setLunchSales}
-                    picData={picData}
-                    setPicData={setPicData}
-                    daypartKey="lunch"
-                />
-                <DaypartDial
-                    title="Afternoon"
-                    salesRange={{ min: 5000, max: 9000 }}
-                    productivityRange={{ min: 90, max: 100 }}
-                    salesInput={afternoonSales}
-                    setSalesInput={setAfternoonSales}
-                    picData={picData}
-                    setPicData={setPicData}
-                    daypartKey="afternoon"
-                />
-                <DaypartDial
-                    title="Dinner"
-                    salesRange={{ min: 8000, max: 12000 }}
-                    productivityRange={{ min: 80, max: 90 }}
-                    salesInput={dinnerSales}
-                    setSalesInput={setDinnerSales}
-                    picData={picData}
-                    setPicData={setPicData}
-                    daypartKey="dinner"
-                />
-            </div>
+            <div style={dashboardStyles.mainContent}>
+                <div style={dashboardStyles.gaugesSection}>
+                    {/* Four main daypart gauges */}
+                    <div style={dashboardStyles.dialGrid}>
+                        <DaypartDial
+                            title="Breakfast"
+                            salesRange={{ min: 4000, max: 8000 }}
+                            productivityRange={{ min: 60, max: 80 }}
+                            salesInput={breakfastSales}
+                            setSalesInput={setBreakfastSales}
+                            picData={picData}
+                            setPicData={setPicData}
+                            daypartKey="breakfast"
+                        />
+                        <DaypartDial
+                            title="Lunch"
+                            salesRange={{ min: 8000, max: 12000 }}
+                            productivityRange={{ min: 100, max: 120 }}
+                            salesInput={lunchSales}
+                            setSalesInput={setLunchSales}
+                            picData={picData}
+                            setPicData={setPicData}
+                            daypartKey="lunch"
+                        />
+                        <DaypartDial
+                            title="Afternoon"
+                            salesRange={{ min: 5000, max: 9000 }}
+                            productivityRange={{ min: 90, max: 100 }}
+                            salesInput={afternoonSales}
+                            setSalesInput={setAfternoonSales}
+                            picData={picData}
+                            setPicData={setPicData}
+                            daypartKey="afternoon"
+                        />
+                        <DaypartDial
+                            title="Dinner"
+                            salesRange={{ min: 8000, max: 12000 }}
+                            productivityRange={{ min: 80, max: 90 }}
+                            salesInput={dinnerSales}
+                            setSalesInput={setDinnerSales}
+                            picData={picData}
+                            setPicData={setPicData}
+                            daypartKey="dinner"
+                        />
+                    </div>
+                    
+                    {/* Second row with Day, Night gauges and Data Management */}
+                    <div style={dashboardStyles.secondRowGrid}>
+                        <CondensedDaypartDial
+                            title="Day"
+                            combinedSalesValue={dayValues.combinedSales}
+                            averageProductivityTarget={dayValues.avgTarget}
+                            averageProductivityActual={dayValues.avgActual}
+                        />
+                        <CondensedDaypartDial
+                            title="Night"
+                            combinedSalesValue={nightValues.combinedSales}
+                            averageProductivityTarget={nightValues.avgTarget}
+                            averageProductivityActual={nightValues.avgActual}
+                        />
+                        <div style={dashboardStyles.dataManagementContainer}>
+                            <div style={dashboardStyles.controlsSection}>
+                                <h3 style={dashboardStyles.controlsTitle}>Data Management</h3>
+                                
+                                {/* Save Section */}
+                                <div style={dashboardStyles.controlGroup}>
+                                    <label style={dashboardStyles.label}>Save Date:</label>
+                                    <input
+                                        type="date"
+                                        value={selectedDate}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        style={dashboardStyles.dateInput}
+                                    />
+                                    <button onClick={() => saveData(false)} style={dashboardStyles.saveButton}>
+                                        Save Data
+                                    </button>
+                                </div>
 
-            {/* Save and Download Buttons */}
-            <div style={dashboardStyles.controlsSection}>
-                {/* Save Section */}
-                <div style={dashboardStyles.controlGroup}>
-                    <label style={dashboardStyles.label}>Save Date:</label>
-                    <input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        style={dashboardStyles.dateInput}
-                    />
-                    <button onClick={() => saveData(false)} style={dashboardStyles.saveButton}>
-                        Save Data
-                    </button>
+                                {/* Download Section */}
+                                <div style={dashboardStyles.controlGroup}>
+                                    <label style={dashboardStyles.label}>Report Range:</label>
+                                    <input
+                                        type="date"
+                                        value={reportStartDate}
+                                        onChange={(e) => setReportStartDate(e.target.value)}
+                                        style={dashboardStyles.dateInput}
+                                    />
+                                    <span style={dashboardStyles.toLabel}>to</span>
+                                    <input
+                                        type="date"
+                                        value={reportEndDate}
+                                        onChange={(e) => setReportEndDate(e.target.value)}
+                                        style={dashboardStyles.dateInput}
+                                    />
+                                    <button onClick={downloadReport} style={dashboardStyles.reportButton}>
+                                        Download Report
+                                    </button>
+                                </div>
+                                
+                                <div style={dashboardStyles.autoSaveInfo}>
+                                    💾 Data automatically saves at 11 PM daily
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-
-                {/* Download Section */}
-                <div style={dashboardStyles.controlGroup}>
-                    <label style={dashboardStyles.label}>Report Range:</label>
-                    <input
-                        type="date"
-                        value={reportStartDate}
-                        onChange={(e) => setReportStartDate(e.target.value)}
-                        style={dashboardStyles.dateInput}
-                    />
-                    <span style={dashboardStyles.toLabel}>to</span>
-                    <input
-                        type="date"
-                        value={reportEndDate}
-                        onChange={(e) => setReportEndDate(e.target.value)}
-                        style={dashboardStyles.dateInput}
-                    />
-                    <button onClick={downloadReport} style={dashboardStyles.reportButton}>
-                        Download Report
-                    </button>
-                </div>
-            </div>
-
-            <div style={dashboardStyles.autoSaveInfo}>
-                💾 Data automatically saves at 11 PM daily
             </div>
         </div>
     )
@@ -599,30 +751,52 @@ const dashboardStyles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         minHeight: '100vh',
         background: '#0E0E11',
         color: 'white',
         fontFamily: 'system-ui',
-        padding: '10px',
+        padding: '20px',
         boxSizing: 'border-box',
     },
     title: {
-        fontSize: '1.8rem',
-        marginBottom: '1rem',
+        fontSize: '2.2rem',
+        marginBottom: '2rem',
         color: '#fff',
         textAlign: 'center',
+        fontWeight: 'bold',
+    },
+    mainContent: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2rem',
+        maxWidth: '1600px',
+        width: '100%',
+        alignItems: 'center',
+    },
+    gaugesSection: {
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2rem',
     },
     dialGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '1rem',
-        maxWidth: '1400px',
+        gap: '1.5rem',
         width: '100%',
-        marginBottom: '1rem',
-        '@media (max-width: 900px)': {
-            gridTemplateColumns: 'repeat(2, 1fr)',
-        },
+    },
+    secondRowGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr 2fr',
+        gap: '1.5rem',
+        width: '100%',
+        alignItems: 'start',
+    },
+    dataManagementContainer: {
+        display: 'flex',
+        justifyContent: 'center',
+        width: '100%',
     },
     legend: {
         display: 'flex',
@@ -708,11 +882,21 @@ const dashboardStyles = {
         flexDirection: 'column',
         gap: '1rem',
         alignItems: 'center',
-        marginBottom: '1rem',
-        padding: '1rem',
+        justifyContent: 'center',
+        width: '350px',
+        height: '350px',
+        padding: '1.5rem',
         background: '#1a1a1a',
-        borderRadius: '8px',
-        border: '1px solid #333',
+        borderRadius: '12px',
+        border: '2px solid #333',
+        boxSizing: 'border-box',
+    },
+    controlsTitle: {
+        fontSize: '1.4rem',
+        marginBottom: '1rem',
+        color: '#fff',
+        textAlign: 'center',
+        fontWeight: 'bold',
     },
     controlGroup: {
         display: 'flex',
@@ -844,5 +1028,52 @@ const dialStyles = {
         color: '#000',
         boxSizing: 'border-box',
         maxWidth: '120px',
+    },
+}
+
+const condensedDialStyles = {
+    container: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        background: '#1a1a1a',
+        borderRadius: '8px',
+        padding: '1rem',
+        border: '1px solid #333',
+        minWidth: '280px', // Match main dial width
+        width: '100%',
+    },
+    title: {
+        fontSize: '1.3rem',
+        marginBottom: '0.5rem',
+        color: '#fff',
+        textAlign: 'center',
+        fontWeight: 'bold',
+    },
+    dialContainer: {
+        marginBottom: '0.5rem',
+    },
+    svg: {
+        overflow: 'visible',
+    },
+    dataSection: {
+        width: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.4rem',
+    },
+    infoRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        fontSize: '0.8rem',
+    },
+    label: {
+        color: '#aaa',
+        fontWeight: 'bold',
+    },
+    value: {
+        color: '#fff',
+        fontWeight: 'bold',
     },
 }
