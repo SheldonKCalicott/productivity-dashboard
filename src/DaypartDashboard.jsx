@@ -5,11 +5,20 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
     // Dial angles: 270° span from 135° to 45°
     const START_ANGLE = 135
     const END_ANGLE = 45
+
+    // Convert combined sales to productivity (similar to main gauges)
+    const salesToProductivity = (sales) => {
+        if (sales < salesRange.min || sales > salesRange.max) return null
+        const salesRatio = (sales - salesRange.min) / (salesRange.max - salesRange.min)
+        return productivityRange.min + (salesRatio * (productivityRange.max - productivityRange.min))
+    }
     
     const productivityToAngle = (productivity) => {
         if (productivity < productivityRange.min || productivity > productivityRange.max) return null
         const ratio = (productivity - productivityRange.min) / (productivityRange.max - productivityRange.min)
-        return START_ANGLE + ratio * 270
+        let angle = START_ANGLE + ratio * 270
+        if (angle >= 360) angle -= 360
+        return angle
     }
 
     const formatCurrency = (value) => {
@@ -17,46 +26,109 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
         return `$${value.toLocaleString()}`
     }
 
-    const targetAngle = productivityToAngle(averageProductivityTarget)
-    const actualAngle = productivityToAngle(averageProductivityActual)
+    // Calculate needle position based on combined sales
+    const currentProductivity = salesToProductivity(combinedSalesValue)
+    const needleAngle = currentProductivity ? productivityToAngle(currentProductivity) : null
+    
+    // Generate zones like main gauges
+    const generateZones = () => {
+        if (!needleAngle) return null
+        
+        const currentProductivityValue = currentProductivity
+        const greenEndProductivity = Math.min(currentProductivityValue + 5, productivityRange.max)
+        const greenEndAngle = productivityToAngle(greenEndProductivity)
+        
+        const greenStartAngle = needleAngle
+        const redStartAngle = START_ANGLE
+        const redEndAngle = needleAngle
+
+        const createArc = (startAngle, endAngle, color, opacity = 0.2) => {
+            const radius = 45
+            const centerX = 90
+            const centerY = 95
+            
+            let actualEndAngle = endAngle
+            if (endAngle < startAngle) {
+                actualEndAngle = endAngle + 360
+            }
+            
+            const startRadian = (startAngle * Math.PI) / 180
+            const endRadian = (actualEndAngle * Math.PI) / 180
+            
+            const x1 = centerX + radius * Math.cos(startRadian)
+            const y1 = centerY + radius * Math.sin(startRadian)
+            const x2 = centerX + radius * Math.cos((endAngle * Math.PI) / 180)
+            const y2 = centerY + radius * Math.sin((endAngle * Math.PI) / 180)
+            
+            const largeArc = (actualEndAngle - startAngle) > 180 ? 1 : 0
+            
+            if (Math.abs(actualEndAngle - startAngle) < 1) return null
+            
+            return (
+                <path
+                    d={`M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                    fill={color}
+                    opacity={opacity}
+                />
+            )
+        }
+
+        return (
+            <g>
+                {createArc(redStartAngle, redEndAngle, "#ff4444")}
+                {greenEndAngle && createArc(greenStartAngle, greenEndAngle, "#44ff44")}
+            </g>
+        )
+    }
 
     return (
         <div style={condensedDialStyles.container}>
             <h3 style={condensedDialStyles.title}>{title}</h3>
             
             <div style={condensedDialStyles.dialContainer}>
-                <svg width="180" height="120" style={condensedDialStyles.svg}>
-                    {/* Background Arc */}
-                    <path
-                        d="M 25 95 A 65 65 0 0 1 155 95"
-                        stroke="#333"
-                        strokeWidth="12"
-                        fill="none"
+                <svg width="180" height="140" style={condensedDialStyles.svg}>
+                    {/* Background circle */}
+                    <circle
+                        cx="90"
+                        cy="95"
+                        r="60"
+                        fill="#15161A"
+                        stroke="#444"
+                        strokeWidth="2"
                     />
                     
-                    {/* Target line */}
-                    {targetAngle !== null && (
+                    {/* Colored zones */}
+                    {generateZones()}
+                    
+                    {/* Sales and Productivity Labels */}
+                    <text x="90" y="25" fill="#888" fontSize="10" textAnchor="middle" fontWeight="bold">
+                        Sales: ${(salesRange.min/1000).toFixed(0)}k-${(salesRange.max/1000).toFixed(0)}k
+                    </text>
+                    <text x="90" y="175" fill="#aaa" fontSize="10" textAnchor="middle" fontWeight="bold">
+                        Productivity: {productivityRange.min}-{productivityRange.max}
+                    </text>
+                    
+                    {/* Needle */}
+                    {needleAngle !== null && (
                         <line
                             x1="90"
                             y1="95"
-                            x2={90 + 50 * Math.cos((targetAngle - 90) * Math.PI / 180)}
-                            y2={95 + 50 * Math.sin((targetAngle - 90) * Math.PI / 180)}
-                            stroke="#ff6b35"
-                            strokeWidth="3"
+                            x2={90 + 45 * Math.cos((needleAngle * Math.PI) / 180)}
+                            y2={95 + 45 * Math.sin((needleAngle * Math.PI) / 180)}
+                            stroke="#fff"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            style={{ transition: 'all 0.3s ease-in-out' }}
                         />
                     )}
                     
-                    {/* Actual line */}
-                    {actualAngle !== null && (
-                        <line
-                            x1="90"
-                            y1="95"
-                            x2={90 + 45 * Math.cos((actualAngle - 90) * Math.PI / 180)}
-                            y2={95 + 45 * Math.sin((actualAngle - 90) * Math.PI / 180)}
-                            stroke="#4CAF50"
-                            strokeWidth="4"
-                        />
-                    )}
+                    {/* Center dot */}
+                    <circle
+                        cx="90"
+                        cy="95"
+                        r="2"
+                        fill="#fff"
+                    />
                 </svg>
             </div>
 
@@ -66,8 +138,8 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
                     <span style={condensedDialStyles.value}>{formatCurrency(combinedSalesValue)}</span>
                 </div>
                 <div style={condensedDialStyles.infoRow}>
-                    <span style={condensedDialStyles.label}>Avg Target:</span>
-                    <span style={condensedDialStyles.value}>{averageProductivityTarget ? averageProductivityTarget.toFixed(1) : '0.0'}%</span>
+                    <span style={condensedDialStyles.label}>Target Productivity:</span>
+                    <span style={condensedDialStyles.value}>{currentProductivity ? currentProductivity.toFixed(1) : '--'}%</span>
                 </div>
                 <div style={condensedDialStyles.infoRow}>
                     <span style={condensedDialStyles.label}>Avg Actual:</span>
@@ -789,12 +861,13 @@ const dashboardStyles = {
     },
     secondRowGrid: {
         display: 'grid',
-        gridTemplateColumns: '280px 280px 1fr', // Fixed widths for Day/Night, flexible for Data Management
+        gridTemplateColumns: '280px 280px 280px 280px', // Four columns to match main gauge positions
         gap: '1.5rem',
         width: '100%',
         alignItems: 'start',
     },
     dataManagementContainer: {
+        gridColumn: '3 / 5', // Span across Afternoon and Dinner columns
         display: 'flex',
         justifyContent: 'center',
         width: '100%',
@@ -884,7 +957,7 @@ const dashboardStyles = {
         gap: '1rem',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '450px', // Wider to fit controls on one line
+        width: '550px', // Even wider to prevent Report Range wrapping
         height: '350px',
         padding: '1.5rem',
         background: '#1a1a1a',
