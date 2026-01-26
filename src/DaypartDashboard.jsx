@@ -225,6 +225,42 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
 }
 
 function DaypartDial({ title, salesRange, productivityRange, salesInput, setSalesInput, picData, setPicData, daypartKey }) {
+    // Calculate adaptive ranges based on current sales input
+    const getAdaptiveRanges = () => {
+        const salesValue = salesInput === '' ? 0 : Number(salesInput)
+        let adaptiveSalesRange = { ...salesRange }
+        let adaptiveProductivityRange = { ...productivityRange }
+        
+        // If sales value is outside current range, expand range
+        if (salesValue > 0) {
+            if (salesValue > salesRange.max) {
+                // Expand max by 25% beyond the input value
+                adaptiveSalesRange.max = Math.ceil(salesValue * 1.25 / 1000) * 1000
+            }
+            if (salesValue < salesRange.min) {
+                // Expand min by 25% below the input value  
+                adaptiveSalesRange.min = Math.floor(salesValue * 0.75 / 1000) * 1000
+            }
+            
+            // Maintain productivity range proportionally
+            const originalSalesSpan = salesRange.max - salesRange.min
+            const newSalesSpan = adaptiveSalesRange.max - adaptiveSalesRange.min
+            const scaleFactor = newSalesSpan / originalSalesSpan
+            
+            const originalProductivitySpan = productivityRange.max - productivityRange.min
+            const newProductivitySpan = originalProductivitySpan * scaleFactor
+            
+            // Keep productivity range centered around original values
+            const productivityMidpoint = (productivityRange.min + productivityRange.max) / 2
+            adaptiveProductivityRange.min = Math.max(1, Math.round(productivityMidpoint - newProductivitySpan / 2))
+            adaptiveProductivityRange.max = Math.round(productivityMidpoint + newProductivitySpan / 2)
+        }
+        
+        return { salesRange: adaptiveSalesRange, productivityRange: adaptiveProductivityRange }
+    }
+    
+    const { salesRange: activeSalesRange, productivityRange: activeProductivityRange } = getAdaptiveRanges()
+    
     // Format number as currency
     const formatCurrency = (value) => {
         if (!value || value === '') return ''
@@ -256,8 +292,8 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
         return Array.from({ length: count }, (_, i) => min + i * step)
     }
 
-    const SALES_TICKS = generateRange(salesRange.min, salesRange.max)
-    const PRODUCTIVITY_TICKS = generateRange(productivityRange.min, productivityRange.max)
+    const SALES_TICKS = generateRange(activeSalesRange.min, activeSalesRange.max)
+    const PRODUCTIVITY_TICKS = generateRange(activeProductivityRange.min, activeProductivityRange.max)
 
     // Dial angles: 270° span from 135° to 45°
     const START_ANGLE = 135
@@ -265,15 +301,15 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
 
     // Helper function: Convert sales to productivity
     const salesToProductivity = (sales) => {
-        if (sales < salesRange.min || sales > salesRange.max) return null
-        const salesRatio = (sales - salesRange.min) / (salesRange.max - salesRange.min)
-        return productivityRange.min + (salesRatio * (productivityRange.max - productivityRange.min))
+        if (sales < activeSalesRange.min || sales > activeSalesRange.max) return null
+        const salesRatio = (sales - activeSalesRange.min) / (activeSalesRange.max - activeSalesRange.min)
+        return activeProductivityRange.min + (salesRatio * (activeProductivityRange.max - activeProductivityRange.min))
     }
 
     // Helper function: Convert productivity value to angle
     const productivityToAngle = (productivity) => {
-        if (productivity < productivityRange.min || productivity > productivityRange.max) return null
-        const ratio = (productivity - productivityRange.min) / (productivityRange.max - productivityRange.min)
+        if (productivity < activeProductivityRange.min || productivity > activeProductivityRange.max) return null
+        const ratio = (productivity - activeProductivityRange.min) / (activeProductivityRange.max - activeProductivityRange.min)
         let angle = START_ANGLE + ratio * 270
         if (angle >= 360) angle -= 360
         return angle
@@ -283,7 +319,7 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
     const salesValue = salesInput === '' ? 0 : Number(salesInput)
     const currentProductivity = salesToProductivity(salesValue)
     const needleAngle = currentProductivity ? productivityToAngle(currentProductivity) : null
-    const isInRange = salesValue >= salesRange.min && salesValue <= salesRange.max && salesInput !== ''
+    const isInRange = salesValue >= activeSalesRange.min && salesValue <= activeSalesRange.max && salesInput !== ''
 
     // Generate tick marks and labels
     const generateTicks = () => {
@@ -357,7 +393,7 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
         
         // Calculate green zone: starts at needle, extends 5 productivity units to the right
         const currentProductivityValue = currentProductivity
-        const greenEndProductivity = Math.min(currentProductivityValue + 5, productivityRange.max)
+        const greenEndProductivity = Math.min(currentProductivityValue + 5, activeProductivityRange.max)
         const greenEndAngle = productivityToAngle(greenEndProductivity)
         
         const greenStartAngle = needleAngle
@@ -465,7 +501,7 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
                             type="text"
                             value={formatCurrency(salesInput)}
                             onChange={(e) => setSalesInput(parseCurrency(e.target.value))}
-                            placeholder={`$${(salesRange.min/1000).toFixed(0)}k-${(salesRange.max/1000).toFixed(0)}k`}
+                            placeholder={`$${(activeSalesRange.min/1000).toFixed(0)}k-${(activeSalesRange.max/1000).toFixed(0)}k`}
                             style={dialStyles.input}
                         />
                         <input
