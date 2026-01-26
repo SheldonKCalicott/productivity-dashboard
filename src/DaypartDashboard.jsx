@@ -1240,7 +1240,7 @@ const condensedDialStyles = {
         fontWeight: 'bold',
     },
     dialContainer: {
-        marginBottom: '1.5rem', // More space to prevent text overlap
+        marginBottom: '2.5rem', // Increased space to prevent text overlap with gauge
     },
     svg: {
         overflow: 'visible',
@@ -1249,7 +1249,7 @@ const condensedDialStyles = {
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.4rem',
+        gap: '0.6rem', // Increased gap between text rows for better readability
     },
     infoRow: {
         display: 'flex',
