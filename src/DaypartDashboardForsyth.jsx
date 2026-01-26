@@ -30,6 +30,85 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
     const currentProductivity = salesToProductivity(combinedSalesValue)
     const needleAngle = currentProductivity ? productivityToAngle(currentProductivity) : null
     
+    // Generate tick marks and labels (like main gauges)
+    const generateTicks = () => {
+        const tickCount = 9 // Fewer ticks for smaller dial
+        const salesTicks = []
+        const productivityTicks = []
+        
+        for (let i = 0; i < tickCount; i++) {
+            const salesStep = (salesRange.max - salesRange.min) / (tickCount - 1)
+            const productivityStep = (productivityRange.max - productivityRange.min) / (tickCount - 1)
+            salesTicks.push(salesRange.min + i * salesStep)
+            productivityTicks.push(productivityRange.min + i * productivityStep)
+        }
+
+        return salesTicks.map((sales, index) => {
+            const productivity = productivityTicks[index]
+            
+            // Calculate angle for 270° span
+            let angle = START_ANGLE + (index / (salesTicks.length - 1)) * 270
+            if (angle >= 360) angle -= 360
+
+            const radians = (angle * Math.PI) / 180
+            const outerRadius = 55
+            const innerRadius = 45
+            const salesLabelRadius = 70
+            const productivityLabelRadius = 35
+            
+            const outerX = 90 + outerRadius * Math.cos(radians)
+            const outerY = 95 + outerRadius * Math.sin(radians)
+            const innerX = 90 + innerRadius * Math.cos(radians)
+            const innerY = 95 + innerRadius * Math.sin(radians)
+            const salesLabelX = 90 + salesLabelRadius * Math.cos(radians)
+            const salesLabelY = 95 + salesLabelRadius * Math.sin(radians)
+            const productivityLabelX = 90 + productivityLabelRadius * Math.cos(radians)
+            const productivityLabelY = 95 + productivityLabelRadius * Math.sin(radians)
+
+            return (
+                <g key={index}>
+                    {/* Tick mark */}
+                    <line
+                        x1={outerX}
+                        y1={outerY}
+                        x2={innerX}
+                        y2={innerY}
+                        stroke="#666"
+                        strokeWidth="1"
+                    />
+                    
+                    {/* Sales labels (outer, every other tick) */}
+                    {index % 2 === 0 && (
+                        <text
+                            x={salesLabelX}
+                            y={salesLabelY}
+                            fill="#888"
+                            fontSize="7"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                        >
+                            ${Math.round(sales / 1000)}k
+                        </text>
+                    )}
+                    
+                    {/* Productivity labels (inner, every other tick) */}
+                    {index % 2 === 0 && (
+                        <text
+                            x={productivityLabelX}
+                            y={productivityLabelY}
+                            fill="#aaa"
+                            fontSize="6"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                        >
+                            {Math.round(productivity)}
+                        </text>
+                    )}
+                </g>
+            )
+        })
+    }
+    
     // Generate zones like main gauges
     const generateZones = () => {
         if (!needleAngle) return null
@@ -86,7 +165,7 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
             <h3 style={condensedDialStyles.title}>{title}</h3>
             
             <div style={condensedDialStyles.dialContainer}>
-                <svg width="180" height="140" style={condensedDialStyles.svg}>
+                <svg width="180" height="180" style={condensedDialStyles.svg}>
                     {/* Background circle */}
                     <circle
                         cx="90"
@@ -99,6 +178,9 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
                     
                     {/* Colored zones */}
                     {generateZones()}
+                    
+                    {/* Tick marks and labels */}
+                    {generateTicks()}
                     
                     {/* Needle */}
                     {needleAngle !== null && (
@@ -119,6 +201,8 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
                         cx="90"
                         cy="95"
                         r="2"
+                        fill="#fff"
+                    />
                         fill="#fff"
                     />
                 </svg>
@@ -853,16 +937,16 @@ const dashboardStyles = {
     },
     secondRowGrid: {
         display: 'grid',
-        gridTemplateColumns: '280px 280px 100px 750px', // Day, Night, larger spacer, wider Data Management
+        gridTemplateColumns: 'repeat(4, 1fr)', // Same as main grid - equal width columns
         gap: '1.5rem',
         width: '100%',
         alignItems: 'start',
         justifyContent: 'start',
     },
     dataManagementContainer: {
-        gridColumn: '4', // Place in the fourth column for better right positioning
+        gridColumn: '3 / 5', // Span from Afternoon to Dinner columns
         display: 'flex',
-        justifyContent: 'flex-start',
+        justifyContent: 'center',
         width: '100%',
     },
     legend: {
@@ -950,8 +1034,9 @@ const dashboardStyles = {
         gap: '1rem',
         alignItems: 'center',
         justifyContent: 'center',
-        width: '750px', // Even wider to fit all text comfortably
-        height: '350px', // Increased height to match Day/Night gauges
+        width: '100%', // Use full available width within the grid span
+        maxWidth: '600px', // Constrain to reasonable max width
+        height: '350px', // Match Day/Night gauges height
         padding: '1.5rem',
         background: '#1a1a1a',
         borderRadius: '12px',
@@ -1104,7 +1189,7 @@ const condensedDialStyles = {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        width: '280px',
+        width: '100%', // Match main tile width (full column width)
         height: '350px', // Increased height for better visual presence
         padding: '1rem',
         background: '#1a1a1a',
@@ -1121,7 +1206,7 @@ const condensedDialStyles = {
         fontWeight: 'bold',
     },
     dialContainer: {
-        marginBottom: '0.5rem',
+        marginBottom: '1.5rem', // More space to prevent text overlap
     },
     svg: {
         overflow: 'visible',
