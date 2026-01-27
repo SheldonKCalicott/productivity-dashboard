@@ -1,5 +1,6 @@
 import DaypartDashboard from './DaypartDashboard'
 import DaypartDashboardForsyth from './DaypartDashboardForsyth'
+import SimplifiedDashboard from './SimplifiedDashboard'
 
 export default function App() {
     // Check environment variable to determine which dashboard to render
@@ -7,6 +8,10 @@ export default function App() {
     
     if (storeName.toLowerCase() === 'forsyth') {
         return <DaypartDashboardForsyth />
+    }
+    
+    if (storeName.toLowerCase() === 'simplified') {
+        return <SimplifiedDashboard />
     }
     
     // Default to Tuskawilla
