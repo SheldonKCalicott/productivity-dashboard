@@ -203,8 +203,6 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
                         r="2"
                         fill="#fff"
                     />
-                        fill="#fff"
-                    />
                 </svg>
             </div>
 
@@ -226,7 +224,7 @@ function CondensedDaypartDial({ title, combinedSalesValue, averageProductivityTa
     )
 }
 
-function DaypartDial({ title, salesRange, productivityRange, salesInput, setSalesInput, picData, setPicData, daypartKey }) {
+function DaypartDial({ title, salesRange, productivityRange, salesInput, setSalesInput, picData, setPicData, daypartKey, calculateDaypartTarget, getTotalSales }) {
     // Calculate adaptive ranges based on current sales input
     const getAdaptiveRanges = () => {
         const salesValue = salesInput === '' ? 0 : Number(salesInput)
@@ -319,7 +317,12 @@ function DaypartDial({ title, salesRange, productivityRange, salesInput, setSale
 
     // Calculate current values
     const salesValue = salesInput === '' ? 0 : Number(salesInput)
-    const currentProductivity = salesToProductivity(salesValue)
+    const totalSales = getTotalSales ? getTotalSales() : salesValue
+    
+    // Use sales-driven tier calculation if function provided, otherwise use range-based
+    const currentProductivity = calculateDaypartTarget 
+        ? calculateDaypartTarget(salesValue, totalSales, daypartKey)
+        : salesToProductivity(salesValue)
     const needleAngle = currentProductivity ? productivityToAngle(currentProductivity) : null
     const isInRange = salesValue >= activeSalesRange.min && salesValue <= activeSalesRange.max && salesInput !== ''
 
@@ -583,6 +586,9 @@ export default function DaypartDashboardForsyth() {
         return today.toISOString().split('T')[0]
     })
 
+    // Productivity tier selection
+    const [productivityTier, setProductivityTier] = useState('top50')
+
     // PIC and actual productivity tracking
     const [picData, setPicData] = useState({
         breakfast: { pic: '', actualProductivity: '' },
@@ -654,37 +660,43 @@ export default function DaypartDashboardForsyth() {
         
         const currentTime = new Date().toLocaleTimeString()
         
-        // Calculate productivity targets for this entry
-        const calculateTarget = (sales, salesRange, productivityRange) => {
+        // Calculate productivity targets using sales-driven tier + weight system
+        const calculateSaveTarget = (sales, daypartKey) => {
             if (!sales || sales === '' || isNaN(Number(sales))) return ''
             const numSales = Number(sales)
-            if (numSales < salesRange.min || numSales > salesRange.max) return ''
-            const salesRatio = (numSales - salesRange.min) / (salesRange.max - salesRange.min)
-            return Math.round(productivityRange.min + (salesRatio * (productivityRange.max - productivityRange.min)))
+            
+            // Calculate total daily sales for context
+            const totalSales = (breakfastSales ? Number(breakfastSales) : 0) + 
+                              (lunchSales ? Number(lunchSales) : 0) + 
+                              (afternoonSales ? Number(afternoonSales) : 0) + 
+                              (dinnerSales ? Number(dinnerSales) : 0)
+            
+            return Math.round(calculateDaypartTarget(numSales, totalSales, daypartKey))
         }
         
         const dataToSave = {
             date: saveDate,
             time: currentTime,
             savedBy: isAutoSave ? 'Auto-save' : 'Manual',
+            tier: productivityTier,
             breakfast: { 
                 sales: breakfastSales, 
-                targetProductivity: calculateTarget(Number(breakfastSales), { min: 4000, max: 8000 }, { min: 60, max: 80 }),
+                targetProductivity: calculateSaveTarget(breakfastSales, 'breakfast'),
                 ...picData.breakfast 
             },
             lunch: { 
                 sales: lunchSales, 
-                targetProductivity: calculateTarget(Number(lunchSales), { min: 8000, max: 12000 }, { min: 100, max: 120 }),
+                targetProductivity: calculateSaveTarget(lunchSales, 'lunch'),
                 ...picData.lunch 
             },
             afternoon: { 
                 sales: afternoonSales, 
-                targetProductivity: calculateTarget(Number(afternoonSales), { min: 5000, max: 9000 }, { min: 90, max: 100 }),
+                targetProductivity: calculateSaveTarget(afternoonSales, 'afternoon'),
                 ...picData.afternoon 
             },
             dinner: { 
                 sales: dinnerSales, 
-                targetProductivity: calculateTarget(Number(dinnerSales), { min: 8000, max: 12000 }, { min: 80, max: 90 }),
+                targetProductivity: calculateSaveTarget(dinnerSales, 'dinner'),
                 ...picData.dinner 
             }
         }
@@ -764,28 +776,88 @@ export default function DaypartDashboardForsyth() {
         document.body.removeChild(link)
     }
 
-    // Calculate Day and Night values (same as main dashboard but using Forsyth ranges)
-    const calculateTarget = (sales, salesRange, productivityRange) => {
-        if (!sales || sales === '' || isNaN(Number(sales))) return 0
-        const numSales = Number(sales)
-        if (numSales < salesRange.min || numSales > salesRange.max) return 0
-        const salesRatio = (numSales - salesRange.min) / (salesRange.max - salesRange.min)
-        return productivityRange.min + (salesRatio * (productivityRange.max - productivityRange.min))
+    // Clean daily productivity targets by tier (averaged from chain data)
+    const dailyProductivityByTier = {
+        top50: 87.68,
+        top33: 90.13,
+        top20: 92.99,
+        top10: 96.25
     }
+
+    // Sales reference points for interpolation (using original data points)
+    const salesReferencePoints = [
+        { sales: 28337, top50: 86.28, top33: 88.69, top20: 91.41, top10: 94.45 },
+        { sales: 31100, top50: 87.32, top33: 89.75, top20: 92.58, top10: 95.78 },
+        { sales: 33938, top50: 88.22, top33: 90.68, top20: 93.60, top10: 96.94 },
+        { sales: 36370, top50: 88.90, top33: 91.38, top20: 94.37, top10: 97.81 }
+    ]
+
+    // Daypart operational weights based on labor complexity
+    const daypartWeights = {
+        breakfast: 0.76,   // Lower ticket, faster turns
+        lunch: 1.24,       // High prep + peak volume  
+        afternoon: 1.06,   // Lower sales, cleaning + prep
+        dinner: 0.94       // Prep + close-down inefficiency
+    }
+
+    // Calculate daily productivity target based on sales volume and tier
+    const calculateDailyProductivityTarget = (totalSales) => {
+        if (!totalSales || totalSales === 0) return dailyProductivityByTier[productivityTier]
+        
+        const sortedPoints = [...salesReferencePoints].sort((a, b) => a.sales - b.sales)
+        
+        // If sales is below minimum reference, use minimum tier productivity
+        if (totalSales <= sortedPoints[0].sales) {
+            return sortedPoints[0][productivityTier]
+        }
+        
+        // If sales is above maximum reference, use maximum tier productivity  
+        if (totalSales >= sortedPoints[sortedPoints.length - 1].sales) {
+            return sortedPoints[sortedPoints.length - 1][productivityTier]
+        }
+        
+        // Interpolate between reference points for the selected tier
+        for (let i = 0; i < sortedPoints.length - 1; i++) {
+            const lower = sortedPoints[i]
+            const upper = sortedPoints[i + 1]
+            
+            if (totalSales >= lower.sales && totalSales <= upper.sales) {
+                const ratio = (totalSales - lower.sales) / (upper.sales - lower.sales)
+                return lower[productivityTier] + (ratio * (upper[productivityTier] - lower[productivityTier]))
+            }
+        }
+        
+        return dailyProductivityByTier[productivityTier]
+    }
+
+    // Calculate daypart productivity target: sales-driven daily target × operational weight
+    const calculateDaypartTarget = (daypartSales, totalSales, daypartKey) => {
+        if (!daypartSales || daypartSales === 0) return 0
+        
+        // Get sales-driven daily productivity target
+        const dailyTarget = calculateDailyProductivityTarget(totalSales)
+        
+        // Apply daypart operational weight
+        const weight = daypartWeights[daypartKey]
+        return dailyTarget * weight
+    }
+
+    // Calculate Day and Night values
     
     const calculateDayValues = () => {
         const breakfastSalesValue = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
         const lunchSalesValue = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+        const totalDaySales = breakfastSalesValue + lunchSalesValue
         
-        // Calculate targets based on sales - using Forsyth ranges
-        const breakfastTarget = calculateTarget(breakfastSalesValue, { min: 3000, max: 7000 }, { min: 60, max: 80 })
-        const lunchTarget = calculateTarget(lunchSalesValue, { min: 7000, max: 11000 }, { min: 100, max: 120 })
+        // Calculate targets using sales-driven tier + weight system
+        const breakfastTarget = calculateDaypartTarget(breakfastSalesValue, totalDaySales, 'breakfast')
+        const lunchTarget = calculateDaypartTarget(lunchSalesValue, totalDaySales, 'lunch')
         
         const breakfastActual = picData.breakfast?.actualProductivity ? parseFloat(picData.breakfast.actualProductivity) : 0
         const lunchActual = picData.lunch?.actualProductivity ? parseFloat(picData.lunch.actualProductivity) : 0
         
         return {
-            combinedSales: breakfastSalesValue + lunchSalesValue,
+            combinedSales: totalDaySales,
             avgTarget: breakfastTarget && lunchTarget ? (breakfastTarget + lunchTarget) / 2 : 0,
             avgActual: breakfastActual && lunchActual ? (breakfastActual + lunchActual) / 2 : 0
         }
@@ -794,16 +866,17 @@ export default function DaypartDashboardForsyth() {
     const calculateNightValues = () => {
         const afternoonSalesValue = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
         const dinnerSalesValue = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+        const totalNightSales = afternoonSalesValue + dinnerSalesValue
         
-        // Calculate targets based on sales - using Forsyth ranges
-        const afternoonTarget = calculateTarget(afternoonSalesValue, { min: 4000, max: 8000 }, { min: 90, max: 100 })
-        const dinnerTarget = calculateTarget(dinnerSalesValue, { min: 7000, max: 11000 }, { min: 80, max: 90 })
+        // Calculate targets using sales-driven tier + weight system
+        const afternoonTarget = calculateDaypartTarget(afternoonSalesValue, totalNightSales, 'afternoon')
+        const dinnerTarget = calculateDaypartTarget(dinnerSalesValue, totalNightSales, 'dinner')
         
         const afternoonActual = picData.afternoon?.actualProductivity ? parseFloat(picData.afternoon.actualProductivity) : 0
         const dinnerActual = picData.dinner?.actualProductivity ? parseFloat(picData.dinner.actualProductivity) : 0
         
         return {
-            combinedSales: afternoonSalesValue + dinnerSalesValue,
+            combinedSales: totalNightSales,
             avgTarget: afternoonTarget && dinnerTarget ? (afternoonTarget + dinnerTarget) / 2 : 0,
             avgActual: afternoonActual && dinnerActual ? (afternoonActual + dinnerActual) / 2 : 0
         }
@@ -829,6 +902,14 @@ export default function DaypartDashboardForsyth() {
                             picData={picData}
                             setPicData={setPicData}
                             daypartKey="breakfast"
+                            calculateDaypartTarget={calculateDaypartTarget}
+                            getTotalSales={() => {
+                                const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+                                const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+                                const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+                                const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+                                return bf + ln + af + dn
+                            }}
                         />
                         <DaypartDial
                             title="Lunch"
@@ -839,6 +920,14 @@ export default function DaypartDashboardForsyth() {
                             picData={picData}
                             setPicData={setPicData}
                             daypartKey="lunch"
+                            calculateDaypartTarget={calculateDaypartTarget}
+                            getTotalSales={() => {
+                                const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+                                const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+                                const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+                                const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+                                return bf + ln + af + dn
+                            }}
                         />
                         <DaypartDial
                             title="Afternoon"
@@ -849,6 +938,14 @@ export default function DaypartDashboardForsyth() {
                             picData={picData}
                             setPicData={setPicData}
                             daypartKey="afternoon"
+                            calculateDaypartTarget={calculateDaypartTarget}
+                            getTotalSales={() => {
+                                const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+                                const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+                                const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+                                const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+                                return bf + ln + af + dn
+                            }}
                         />
                         <DaypartDial
                             title="Dinner"
@@ -859,6 +956,14 @@ export default function DaypartDashboardForsyth() {
                             picData={picData}
                             setPicData={setPicData}
                             daypartKey="dinner"
+                            calculateDaypartTarget={calculateDaypartTarget}
+                            getTotalSales={() => {
+                                const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+                                const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+                                const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+                                const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+                                return bf + ln + af + dn
+                            }}
                         />
                     </div>
                     
@@ -882,8 +987,23 @@ export default function DaypartDashboardForsyth() {
                         />
                         <div style={dashboardStyles.dataManagementContainer}>
                             <div style={dashboardStyles.controlsSection}>
-                                <h3 style={dashboardStyles.controlsTitle}>Data Management</h3>
+                                <h3 style={dashboardStyles.controlsTitle}>Data Management & Settings</h3>
                                 
+                                {/* Productivity Tier Section */}
+                                <div style={dashboardStyles.settingsGroup}>
+                                    <label style={dashboardStyles.settingsLabel}>Productivity Target Tier:</label>
+                                    <select 
+                                        value={productivityTier} 
+                                        onChange={(e) => setProductivityTier(e.target.value)}
+                                        style={dashboardStyles.selectInput}
+                                    >
+                                        <option value="top50">Top 50% in Chain</option>
+                                        <option value="top33">Top 33% in Chain</option>
+                                        <option value="top20">Top 20% in Chain</option>
+                                        <option value="top10">Top 10% in Chain</option>
+                                    </select>
+                                </div>
+
                                 {/* Save Section */}
                                 <div style={dashboardStyles.controlGroup}>
                                     <label style={dashboardStyles.label}>Save Date:</label>
@@ -917,10 +1037,6 @@ export default function DaypartDashboardForsyth() {
                                     <button onClick={downloadReport} style={dashboardStyles.reportButton}>
                                         Download Report
                                     </button>
-                                </div>
-                                
-                                <div style={dashboardStyles.autoSaveInfo}>
-                                    💾 Data automatically saves at 11 PM daily
                                 </div>
                             </div>
                         </div>
@@ -1069,10 +1185,10 @@ const dashboardStyles = {
         flexDirection: 'column',
         gap: '1rem',
         alignItems: 'center',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         width: '100%', // Use full available width within the grid span
-        maxWidth: '600px', // Constrain to reasonable max width
-        height: '350px', // Match Day/Night gauges height
+        maxWidth: '700px', // Increased width for more controls
+        height: '400px', // Increased height for additional controls
         padding: '1.5rem',
         background: '#1a1a1a',
         borderRadius: '12px',
@@ -1113,11 +1229,33 @@ const dashboardStyles = {
         color: '#aaa',
         margin: '0 4px',
     },
-    autoSaveInfo: {
-        textAlign: 'center',
-        fontSize: '0.8rem',
-        color: '#888',
-        fontStyle: 'italic',
+    settingsGroup: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '0.5rem',
+        width: '100%',
+        marginBottom: '0.5rem',
+        padding: '1rem',
+        background: '#2a2a2a',
+        borderRadius: '8px',
+        border: '1px solid #444',
+    },
+    settingsLabel: {
+        fontSize: '0.9rem',
+        color: '#fff',
+        fontWeight: 'bold',
+        marginBottom: '0.5rem',
+    },
+    selectInput: {
+        padding: '8px 12px',
+        fontSize: '14px',
+        borderRadius: '4px',
+        border: '1px solid #444',
+        background: '#333',
+        color: '#fff',
+        minWidth: '200px',
+        cursor: 'pointer',
     },
 }
 
