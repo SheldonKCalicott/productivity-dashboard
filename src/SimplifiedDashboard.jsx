@@ -14,7 +14,16 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     // Convert productivity to angle (centered on target)
     const productivityToAngle = (productivity) => {
         if (!productivity) return null
-        const ratio = Math.max(0, Math.min(1, (productivity - MIN_PRODUCTIVITY) / (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY)))
+        
+        // Clamp productivity values to min/max range
+        let clampedProductivity = productivity
+        if (productivity <= MIN_PRODUCTIVITY) {
+            clampedProductivity = MIN_PRODUCTIVITY
+        } else if (productivity >= MAX_PRODUCTIVITY) {
+            clampedProductivity = MAX_PRODUCTIVITY
+        }
+        
+        const ratio = (clampedProductivity - MIN_PRODUCTIVITY) / (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY)
         let angle = START_ANGLE + ratio * 300  // 300° span
         // Handle angle wrapping properly
         while (angle >= 360) angle -= 360
@@ -79,7 +88,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                             x={labelX}
                             y={labelY}
                             fill={isTarget ? "#fff" : "#aaa"}
-                            fontSize={isTarget ? "18" : "16"}
+                            fontSize={isTarget ? "22" : "20"}
                             fontWeight={isTarget ? "bold" : "normal"}
                             textAnchor="middle"
                             dominantBaseline="middle"
@@ -713,18 +722,19 @@ const dashboardStyles = {
     },
     controlsPanel: {
         background: '#1a1a1a',
-        padding: '1.5rem',
+        padding: '1rem 1.5rem 1.5rem 1.5rem',  // Less top padding
         borderRadius: '8px',
         border: '1px solid #333',
-        minWidth: '800px',  // Much wider
-        maxWidth: '900px',
+        minWidth: '1000px',  // Much wider
+        maxWidth: '1100px',
     },
     controlsTitle: {
         fontSize: '1.4rem',
         color: '#fff',
         marginBottom: '1rem',
+        marginTop: '0',  // Remove top margin
         fontWeight: 'bold',
-        textAlign: 'center',  // Center the title
+        textAlign: 'center',
     },
     controlsGroup: {
         display: 'flex',
@@ -830,6 +840,7 @@ const dialStyles = {
         padding: '0.75rem',
         border: '1px solid #333',
         minWidth: '360px',
+        minHeight: '520px',  // Fixed height to prevent expansion
     },
     dialContainer: {
         marginBottom: '0.75rem',
@@ -843,6 +854,8 @@ const dialStyles = {
         flexDirection: 'column',
         gap: '0.5rem',
         alignItems: 'center',
+        minHeight: '80px',  // Fixed minimum height
+        justifyContent: 'flex-start',
     },
     statusBadge: {
         padding: '0.5rem',
