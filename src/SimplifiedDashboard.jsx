@@ -61,7 +61,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
             const radians = (angle * Math.PI) / 180
             const outerRadius = 138
             const innerRadius = 125
-            const labelRadius = 150
+            const labelRadius = 165  // Increased from 150 to move labels further out
             
             const outerX = 160 + outerRadius * Math.cos(radians)
             const outerY = 160 + outerRadius * Math.sin(radians)
@@ -725,8 +725,8 @@ const dashboardStyles = {
         padding: '1rem 1.5rem 1.5rem 1.5rem',  // Less top padding
         borderRadius: '8px',
         border: '1px solid #333',
-        minWidth: '1000px',  // Much wider
-        maxWidth: '1100px',
+        minWidth: '750px',  // Reduced from 1000px to 750px
+        maxWidth: '850px',  // Reduced from 1100px to 850px
     },
     controlsTitle: {
         fontSize: '1.4rem',
@@ -840,7 +840,7 @@ const dialStyles = {
         padding: '0.75rem',
         border: '1px solid #333',
         minWidth: '360px',
-        minHeight: '520px',  // Fixed height to prevent expansion
+        minHeight: '450px',  // Reduced from 520px to 450px
     },
     dialContainer: {
         marginBottom: '0.75rem',
