@@ -1,21 +1,21 @@
 import React, { useState } from "react"
 
 // Simplified Productivity Dial - focused on ONE job: actual vs target
-function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext }) {
-    // Dial configuration - centered on target productivity
-    const DIAL_RANGE = 40  // +/- 20 points from target
+function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false }) {
+    // Sales-driven dial configuration - wider range that utilizes more of the gauge
+    const DIAL_RANGE = 60  // +/- 30 points from target for better utilization
     const MIN_PRODUCTIVITY = Math.max(1, targetProductivity - DIAL_RANGE/2)
     const MAX_PRODUCTIVITY = targetProductivity + DIAL_RANGE/2
     
-    // Dial angles: 270° span from 135° to 45°
-    const START_ANGLE = 135
-    const END_ANGLE = 45
+    // Dial angles: 300° span from 120° to 60° (utilizing more of the gauge)
+    const START_ANGLE = 120
+    const END_ANGLE = 60
 
     // Convert productivity to angle (centered on target)
     const productivityToAngle = (productivity) => {
         if (!productivity) return null
         const ratio = (productivity - MIN_PRODUCTIVITY) / (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY)
-        let angle = START_ANGLE + ratio * 270
+        let angle = START_ANGLE + ratio * 300  // Updated for 300° span
         if (angle >= 360) angle -= 360
         return angle
     }
@@ -40,24 +40,24 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     // Generate tick marks focused on target
     const generateTicks = () => {
         const ticks = []
-        const tickCount = 9
+        const tickCount = 11  // More ticks for 300° span
         
         for (let i = 0; i < tickCount; i++) {
             const productivity = MIN_PRODUCTIVITY + (i / (tickCount - 1)) * (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY)
-            let angle = START_ANGLE + (i / (tickCount - 1)) * 270
+            let angle = START_ANGLE + (i / (tickCount - 1)) * 300  // Updated for 300° span
             if (angle >= 360) angle -= 360
 
             const radians = (angle * Math.PI) / 180
-            const outerRadius = 98
-            const innerRadius = 88
-            const labelRadius = 110
+            const outerRadius = 118
+            const innerRadius = 105
+            const labelRadius = 130
             
-            const outerX = 120 + outerRadius * Math.cos(radians)
-            const outerY = 120 + outerRadius * Math.sin(radians)
-            const innerX = 120 + innerRadius * Math.cos(radians)
-            const innerY = 120 + innerRadius * Math.sin(radians)
-            const labelX = 120 + labelRadius * Math.cos(radians)
-            const labelY = 120 + labelRadius * Math.sin(radians)
+            const outerX = 140 + outerRadius * Math.cos(radians)
+            const outerY = 140 + outerRadius * Math.sin(radians)
+            const innerX = 140 + innerRadius * Math.cos(radians)
+            const innerY = 140 + innerRadius * Math.sin(radians)
+            const labelX = 140 + labelRadius * Math.cos(radians)
+            const labelY = 140 + labelRadius * Math.sin(radians)
 
             // Highlight the target tick
             const isTarget = Math.abs(productivity - targetProductivity) < 2
@@ -96,9 +96,9 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
         if (!targetAngle) return null
 
         const createArc = (startAngle, endAngle, color, opacity = 0.15) => {
-            const radius = 80
-            const centerX = 120
-            const centerY = 120
+            const radius = 95
+            const centerX = 140
+            const centerY = 140
             
             let actualEndAngle = endAngle
             if (endAngle < startAngle) {
@@ -128,10 +128,10 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
 
         // Calculate zone boundaries based on target
         const targetProductivityValue = targetProductivity
-        const recoverThreshold = productivityToAngle(targetProductivityValue - 8)
-        const stabilizeThreshold = productivityToAngle(targetProductivityValue - 3)
-        const sustainThreshold = productivityToAngle(targetProductivityValue + 3)
-        const investThreshold = productivityToAngle(targetProductivityValue + 8)
+        const recoverThreshold = productivityToAngle(targetProductivityValue - 12)
+        const stabilizeThreshold = productivityToAngle(targetProductivityValue - 4)
+        const sustainThreshold = productivityToAngle(targetProductivityValue + 4)
+        const investThreshold = productivityToAngle(targetProductivityValue + 12)
 
         return (
             <g>
@@ -155,10 +155,10 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
         if (!actualProductivity || !targetProductivity) return null
         
         const diff = actualProductivity - targetProductivity
-        if (diff <= -8) return { zone: "Recovery", action: "Reduce labor / tighten deployment", color: "#ff4444" }
-        if (diff <= -3) return { zone: "Stabilize", action: "Hold, coach, no adds", color: "#ffaa00" }
-        if (diff <= 3) return { zone: "Sustain", action: "Maintain deployment", color: "#44ff44" }
-        return { zone: "Invest", action: "Prep, train, clean", color: "#4488ff" }
+        if (diff <= -12) return { zone: "Recovery", action: "Reduce labor / extra breaks or early leave", color: "#ff4444" }
+        if (diff <= -4) return { zone: "Stabilize", action: "Monitor performance - adjust staffing as needed", color: "#ffaa00" }
+        if (diff <= 4) return { zone: "Sustain", action: "Stay the course", color: "#44ff44" }
+        return { zone: "Invest", action: "Focus on operational excellence and training", color: "#4488ff" }
     }
 
     const currentZone = getCurrentZone()
@@ -172,21 +172,13 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
 
     return (
         <div style={dialStyles.container}>
-            {/* Sales Context Header */}
-            <div style={dialStyles.header}>
-                <h3 style={dialStyles.title}>{title}</h3>
-                <div style={dialStyles.context}>
-                    {formatCurrency(salesInput)} sales · {salesContext} target
-                </div>
-            </div>
-            
             <div style={dialStyles.dialContainer}>
-                <svg width="240" height="240" style={dialStyles.svg}>
+                <svg width="280" height="280" style={dialStyles.svg}>
                     {/* Background circle */}
                     <circle
-                        cx="120"
-                        cy="120"
-                        r="105"
+                        cx="140"
+                        cy="140"
+                        r="125"
                         fill="#15161A"
                         stroke="#444"
                         strokeWidth="2"
@@ -202,19 +194,19 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     {targetAngle !== null && (
                         <>
                             <line
-                                x1={120 + 75 * Math.cos((targetAngle * Math.PI) / 180)}
-                                y1={120 + 75 * Math.sin((targetAngle * Math.PI) / 180)}
-                                x2={120 + 90 * Math.cos((targetAngle * Math.PI) / 180)}
-                                y2={120 + 90 * Math.sin((targetAngle * Math.PI) / 180)}
+                                x1={140 + 90 * Math.cos((targetAngle * Math.PI) / 180)}
+                                y1={140 + 90 * Math.sin((targetAngle * Math.PI) / 180)}
+                                x2={140 + 108 * Math.cos((targetAngle * Math.PI) / 180)}
+                                y2={140 + 108 * Math.sin((targetAngle * Math.PI) / 180)}
                                 stroke="#fff"
-                                strokeWidth="4"
+                                strokeWidth="5"
                                 strokeLinecap="round"
                             />
                             <text
-                                x={120 + 65 * Math.cos((targetAngle * Math.PI) / 180)}
-                                y={120 + 65 * Math.sin((targetAngle * Math.PI) / 180)}
+                                x={140 + 75 * Math.cos((targetAngle * Math.PI) / 180)}
+                                y={140 + 75 * Math.sin((targetAngle * Math.PI) / 180)}
                                 fill="#fff"
-                                fontSize="10"
+                                fontSize="12"
                                 fontWeight="bold"
                                 textAnchor="middle"
                                 dominantBaseline="middle"
@@ -227,12 +219,12 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     {/* Actual productivity needle */}
                     {actualAngle !== null && (
                         <line
-                            x1="120"
-                            y1="120"
-                            x2={120 + 72 * Math.cos((actualAngle * Math.PI) / 180)}
-                            y2={120 + 72 * Math.sin((actualAngle * Math.PI) / 180)}
+                            x1="140"
+                            y1="140"
+                            x2={140 + 85 * Math.cos((actualAngle * Math.PI) / 180)}
+                            y2={140 + 85 * Math.sin((actualAngle * Math.PI) / 180)}
                             stroke={currentZone?.color || "#fff"}
-                            strokeWidth="3"
+                            strokeWidth="4"
                             strokeLinecap="round"
                             style={{ transition: 'all 0.3s ease-in-out' }}
                         />
@@ -240,9 +232,9 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     
                     {/* Center dot */}
                     <circle
-                        cx="120"
-                        cy="120"
-                        r="4"
+                        cx="140"
+                        cy="140"
+                        r="5"
                         fill="#fff"
                     />
                     
@@ -250,20 +242,20 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     {laborDelta !== null && (
                         <g>
                             <rect
-                                x="95"
-                                y="140"
+                                x="115"
+                                y="200"
                                 width="50"
-                                height="20"
-                                rx="10"
+                                height="25"
+                                rx="12"
                                 fill="#333"
                                 stroke="#666"
                                 strokeWidth="1"
                             />
                             <text
-                                x="120"
-                                y="151"
+                                x="140"
+                                y="214"
                                 fill={laborDelta > 0 ? "#ff6666" : "#66ff66"}
-                                fontSize="9"
+                                fontSize="11"
                                 fontWeight="bold"
                                 textAnchor="middle"
                                 dominantBaseline="middle"
@@ -294,24 +286,24 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                         </div>
                     </div>
                 )}
-                
-                {/* Key Metrics */}
-                <div style={dialStyles.metrics}>
-                    <div style={dialStyles.metric}>
-                        <span style={dialStyles.metricLabel}>Actual:</span>
-                        <span style={dialStyles.metricValue}>
-                            {actualProductivity ? actualProductivity.toFixed(1) : '--'}%
-                        </span>
-                    </div>
-                    <div style={dialStyles.metric}>
-                        <span style={dialStyles.metricLabel}>Target:</span>
-                        <span style={dialStyles.metricValue}>
-                            {targetProductivity ? targetProductivity.toFixed(1) : '--'}%
-                        </span>
-                    </div>
-                </div>
             </div>
         </div>
+    )
+}
+
+// Day/Night Combined Productivity Dial
+function CombinedProductivityDial({ title, combinedSales, combinedActual, targetProductivity }) {
+    const salesValue = combinedSales || 0
+    
+    return (
+        <SimplifiedProductivityDial
+            title={title}
+            salesInput={salesValue.toString()}
+            actualProductivity={combinedActual}
+            targetProductivity={targetProductivity}
+            salesContext="Combined"
+            isDayNight={true}
+        />
     )
 }
 
@@ -333,6 +325,62 @@ export default function SimplifiedDashboard() {
         dinner: ''
     })
 
+    // Calculate Day (breakfast + lunch) and Night (afternoon + dinner) combined metrics
+    const getDayCombinedSales = () => {
+        const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+        const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+        return bf + ln
+    }
+
+    const getNightCombinedSales = () => {
+        const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+        const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+        return af + dn
+    }
+
+    const getDayCombinedActual = () => {
+        const bfSales = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+        const lnSales = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+        const bfProd = parseFloat(actualProductivity.breakfast) || 0
+        const lnProd = parseFloat(actualProductivity.lunch) || 0
+        
+        if (bfSales + lnSales === 0) return 0
+        return ((bfSales * bfProd) + (lnSales * lnProd)) / (bfSales + lnSales)
+    }
+
+    const getNightCombinedActual = () => {
+        const afSales = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+        const dnSales = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+        const afProd = parseFloat(actualProductivity.afternoon) || 0
+        const dnProd = parseFloat(actualProductivity.dinner) || 0
+        
+        if (afSales + dnSales === 0) return 0
+        return ((afSales * afProd) + (dnSales * dnProd)) / (afSales + dnSales)
+    }
+
+    const getDayCombinedTarget = () => {
+        const daySales = getDayCombinedSales()
+        if (!daySales) return 0
+        
+        const bfTarget = calculateTargetProductivity('breakfast')
+        const lnTarget = calculateTargetProductivity('lunch')
+        const bfSales = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+        const lnSales = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+        
+        return ((bfSales * bfTarget) + (lnSales * lnTarget)) / daySales
+    }
+
+    const getNightCombinedTarget = () => {
+        const nightSales = getNightCombinedSales()
+        if (!nightSales) return 0
+        
+        const afTarget = calculateTargetProductivity('afternoon')
+        const dnTarget = calculateTargetProductivity('dinner')
+        const afSales = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+        const dnSales = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+        
+        return ((afSales * afTarget) + (dnSales * dnTarget)) / nightSales
+    }
     // Tier system from main dashboard
     const dailyProductivityByTier = {
         top50: 87.68,
@@ -425,44 +473,35 @@ export default function SimplifiedDashboard() {
             <h1 style={dashboardStyles.title}>Simplified Productivity Dashboard</h1>
             
             <div style={dashboardStyles.mainContent}>
-                {/* Settings Panel */}
-                <div style={dashboardStyles.settingsPanel}>
-                    <div style={dashboardStyles.settingsGroup}>
-                        <label style={dashboardStyles.settingsLabel}>Target Tier:</label>
-                        <select 
-                            value={productivityTier} 
-                            onChange={(e) => setProductivityTier(e.target.value)}
-                            style={dashboardStyles.selectInput}
-                        >
-                            <option value="top50">Top 50% in Chain</option>
-                            <option value="top33">Top 33% in Chain</option>
-                            <option value="top20">Top 20% in Chain</option>
-                            <option value="top10">Top 10% in Chain</option>
-                        </select>
-                    </div>
-                </div>
-
-                {/* Four Simplified Dials */}
+                {/* Four Main Daypart Dials */}
                 <div style={dashboardStyles.dialGrid}>
                     <div style={dialStyles.inputSection}>
                         <h4 style={dialStyles.inputTitle}>Breakfast</h4>
-                        <input
-                            type="text"
-                            placeholder="Sales"
-                            value={formatCurrency(breakfastSales)}
-                            onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))}
-                            style={dialStyles.input}
-                        />
-                        <input
-                            type="text"
-                            placeholder="Actual %"
-                            value={actualProductivity.breakfast}
-                            onChange={(e) => setActualProductivity(prev => ({
-                                ...prev,
-                                breakfast: e.target.value.replace(/[^0-9.]/g, '')
-                            }))}
-                            style={dialStyles.input}
-                        />
+                        <div style={dialStyles.inputGroup}>
+                            <div style={dialStyles.inputField}>
+                                <label style={dialStyles.fieldLabel}>Sales</label>
+                                <input
+                                    type="text"
+                                    placeholder="$6,000"
+                                    value={formatCurrency(breakfastSales)}
+                                    onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))}
+                                    style={dialStyles.input}
+                                />
+                            </div>
+                            <div style={dialStyles.inputField}>
+                                <label style={dialStyles.fieldLabel}>Actual Productivity</label>
+                                <input
+                                    type="text"
+                                    placeholder="66%"
+                                    value={actualProductivity.breakfast}
+                                    onChange={(e) => setActualProductivity(prev => ({
+                                        ...prev,
+                                        breakfast: e.target.value.replace(/[^0-9.]/g, '')
+                                    }))}
+                                    style={dialStyles.input}
+                                />
+                            </div>
+                        </div>
                         <SimplifiedProductivityDial
                             title="Breakfast"
                             salesInput={breakfastSales}
@@ -474,23 +513,31 @@ export default function SimplifiedDashboard() {
 
                     <div style={dialStyles.inputSection}>
                         <h4 style={dialStyles.inputTitle}>Lunch</h4>
-                        <input
-                            type="text"
-                            placeholder="Sales"
-                            value={formatCurrency(lunchSales)}
-                            onChange={(e) => setLunchSales(parseCurrency(e.target.value))}
-                            style={dialStyles.input}
-                        />
-                        <input
-                            type="text"
-                            placeholder="Actual %"
-                            value={actualProductivity.lunch}
-                            onChange={(e) => setActualProductivity(prev => ({
-                                ...prev,
-                                lunch: e.target.value.replace(/[^0-9.]/g, '')
-                            }))}
-                            style={dialStyles.input}
-                        />
+                        <div style={dialStyles.inputGroup}>
+                            <div style={dialStyles.inputField}>
+                                <label style={dialStyles.fieldLabel}>Sales</label>
+                                <input
+                                    type="text"
+                                    placeholder="$10,000"
+                                    value={formatCurrency(lunchSales)}
+                                    onChange={(e) => setLunchSales(parseCurrency(e.target.value))}
+                                    style={dialStyles.input}
+                                />
+                            </div>
+                            <div style={dialStyles.inputField}>
+                                <label style={dialStyles.fieldLabel}>Actual Productivity</label>
+                                <input
+                                    type="text"
+                                    placeholder="107%"
+                                    value={actualProductivity.lunch}
+                                    onChange={(e) => setActualProductivity(prev => ({
+                                        ...prev,
+                                        lunch: e.target.value.replace(/[^0-9.]/g, '')
+                                    }))}
+                                    style={dialStyles.input}
+                                />
+                            </div>
+                        </div>
                         <SimplifiedProductivityDial
                             title="Lunch"
                             salesInput={lunchSales}
@@ -502,23 +549,31 @@ export default function SimplifiedDashboard() {
 
                     <div style={dialStyles.inputSection}>
                         <h4 style={dialStyles.inputTitle}>Afternoon</h4>
-                        <input
-                            type="text"
-                            placeholder="Sales"
-                            value={formatCurrency(afternoonSales)}
-                            onChange={(e) => setAfternoonSales(parseCurrency(e.target.value))}
-                            style={dialStyles.input}
-                        />
-                        <input
-                            type="text"
-                            placeholder="Actual %"
-                            value={actualProductivity.afternoon}
-                            onChange={(e) => setActualProductivity(prev => ({
-                                ...prev,
-                                afternoon: e.target.value.replace(/[^0-9.]/g, '')
-                            }))}
-                            style={dialStyles.input}
-                        />
+                        <div style={dialStyles.inputGroup}>
+                            <div style={dialStyles.inputField}>
+                                <label style={dialStyles.fieldLabel}>Sales</label>
+                                <input
+                                    type="text"
+                                    placeholder="$7,000"
+                                    value={formatCurrency(afternoonSales)}
+                                    onChange={(e) => setAfternoonSales(parseCurrency(e.target.value))}
+                                    style={dialStyles.input}
+                                />
+                            </div>
+                            <div style={dialStyles.inputField}>
+                                <label style={dialStyles.fieldLabel}>Actual Productivity</label>
+                                <input
+                                    type="text"
+                                    placeholder="91%"
+                                    value={actualProductivity.afternoon}
+                                    onChange={(e) => setActualProductivity(prev => ({
+                                        ...prev,
+                                        afternoon: e.target.value.replace(/[^0-9.]/g, '')
+                                    }))}
+                                    style={dialStyles.input}
+                                />
+                            </div>
+                        </div>
                         <SimplifiedProductivityDial
                             title="Afternoon"
                             salesInput={afternoonSales}
@@ -530,23 +585,31 @@ export default function SimplifiedDashboard() {
 
                     <div style={dialStyles.inputSection}>
                         <h4 style={dialStyles.inputTitle}>Dinner</h4>
-                        <input
-                            type="text"
-                            placeholder="Sales"
-                            value={formatCurrency(dinnerSales)}
-                            onChange={(e) => setDinnerSales(parseCurrency(e.target.value))}
-                            style={dialStyles.input}
-                        />
-                        <input
-                            type="text"
-                            placeholder="Actual %"
-                            value={actualProductivity.dinner}
-                            onChange={(e) => setActualProductivity(prev => ({
-                                ...prev,
-                                dinner: e.target.value.replace(/[^0-9.]/g, '')
-                            }))}
-                            style={dialStyles.input}
-                        />
+                        <div style={dialStyles.inputGroup}>
+                            <div style={dialStyles.inputField}>
+                                <label style={dialStyles.fieldLabel}>Sales</label>
+                                <input
+                                    type="text"
+                                    placeholder="$10,000"
+                                    value={formatCurrency(dinnerSales)}
+                                    onChange={(e) => setDinnerSales(parseCurrency(e.target.value))}
+                                    style={dialStyles.input}
+                                />
+                            </div>
+                            <div style={dialStyles.inputField}>
+                                <label style={dialStyles.fieldLabel}>Actual Productivity</label>
+                                <input
+                                    type="text"
+                                    placeholder="81%"
+                                    value={actualProductivity.dinner}
+                                    onChange={(e) => setActualProductivity(prev => ({
+                                        ...prev,
+                                        dinner: e.target.value.replace(/[^0-9.]/g, '')
+                                    }))}
+                                    style={dialStyles.input}
+                                />
+                            </div>
+                        </div>
                         <SimplifiedProductivityDial
                             title="Dinner"
                             salesInput={dinnerSales}
@@ -554,6 +617,51 @@ export default function SimplifiedDashboard() {
                             targetProductivity={calculateTargetProductivity('dinner')}
                             salesContext={getTierLabel()}
                         />
+                    </div>
+                </div>
+
+                {/* Bottom Row: Day/Night Dials and Controls */}
+                <div style={dashboardStyles.bottomRow}>
+                    {/* Day and Night Combined Dials */}
+                    <div style={dashboardStyles.combinedSection}>
+                        <CombinedProductivityDial
+                            title="Day (Breakfast + Lunch)"
+                            combinedSales={getDayCombinedSales()}
+                            combinedActual={getDayCombinedActual()}
+                            targetProductivity={getDayCombinedTarget()}
+                        />
+                        <CombinedProductivityDial
+                            title="Night (Afternoon + Dinner)"
+                            combinedSales={getNightCombinedSales()}
+                            combinedActual={getNightCombinedActual()}
+                            targetProductivity={getNightCombinedTarget()}
+                        />
+                    </div>
+
+                    {/* Controls Panel */}
+                    <div style={dashboardStyles.controlsPanel}>
+                        <h4 style={dashboardStyles.controlsTitle}>Controls</h4>
+                        <div style={dashboardStyles.controlsGroup}>
+                            <label style={dashboardStyles.controlsLabel}>Target Tier:</label>
+                            <select 
+                                value={productivityTier} 
+                                onChange={(e) => setProductivityTier(e.target.value)}
+                                style={dashboardStyles.selectInput}
+                            >
+                                <option value="top50">Top 50% in Chain</option>
+                                <option value="top33">Top 33% in Chain</option>
+                                <option value="top20">Top 20% in Chain</option>
+                                <option value="top10">Top 10% in Chain</option>
+                            </select>
+                        </div>
+                        <div style={dashboardStyles.controlsGroup}>
+                            <button style={dashboardStyles.controlButton}>
+                                Save Data
+                            </button>
+                            <button style={dashboardStyles.controlButton}>
+                                Export CSV
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -585,22 +693,50 @@ const dashboardStyles = {
         display: 'flex',
         flexDirection: 'column',
         gap: '2rem',
-        maxWidth: '1600px',
+        maxWidth: '1800px',
         width: '100%',
         alignItems: 'center',
     },
-    settingsPanel: {
+    dialGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: '2rem',
+        width: '100%',
+        marginBottom: '2rem',
+    },
+    bottomRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        width: '100%',
+        gap: '2rem',
+        alignItems: 'flex-start',
+    },
+    combinedSection: {
+        display: 'flex',
+        gap: '2rem',
+        flex: 1,
+    },
+    controlsPanel: {
         background: '#1a1a1a',
-        padding: '1rem',
+        padding: '1.5rem',
         borderRadius: '8px',
         border: '1px solid #333',
+        minWidth: '300px',
+        maxWidth: '400px',
     },
-    settingsGroup: {
+    controlsTitle: {
+        fontSize: '1.4rem',
+        color: '#fff',
+        marginBottom: '1rem',
+        fontWeight: 'bold',
+    },
+    controlsGroup: {
         display: 'flex',
-        alignItems: 'center',
-        gap: '1rem',
+        flexDirection: 'column',
+        gap: '0.5rem',
+        marginBottom: '1rem',
     },
-    settingsLabel: {
+    controlsLabel: {
         fontSize: '0.9rem',
         color: '#fff',
         fontWeight: 'bold',
@@ -615,11 +751,16 @@ const dashboardStyles = {
         minWidth: '200px',
         cursor: 'pointer',
     },
-    dialGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '2rem',
-        width: '100%',
+    controlButton: {
+        padding: '10px 20px',
+        fontSize: '14px',
+        borderRadius: '4px',
+        border: '1px solid #444',
+        background: '#333',
+        color: '#fff',
+        cursor: 'pointer',
+        marginBottom: '0.5rem',
+        transition: 'background 0.2s ease',
     },
 }
 
@@ -628,17 +769,35 @@ const dialStyles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '0.5rem',
+        gap: '1rem',
         marginBottom: '1rem',
     },
     inputTitle: {
-        fontSize: '1.1rem',
+        fontSize: '1.3rem',
         color: '#fff',
         marginBottom: '0.5rem',
         fontWeight: 'bold',
+        textAlign: 'center',
+    },
+    inputGroup: {
+        display: 'flex',
+        gap: '1rem',
+        marginBottom: '1rem',
+    },
+    inputField: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '0.25rem',
+    },
+    fieldLabel: {
+        fontSize: '0.8rem',
+        color: '#aaa',
+        fontWeight: 'bold',
+        textAlign: 'center',
     },
     input: {
-        padding: '6px 10px',
+        padding: '8px 12px',
         fontSize: '12px',
         borderRadius: '4px',
         border: '1px solid #444',
@@ -655,22 +814,7 @@ const dialStyles = {
         borderRadius: '8px',
         padding: '1rem',
         border: '1px solid #333',
-        minWidth: '280px',
-    },
-    header: {
-        textAlign: 'center',
-        marginBottom: '1rem',
-    },
-    title: {
-        fontSize: '1.2rem',
-        color: '#fff',
-        fontWeight: 'bold',
-        margin: '0 0 0.25rem 0',
-    },
-    context: {
-        fontSize: '0.8rem',
-        color: '#aaa',
-        fontStyle: 'italic',
+        minWidth: '320px',
     },
     dialContainer: {
         marginBottom: '1rem',
@@ -693,35 +837,13 @@ const dialStyles = {
         width: '100%',
     },
     zoneName: {
-        fontSize: '0.9rem',
+        fontSize: '1rem',
         fontWeight: 'bold',
         marginBottom: '0.25rem',
     },
     zoneAction: {
-        fontSize: '0.75rem',
+        fontSize: '0.8rem',
         color: '#ccc',
         lineHeight: '1.2',
-    },
-    metrics: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        width: '100%',
-        gap: '1rem',
-    },
-    metric: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        flex: 1,
-    },
-    metricLabel: {
-        fontSize: '0.7rem',
-        color: '#aaa',
-        marginBottom: '0.25rem',
-    },
-    metricValue: {
-        fontSize: '1rem',
-        color: '#fff',
-        fontWeight: 'bold',
     },
 }
