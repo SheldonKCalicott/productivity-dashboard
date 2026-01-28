@@ -48,16 +48,16 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
             if (angle >= 360) angle -= 360
 
             const radians = (angle * Math.PI) / 180
-            const outerRadius = 118
-            const innerRadius = 105
-            const labelRadius = 130
+            const outerRadius = 138
+            const innerRadius = 125
+            const labelRadius = 150
             
-            const outerX = 140 + outerRadius * Math.cos(radians)
-            const outerY = 140 + outerRadius * Math.sin(radians)
-            const innerX = 140 + innerRadius * Math.cos(radians)
-            const innerY = 140 + innerRadius * Math.sin(radians)
-            const labelX = 140 + labelRadius * Math.cos(radians)
-            const labelY = 140 + labelRadius * Math.sin(radians)
+            const outerX = 160 + outerRadius * Math.cos(radians)
+            const outerY = 160 + outerRadius * Math.sin(radians)
+            const innerX = 160 + innerRadius * Math.cos(radians)
+            const innerY = 160 + innerRadius * Math.sin(radians)
+            const labelX = 160 + labelRadius * Math.cos(radians)
+            const labelY = 160 + labelRadius * Math.sin(radians)
 
             // Highlight the target tick
             const isTarget = Math.abs(productivity - targetProductivity) < 2
@@ -77,7 +77,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                             x={labelX}
                             y={labelY}
                             fill={isTarget ? "#fff" : "#aaa"}
-                            fontSize={isTarget ? "11" : "9"}
+                            fontSize={isTarget ? "14" : "12"}
                             fontWeight={isTarget ? "bold" : "normal"}
                             textAnchor="middle"
                             dominantBaseline="middle"
@@ -96,9 +96,9 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
         if (!targetAngle) return null
 
         const createArc = (startAngle, endAngle, color, opacity = 0.15) => {
-            const radius = 95
-            const centerX = 140
-            const centerY = 140
+            const radius = 115
+            const centerX = 160
+            const centerY = 160
             
             let actualEndAngle = endAngle
             if (endAngle < startAngle) {
@@ -173,12 +173,12 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     return (
         <div style={dialStyles.container}>
             <div style={dialStyles.dialContainer}>
-                <svg width="280" height="280" style={dialStyles.svg}>
+                <svg width="320" height="320" style={dialStyles.svg}>
                     {/* Background circle */}
                     <circle
-                        cx="140"
-                        cy="140"
-                        r="125"
+                        cx="160"
+                        cy="160"
+                        r="145"
                         fill="#15161A"
                         stroke="#444"
                         strokeWidth="2"
@@ -194,19 +194,19 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     {targetAngle !== null && (
                         <>
                             <line
-                                x1={140 + 90 * Math.cos((targetAngle * Math.PI) / 180)}
-                                y1={140 + 90 * Math.sin((targetAngle * Math.PI) / 180)}
-                                x2={140 + 108 * Math.cos((targetAngle * Math.PI) / 180)}
-                                y2={140 + 108 * Math.sin((targetAngle * Math.PI) / 180)}
+                                x1={160 + 105 * Math.cos((targetAngle * Math.PI) / 180)}
+                                y1={160 + 105 * Math.sin((targetAngle * Math.PI) / 180)}
+                                x2={160 + 125 * Math.cos((targetAngle * Math.PI) / 180)}
+                                y2={160 + 125 * Math.sin((targetAngle * Math.PI) / 180)}
                                 stroke="#fff"
-                                strokeWidth="5"
+                                strokeWidth="6"
                                 strokeLinecap="round"
                             />
                             <text
-                                x={140 + 75 * Math.cos((targetAngle * Math.PI) / 180)}
-                                y={140 + 75 * Math.sin((targetAngle * Math.PI) / 180)}
+                                x={160 + 90 * Math.cos((targetAngle * Math.PI) / 180)}
+                                y={160 + 90 * Math.sin((targetAngle * Math.PI) / 180)}
                                 fill="#fff"
-                                fontSize="12"
+                                fontSize="13"
                                 fontWeight="bold"
                                 textAnchor="middle"
                                 dominantBaseline="middle"
@@ -219,12 +219,12 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     {/* Actual productivity needle */}
                     {actualAngle !== null && (
                         <line
-                            x1="140"
-                            y1="140"
-                            x2={140 + 85 * Math.cos((actualAngle * Math.PI) / 180)}
-                            y2={140 + 85 * Math.sin((actualAngle * Math.PI) / 180)}
+                            x1="160"
+                            y1="160"
+                            x2={160 + 100 * Math.cos((actualAngle * Math.PI) / 180)}
+                            y2={160 + 100 * Math.sin((actualAngle * Math.PI) / 180)}
                             stroke={currentZone?.color || "#fff"}
-                            strokeWidth="4"
+                            strokeWidth="5"
                             strokeLinecap="round"
                             style={{ transition: 'all 0.3s ease-in-out' }}
                         />
@@ -232,9 +232,9 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     
                     {/* Center dot */}
                     <circle
-                        cx="140"
-                        cy="140"
-                        r="5"
+                        cx="160"
+                        cy="160"
+                        r="6"
                         fill="#fff"
                     />
                     
@@ -242,20 +242,20 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     {laborDelta !== null && (
                         <g>
                             <rect
-                                x="115"
-                                y="200"
-                                width="50"
-                                height="25"
-                                rx="12"
+                                x="130"
+                                y="230"
+                                width="60"
+                                height="28"
+                                rx="14"
                                 fill="#333"
                                 stroke="#666"
                                 strokeWidth="1"
                             />
                             <text
-                                x="140"
-                                y="214"
+                                x="160"
+                                y="246"
                                 fill={laborDelta > 0 ? "#ff6666" : "#66ff66"}
-                                fontSize="11"
+                                fontSize="13"
                                 fontWeight="bold"
                                 textAnchor="middle"
                                 dominantBaseline="middle"
@@ -314,9 +314,6 @@ export default function SimplifiedDashboard() {
     const [afternoonSales, setAfternoonSales] = useState('')
     const [dinnerSales, setDinnerSales] = useState('')
 
-    // Productivity tier selection
-    const [productivityTier, setProductivityTier] = useState('top50')
-
     // Actual productivity inputs
     const [actualProductivity, setActualProductivity] = useState({
         breakfast: '',
@@ -362,79 +359,67 @@ export default function SimplifiedDashboard() {
         const daySales = getDayCombinedSales()
         if (!daySales) return 0
         
-        const bfTarget = calculateTargetProductivity('breakfast')
-        const lnTarget = calculateTargetProductivity('lunch')
-        const bfSales = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
-        const lnSales = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+        const bfTarget = calculateTargetProductivity('breakfast', getDaypartSales('breakfast'))
+        const lnTarget = calculateTargetProductivity('lunch', getDaypartSales('lunch'))
+        const bfSales = getDaypartSales('breakfast')
+        const lnSales = getDaypartSales('lunch')
         
-        return ((bfSales * bfTarget) + (lnSales * lnTarget)) / daySales
+        if (bfSales + lnSales === 0) return 0
+        return ((bfSales * bfTarget) + (lnSales * lnTarget)) / (bfSales + lnSales)
     }
 
     const getNightCombinedTarget = () => {
         const nightSales = getNightCombinedSales()
         if (!nightSales) return 0
         
-        const afTarget = calculateTargetProductivity('afternoon')
-        const dnTarget = calculateTargetProductivity('dinner')
-        const afSales = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
-        const dnSales = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+        const afTarget = calculateTargetProductivity('afternoon', getDaypartSales('afternoon'))
+        const dnTarget = calculateTargetProductivity('dinner', getDaypartSales('dinner'))
+        const afSales = getDaypartSales('afternoon')
+        const dnSales = getDaypartSales('dinner')
         
-        return ((afSales * afTarget) + (dnSales * dnTarget)) / nightSales
+        if (afSales + dnSales === 0) return 0
+        return ((afSales * afTarget) + (dnSales * dnTarget)) / (afSales + dnSales)
     }
-    // Tier system from main dashboard
-    const dailyProductivityByTier = {
-        top50: 87.68,
-        top33: 90.13,
-        top20: 92.99,
-        top10: 96.25
-    }
-
-    const salesReferencePoints = [
-        { sales: 28337, top50: 86.28, top33: 88.69, top20: 91.41, top10: 94.45 },
-        { sales: 31100, top50: 87.32, top33: 89.75, top20: 92.58, top10: 95.78 },
-        { sales: 33938, top50: 88.22, top33: 90.68, top20: 93.60, top10: 96.94 },
-        { sales: 36370, top50: 88.90, top33: 91.38, top20: 94.37, top10: 97.81 }
-    ]
-
-    const daypartWeights = {
-        breakfast: 0.76,
-        lunch: 1.24,
-        afternoon: 1.06,
-        dinner: 0.94
-    }
-
-    // Calculate target productivity for a daypart
-    const calculateTargetProductivity = (daypartKey) => {
-        const totalSales = getTotalSales()
-        const dailyTarget = calculateDailyProductivityTarget(totalSales)
-        const weight = daypartWeights[daypartKey]
-        return dailyTarget * weight
-    }
-
-    const calculateDailyProductivityTarget = (totalSales) => {
-        if (!totalSales || totalSales === 0) return dailyProductivityByTier[productivityTier]
+    // Sales-driven productivity calculation using your specified ranges
+    const calculateTargetProductivity = (daypartKey, daypartSales = 0) => {
+        const salesValue = daypartSales || 0
         
-        const sortedPoints = [...salesReferencePoints].sort((a, b) => a.sales - b.sales)
-        
-        if (totalSales <= sortedPoints[0].sales) {
-            return sortedPoints[0][productivityTier]
+        // Define sales ranges and corresponding productivity ranges for each daypart
+        const daypartRanges = {
+            breakfast: { salesMin: 4000, salesMax: 8000, prodMin: 60, prodMax: 80 },
+            lunch: { salesMin: 8000, salesMax: 12000, prodMin: 100, prodMax: 120 },
+            afternoon: { salesMin: 5000, salesMax: 9000, prodMin: 90, prodMax: 100 },
+            dinner: { salesMin: 8000, salesMax: 12000, prodMin: 80, prodMax: 90 }
         }
         
-        if (totalSales >= sortedPoints[sortedPoints.length - 1].sales) {
-            return sortedPoints[sortedPoints.length - 1][productivityTier]
+        const range = daypartRanges[daypartKey]
+        if (!range) return 0
+        
+        // Linear interpolation within the sales range
+        let ratio = 0
+        if (salesValue <= range.salesMin) {
+            ratio = 0 // Use minimum productivity
+        } else if (salesValue >= range.salesMax) {
+            ratio = 1 // Use maximum productivity
+        } else {
+            ratio = (salesValue - range.salesMin) / (range.salesMax - range.salesMin)
         }
         
-        for (let i = 0; i < sortedPoints.length - 1; i++) {
-            const lower = sortedPoints[i]
-            const upper = sortedPoints[i + 1]
-            
-            if (totalSales >= lower.sales && totalSales <= upper.sales) {
-                const ratio = (totalSales - lower.sales) / (upper.sales - lower.sales)
-                return lower[productivityTier] + (ratio * (upper[productivityTier] - lower[productivityTier]))
-            }
+        // Calculate target productivity using interpolation
+        const targetProductivity = range.prodMin + (ratio * (range.prodMax - range.prodMin))
+        return targetProductivity
+    }
+    
+    // Helper function to get sales value for a daypart
+    const getDaypartSales = (daypartKey) => {
+        const salesInputs = {
+            breakfast: breakfastSales,
+            lunch: lunchSales,
+            afternoon: afternoonSales,
+            dinner: dinnerSales
         }
-        
-        return dailyProductivityByTier[productivityTier]
+        const salesInput = salesInputs[daypartKey]
+        return salesInput ? parseInt(salesInput.replace(/[^0-9]/g, '')) : 0
     }
 
     const getTotalSales = () => {
@@ -456,16 +441,6 @@ export default function SimplifiedDashboard() {
         if (!value) return ''
         const numValue = parseInt(value.replace(/[^0-9]/g, ''))
         return isNaN(numValue) ? '' : numValue.toString()
-    }
-
-    const getTierLabel = () => {
-        const labels = {
-            top50: "Top 50%",
-            top33: "Top 33%", 
-            top20: "Top 20%",
-            top10: "Top 10%"
-        }
-        return labels[productivityTier]
     }
 
     return (
@@ -506,8 +481,8 @@ export default function SimplifiedDashboard() {
                             title="Breakfast"
                             salesInput={breakfastSales}
                             actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
-                            targetProductivity={calculateTargetProductivity('breakfast')}
-                            salesContext={getTierLabel()}
+                            targetProductivity={calculateTargetProductivity('breakfast', getDaypartSales('breakfast'))}
+                            salesContext="Sales-Driven"
                         />
                     </div>
 
@@ -542,8 +517,8 @@ export default function SimplifiedDashboard() {
                             title="Lunch"
                             salesInput={lunchSales}
                             actualProductivity={parseFloat(actualProductivity.lunch) || 0}
-                            targetProductivity={calculateTargetProductivity('lunch')}
-                            salesContext={getTierLabel()}
+                            targetProductivity={calculateTargetProductivity('lunch', getDaypartSales('lunch'))}
+                            salesContext="Sales-Driven"
                         />
                     </div>
 
@@ -578,8 +553,8 @@ export default function SimplifiedDashboard() {
                             title="Afternoon"
                             salesInput={afternoonSales}
                             actualProductivity={parseFloat(actualProductivity.afternoon) || 0}
-                            targetProductivity={calculateTargetProductivity('afternoon')}
-                            salesContext={getTierLabel()}
+                            targetProductivity={calculateTargetProductivity('afternoon', getDaypartSales('afternoon'))}
+                            salesContext="Sales-Driven"
                         />
                     </div>
 
@@ -614,8 +589,8 @@ export default function SimplifiedDashboard() {
                             title="Dinner"
                             salesInput={dinnerSales}
                             actualProductivity={parseFloat(actualProductivity.dinner) || 0}
-                            targetProductivity={calculateTargetProductivity('dinner')}
-                            salesContext={getTierLabel()}
+                            targetProductivity={calculateTargetProductivity('dinner', getDaypartSales('dinner'))}
+                            salesContext="Sales-Driven"
                         />
                     </div>
                 </div>
@@ -624,36 +599,29 @@ export default function SimplifiedDashboard() {
                 <div style={dashboardStyles.bottomRow}>
                     {/* Day and Night Combined Dials */}
                     <div style={dashboardStyles.combinedSection}>
-                        <CombinedProductivityDial
-                            title="Day (Breakfast + Lunch)"
-                            combinedSales={getDayCombinedSales()}
-                            combinedActual={getDayCombinedActual()}
-                            targetProductivity={getDayCombinedTarget()}
-                        />
-                        <CombinedProductivityDial
-                            title="Night (Afternoon + Dinner)"
-                            combinedSales={getNightCombinedSales()}
-                            combinedActual={getNightCombinedActual()}
-                            targetProductivity={getNightCombinedTarget()}
-                        />
+                        <div style={dashboardStyles.combinedDial}>
+                            <h4 style={dashboardStyles.combinedLabel}>Day</h4>
+                            <CombinedProductivityDial
+                                title="Breakfast + Lunch"
+                                combinedSales={getDayCombinedSales()}
+                                combinedActual={getDayCombinedActual()}
+                                targetProductivity={getDayCombinedTarget()}
+                            />
+                        </div>
+                        <div style={dashboardStyles.combinedDial}>
+                            <h4 style={dashboardStyles.combinedLabel}>Night</h4>
+                            <CombinedProductivityDial
+                                title="Afternoon + Dinner"
+                                combinedSales={getNightCombinedSales()}
+                                combinedActual={getNightCombinedActual()}
+                                targetProductivity={getNightCombinedTarget()}
+                            />
+                        </div>
                     </div>
 
                     {/* Controls Panel */}
                     <div style={dashboardStyles.controlsPanel}>
                         <h4 style={dashboardStyles.controlsTitle}>Controls</h4>
-                        <div style={dashboardStyles.controlsGroup}>
-                            <label style={dashboardStyles.controlsLabel}>Target Tier:</label>
-                            <select 
-                                value={productivityTier} 
-                                onChange={(e) => setProductivityTier(e.target.value)}
-                                style={dashboardStyles.selectInput}
-                            >
-                                <option value="top50">Top 50% in Chain</option>
-                                <option value="top33">Top 33% in Chain</option>
-                                <option value="top20">Top 20% in Chain</option>
-                                <option value="top10">Top 10% in Chain</option>
-                            </select>
-                        </div>
                         <div style={dashboardStyles.controlsGroup}>
                             <button style={dashboardStyles.controlButton}>
                                 Save Data
@@ -661,6 +629,18 @@ export default function SimplifiedDashboard() {
                             <button style={dashboardStyles.controlButton}>
                                 Export CSV
                             </button>
+                            <button style={dashboardStyles.controlButton}>
+                                Reset All
+                            </button>
+                        </div>
+                        <div style={dashboardStyles.salesInfo}>
+                            <h5 style={dashboardStyles.salesInfoTitle}>Sales-Driven Targets:</h5>
+                            <div style={dashboardStyles.salesInfoText}>
+                                <div>Breakfast: $4k-$8k → 60-80%</div>
+                                <div>Lunch: $8k-$12k → 100-120%</div>
+                                <div>Afternoon: $5k-$9k → 90-100%</div>
+                                <div>Dinner: $8k-$12k → 80-90%</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -679,12 +659,12 @@ const dashboardStyles = {
         background: '#0E0E11',
         color: 'white',
         fontFamily: 'system-ui',
-        padding: '20px',
+        padding: '15px',
         boxSizing: 'border-box',
     },
     title: {
         fontSize: '2.2rem',
-        marginBottom: '1rem',
+        marginBottom: '0.5rem',
         color: '#fff',
         textAlign: 'center',
         fontWeight: 'bold',
@@ -692,7 +672,7 @@ const dashboardStyles = {
     mainContent: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '2rem',
+        gap: '1rem',
         maxWidth: '1800px',
         width: '100%',
         alignItems: 'center',
@@ -700,9 +680,9 @@ const dashboardStyles = {
     dialGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '2rem',
+        gap: '1.5rem',
         width: '100%',
-        marginBottom: '2rem',
+        marginBottom: '1rem',
     },
     bottomRow: {
         display: 'flex',
@@ -716,13 +696,26 @@ const dashboardStyles = {
         gap: '2rem',
         flex: 1,
     },
+    combinedDial: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '0.5rem',
+    },
+    combinedLabel: {
+        fontSize: '1.4rem',
+        color: '#fff',
+        fontWeight: 'bold',
+        marginBottom: '0.5rem',
+        textAlign: 'center',
+    },
     controlsPanel: {
         background: '#1a1a1a',
         padding: '1.5rem',
         borderRadius: '8px',
         border: '1px solid #333',
-        minWidth: '300px',
-        maxWidth: '400px',
+        minWidth: '600px',  // More than double the width
+        maxWidth: '700px',
     },
     controlsTitle: {
         fontSize: '1.4rem',
@@ -732,9 +725,10 @@ const dashboardStyles = {
     },
     controlsGroup: {
         display: 'flex',
-        flexDirection: 'column',
-        gap: '0.5rem',
-        marginBottom: '1rem',
+        flexDirection: 'row',
+        gap: '1rem',
+        marginBottom: '1.5rem',
+        flexWrap: 'wrap',
     },
     controlsLabel: {
         fontSize: '0.9rem',
@@ -748,19 +742,37 @@ const dashboardStyles = {
         border: '1px solid #444',
         background: '#333',
         color: '#fff',
-        minWidth: '200px',
+        minWidth: '150px',
         cursor: 'pointer',
     },
     controlButton: {
-        padding: '10px 20px',
+        padding: '12px 24px',
         fontSize: '14px',
         borderRadius: '4px',
         border: '1px solid #444',
         background: '#333',
         color: '#fff',
         cursor: 'pointer',
-        marginBottom: '0.5rem',
         transition: 'background 0.2s ease',
+        flex: '1',
+        minWidth: '120px',
+    },
+    salesInfo: {
+        background: '#2a2a2a',
+        padding: '1rem',
+        borderRadius: '6px',
+        border: '1px solid #555',
+    },
+    salesInfoTitle: {
+        fontSize: '1rem',
+        color: '#fff',
+        marginBottom: '0.5rem',
+        fontWeight: 'bold',
+    },
+    salesInfoText: {
+        fontSize: '0.85rem',
+        color: '#ccc',
+        lineHeight: '1.4',
     },
 }
 
@@ -769,20 +781,20 @@ const dialStyles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '1rem',
-        marginBottom: '1rem',
+        gap: '0.5rem',
+        marginBottom: '0.5rem',
     },
     inputTitle: {
         fontSize: '1.3rem',
         color: '#fff',
-        marginBottom: '0.5rem',
+        marginBottom: '0.25rem',
         fontWeight: 'bold',
         textAlign: 'center',
     },
     inputGroup: {
         display: 'flex',
         gap: '1rem',
-        marginBottom: '1rem',
+        marginBottom: '0.5rem',
     },
     inputField: {
         display: 'flex',
@@ -791,7 +803,7 @@ const dialStyles = {
         gap: '0.25rem',
     },
     fieldLabel: {
-        fontSize: '0.8rem',
+        fontSize: '0.75rem',
         color: '#aaa',
         fontWeight: 'bold',
         textAlign: 'center',
@@ -812,12 +824,12 @@ const dialStyles = {
         alignItems: 'center',
         background: '#1a1a1a',
         borderRadius: '8px',
-        padding: '1rem',
+        padding: '0.75rem',
         border: '1px solid #333',
-        minWidth: '320px',
+        minWidth: '360px',
     },
     dialContainer: {
-        marginBottom: '1rem',
+        marginBottom: '0.75rem',
     },
     svg: {
         overflow: 'visible',
@@ -826,12 +838,12 @@ const dialStyles = {
         width: '100%',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.75rem',
+        gap: '0.5rem',
         alignItems: 'center',
     },
     statusBadge: {
-        padding: '0.75rem',
-        borderRadius: '8px',
+        padding: '0.5rem',
+        borderRadius: '6px',
         border: '2px solid',
         textAlign: 'center',
         width: '100%',
@@ -842,7 +854,7 @@ const dialStyles = {
         marginBottom: '0.25rem',
     },
     zoneAction: {
-        fontSize: '0.8rem',
+        fontSize: '0.75rem',
         color: '#ccc',
         lineHeight: '1.2',
     },
