@@ -14,9 +14,11 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     // Convert productivity to angle (centered on target)
     const productivityToAngle = (productivity) => {
         if (!productivity) return null
-        const ratio = (productivity - MIN_PRODUCTIVITY) / (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY)
-        let angle = START_ANGLE + ratio * 300  // Updated for 300° span
-        if (angle >= 360) angle -= 360
+        const ratio = Math.max(0, Math.min(1, (productivity - MIN_PRODUCTIVITY) / (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY)))
+        let angle = START_ANGLE + ratio * 300  // 300° span
+        // Handle angle wrapping properly
+        while (angle >= 360) angle -= 360
+        while (angle < 0) angle += 360
         return angle
     }
 
@@ -77,7 +79,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                             x={labelX}
                             y={labelY}
                             fill={isTarget ? "#fff" : "#aaa"}
-                            fontSize={isTarget ? "14" : "12"}
+                            fontSize={isTarget ? "18" : "16"}
                             fontWeight={isTarget ? "bold" : "normal"}
                             textAnchor="middle"
                             dominantBaseline="middle"
@@ -672,7 +674,7 @@ const dashboardStyles = {
     mainContent: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '1rem',
+        gap: '0.5rem',  // Reduced gap for tighter spacing
         maxWidth: '1800px',
         width: '100%',
         alignItems: 'center',
@@ -682,7 +684,7 @@ const dashboardStyles = {
         gridTemplateColumns: 'repeat(4, 1fr)',
         gap: '1.5rem',
         width: '100%',
-        marginBottom: '1rem',
+        marginBottom: '0.5rem',  // Reduced margin for closer spacing
     },
     bottomRow: {
         display: 'flex',
@@ -714,14 +716,15 @@ const dashboardStyles = {
         padding: '1.5rem',
         borderRadius: '8px',
         border: '1px solid #333',
-        minWidth: '600px',  // More than double the width
-        maxWidth: '700px',
+        minWidth: '800px',  // Much wider
+        maxWidth: '900px',
     },
     controlsTitle: {
         fontSize: '1.4rem',
         color: '#fff',
         marginBottom: '1rem',
         fontWeight: 'bold',
+        textAlign: 'center',  // Center the title
     },
     controlsGroup: {
         display: 'flex',
