@@ -6,7 +6,7 @@ import ReportsPage from './ReportsPage'
 
 export default function App() {
     // Check environment variable to determine which dashboard to render
-    const storeName = import.meta.env.VITE_STORE_NAME || 'tuskawilla'
+    const storeName = import.meta.env.VITE_STORE_NAME || 'simplified'
     const [currentPage, setCurrentPage] = useState('dashboard')
     
     // Navigation for simplified dashboard
