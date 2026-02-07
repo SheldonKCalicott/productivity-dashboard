@@ -24,6 +24,7 @@ export default function App() {
                             ← Back to Dashboard
                         </button>
                         <h2 style={navStyles.title}>Productivity Reports</h2>
+                        <div style={navStyles.spacer}></div>
                     </nav>
                     <ReportsPage />
                 </div>
@@ -33,6 +34,7 @@ export default function App() {
         return (
             <div>
                 <nav style={navStyles.nav}>
+                    <div style={navStyles.spacer}></div>
                     <h2 style={navStyles.title}>Productivity Dashboard</h2>
                     <button 
                         onClick={() => setCurrentPage('reports')} 
@@ -59,25 +61,32 @@ const navStyles = {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '15px 30px',
+        padding: '12px 25px',
         backgroundColor: '#1e293b',
         borderBottom: '2px solid #3b82f6',
-        color: '#ffffff'
+        color: '#ffffff',
+        minHeight: '50px'
     },
     title: {
         margin: 0,
-        fontSize: '1.5rem',
-        fontWeight: '600'
+        fontSize: '1.8rem',
+        fontWeight: '700',
+        flex: 1,
+        textAlign: 'center'
     },
     button: {
-        padding: '10px 20px',
+        padding: '12px 24px',
         backgroundColor: '#3b82f6',
         color: '#ffffff',
         border: 'none',
         borderRadius: '6px',
-        fontSize: '14px',
+        fontSize: '16px',
         fontWeight: '600',
         cursor: 'pointer',
-        transition: 'background-color 0.2s'
+        transition: 'background-color 0.2s',
+        minWidth: '140px'
+    },
+    spacer: {
+        minWidth: '140px'
     }
 }

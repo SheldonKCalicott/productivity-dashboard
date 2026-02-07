@@ -323,6 +323,14 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
     // Tier selection state
     const [selectedTier, setSelectedTier] = useState('Top 20%')
     
+    // Adjustable daypart weights
+    const [daypartWeights, setDaypartWeights] = useState({
+        'breakfast': 0.76,   // Low ticket, high prep, stock for lunch
+        'lunch': 1.24,       // Peak volume, high throughput
+        'afternoon': 1.06,   // Post-lunch cleanup + dinner prep
+        'dinner': 0.94       // Peak volume + close-down inefficiency
+    });
+    
     // Sales inputs
     const [breakfastSales, setBreakfastSales] = useState('')
     const [lunchSales, setLunchSales] = useState('')
@@ -488,65 +496,69 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
 
     return (
         <div style={dashboardStyles.container}>
-            <h1 style={dashboardStyles.title}>Simplified Productivity Dashboard</h1>
-            
             <div style={dashboardStyles.mainContent}>
                 {/* Four Main Daypart Dials */}
                 <div style={dashboardStyles.dialGrid}>
                     <div style={dialStyles.inputSection}>
-                        <h4 style={dialStyles.inputTitle}>Breakfast</h4>
-                        <div style={dialStyles.inputGroup}>
-                            <div style={dialStyles.inputField}>
-                                <label style={dialStyles.fieldLabel}>Sales</label>
-                                <input
-                                    type="text"
-                                    placeholder="$6,000"
-                                    value={formatCurrency(breakfastSales)}
-                                    onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))}
-                                    style={dialStyles.input}
-                                />
-                            </div>
-                            <div style={dialStyles.inputField}>
-                                <label style={dialStyles.fieldLabel}>Actual Productivity</label>
-                                <input
-                                    type="text"
-                                    placeholder="66%"
-                                    value={actualProductivity.breakfast}
-                                    onChange={(e) => setActualProductivity(prev => ({
-                                        ...prev,
-                                        breakfast: e.target.value.replace(/[^0-9.]/g, '')
-                                    }))}
-                                    style={dialStyles.input}
-                                />
-                            </div>
-                        </div>
+                    <h4 style={dialStyles.daypartTitle}>Breakfast</h4>
+                    <div style={dialStyles.dialContainer}>
                         <SimplifiedProductivityDial
                             title="Breakfast"
                             salesInput={breakfastSales}
                             actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
-                            targetProductivity={calculateTargetProductivity('breakfast', getTotalSales())}
+                            targetProductivity={calculateTargetProductivity('breakfast', getDaypartSales('breakfast') || 6000)}
                             salesContext="Tier-Based"
                         />
                     </div>
+                    <div style={dialStyles.inputGroup}>
+                        <div style={dialStyles.inputField}>
+                            <input
+                                type="text"
+                                placeholder="Sales: $6,000"
+                                value={formatCurrency(breakfastSales)}
+                                onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))}
+                                style={dialStyles.input}
+                            />
+                        </div>
+                        <div style={dialStyles.inputField}>
+                            <input
+                                type="text"
+                                placeholder="Actual Productivity: 66%"
+                                value={actualProductivity.breakfast}
+                                onChange={(e) => setActualProductivity(prev => ({
+                                    ...prev,
+                                    breakfast: e.target.value.replace(/[^0-9.]/g, '')
+                                }))}
+                                style={dialStyles.input}
+                            />
+                        </div>
+                    </div>
 
                     <div style={dialStyles.inputSection}>
-                        <h4 style={dialStyles.inputTitle}>Lunch</h4>
+                        <h4 style={dialStyles.daypartTitle}>Lunch</h4>
+                        <div style={dialStyles.dialContainer}>
+                            <SimplifiedProductivityDial
+                                title="Lunch"
+                                salesInput={lunchSales}
+                                actualProductivity={parseFloat(actualProductivity.lunch) || 0}
+                                targetProductivity={calculateTargetProductivity('lunch', getDaypartSales('lunch') || 10000)}
+                                salesContext="Tier-Based"
+                            />
+                        </div>
                         <div style={dialStyles.inputGroup}>
                             <div style={dialStyles.inputField}>
-                                <label style={dialStyles.fieldLabel}>Sales</label>
                                 <input
                                     type="text"
-                                    placeholder="$10,000"
+                                    placeholder="Sales: $10,000"
                                     value={formatCurrency(lunchSales)}
                                     onChange={(e) => setLunchSales(parseCurrency(e.target.value))}
                                     style={dialStyles.input}
                                 />
                             </div>
                             <div style={dialStyles.inputField}>
-                                <label style={dialStyles.fieldLabel}>Actual Productivity</label>
                                 <input
                                     type="text"
-                                    placeholder="107%"
+                                    placeholder="Actual Productivity: 107%"
                                     value={actualProductivity.lunch}
                                     onChange={(e) => setActualProductivity(prev => ({
                                         ...prev,
@@ -556,33 +568,33 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                 />
                             </div>
                         </div>
-                        <SimplifiedProductivityDial
-                            title="Lunch"
-                            salesInput={lunchSales}
-                            actualProductivity={parseFloat(actualProductivity.lunch) || 0}
-                            targetProductivity={calculateTargetProductivity('lunch', getTotalSales())}
-                            salesContext="Tier-Based"
-                        />
                     </div>
 
                     <div style={dialStyles.inputSection}>
-                        <h4 style={dialStyles.inputTitle}>Afternoon</h4>
+                        <h4 style={dialStyles.daypartTitle}>Afternoon</h4>
+                        <div style={dialStyles.dialContainer}>
+                            <SimplifiedProductivityDial
+                                title="Afternoon"
+                                salesInput={afternoonSales}
+                                actualProductivity={parseFloat(actualProductivity.afternoon) || 0}
+                                targetProductivity={calculateTargetProductivity('afternoon', getDaypartSales('afternoon') || 7000)}
+                                salesContext="Tier-Based"
+                            />
+                        </div>
                         <div style={dialStyles.inputGroup}>
                             <div style={dialStyles.inputField}>
-                                <label style={dialStyles.fieldLabel}>Sales</label>
                                 <input
                                     type="text"
-                                    placeholder="$7,000"
+                                    placeholder="Sales: $7,000"
                                     value={formatCurrency(afternoonSales)}
                                     onChange={(e) => setAfternoonSales(parseCurrency(e.target.value))}
                                     style={dialStyles.input}
                                 />
                             </div>
                             <div style={dialStyles.inputField}>
-                                <label style={dialStyles.fieldLabel}>Actual Productivity</label>
                                 <input
                                     type="text"
-                                    placeholder="91%"
+                                    placeholder="Actual Productivity: 91%"
                                     value={actualProductivity.afternoon}
                                     onChange={(e) => setActualProductivity(prev => ({
                                         ...prev,
@@ -592,33 +604,33 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                 />
                             </div>
                         </div>
-                        <SimplifiedProductivityDial
-                            title="Afternoon"
-                            salesInput={afternoonSales}
-                            actualProductivity={parseFloat(actualProductivity.afternoon) || 0}
-                            targetProductivity={calculateTargetProductivity('afternoon', getTotalSales())}
-                            salesContext="Tier-Based"
-                        />
                     </div>
 
                     <div style={dialStyles.inputSection}>
-                        <h4 style={dialStyles.inputTitle}>Dinner</h4>
+                        <h4 style={dialStyles.daypartTitle}>Dinner</h4>
+                        <div style={dialStyles.dialContainer}>
+                            <SimplifiedProductivityDial
+                                title="Dinner"
+                                salesInput={dinnerSales}
+                                actualProductivity={parseFloat(actualProductivity.dinner) || 0}
+                                targetProductivity={calculateTargetProductivity('dinner', getDaypartSales('dinner') || 9000)}
+                                salesContext="Tier-Based"
+                            />
+                        </div>
                         <div style={dialStyles.inputGroup}>
                             <div style={dialStyles.inputField}>
-                                <label style={dialStyles.fieldLabel}>Sales</label>
                                 <input
                                     type="text"
-                                    placeholder="$10,000"
+                                    placeholder="Sales: $10,000"
                                     value={formatCurrency(dinnerSales)}
                                     onChange={(e) => setDinnerSales(parseCurrency(e.target.value))}
                                     style={dialStyles.input}
                                 />
                             </div>
                             <div style={dialStyles.inputField}>
-                                <label style={dialStyles.fieldLabel}>Actual Productivity</label>
                                 <input
                                     type="text"
-                                    placeholder="81%"
+                                    placeholder="Actual Productivity: 81%"
                                     value={actualProductivity.dinner}
                                     onChange={(e) => setActualProductivity(prev => ({
                                         ...prev,
@@ -628,13 +640,6 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                 />
                             </div>
                         </div>
-                        <SimplifiedProductivityDial
-                            title="Dinner"
-                            salesInput={dinnerSales}
-                            actualProductivity={parseFloat(actualProductivity.dinner) || 0}
-                            targetProductivity={calculateTargetProductivity('dinner', getTotalSales())}
-                            salesContext="Tier-Based"
-                        />
                     </div>
                 </div>
 
@@ -664,95 +669,152 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
 
                     {/* Controls Panel */}
                     <div style={dashboardStyles.controlsPanel}>
-                        {/* System Explanation */}
+                        <h4 style={dashboardStyles.controlsTitle}>System Configuration</h4>
+                        
+                        {/* System Description */}
                         <div style={{
                             backgroundColor: '#2a2a2a',
-                            border: '2px solid #4a4a4a',
-                            borderRadius: '8px',
-                            padding: '16px',
-                            marginBottom: '20px'
-                        }}>
-                            <h3 style={{ margin: '0 0 8px 0', color: '#ffffff', fontSize: '16px', fontWeight: '600' }}>How This Works</h3>
-                            <p style={{ margin: '0', color: '#cccccc', fontSize: '14px', lineHeight: '1.4' }}>
-                                Leadership sets ambition tier → Sales determine daily target → Daypart weights redistribute based on operational reality. 
-                                This isn't about competing with each other—it's about realistic expectations that account for prep, cleanup, and peak volume demands.
-                            </p>
-                        </div>
-
-                        {/* Tier Selection */}
-                        <div style={{ marginBottom: '20px' }}>
-                            <label style={{ 
-                                display: 'block', 
-                                fontWeight: '600', 
-                                color: '#ffffff', 
-                                fontSize: '16px',
-                                marginBottom: '8px'
-                            }}>
-                                Ambition Tier (Leadership Decision)
-                            </label>
-                            <select
-                                value={selectedTier}
-                                onChange={(e) => setSelectedTier(e.target.value)}
-                                style={{
-                                    padding: '10px 12px',
-                                    border: '2px solid #3b82f6',
-                                    borderRadius: '6px',
-                                    fontSize: '14px',
-                                    backgroundColor: '#1a1a1a',
-                                    color: '#ffffff',
-                                    minWidth: '200px',
-                                    fontWeight: '600'
-                                }}
-                            >
-                                <option value="Top 50%">Top 50% - Solid Performance</option>
-                                <option value="Top 33%">Top 33% - Strong Performance</option>
-                                <option value="Top 20%">Top 20% - High Performance</option>
-                                <option value="Top 10%">Top 10% - Elite Performance</option>
-                            </select>
-                        </div>
-
-                        {/* Daily Sales Summary */}
-                        <div style={{
-                            backgroundColor: '#1e3a5f',
-                            border: '2px solid #3b82f6',
-                            borderRadius: '8px',
-                            padding: '16px',
+                            border: '1px solid #4a4a4a',
+                            borderRadius: '6px',
+                            padding: '12px',
                             marginBottom: '20px',
                             textAlign: 'center'
                         }}>
-                            <div style={{ fontSize: '18px', fontWeight: '600', color: '#60a5fa' }}>
-                                Total Daily Sales: ${getTotalSales().toLocaleString()}
+                            <p style={{ margin: '0', color: '#cccccc', fontSize: '13px', lineHeight: '1.3' }}>
+                                Tier-based targets calculated from daily sales, weighted by operational complexity
+                            </p>
+                        </div>
+
+                        {/* Main Configuration Row */}
+                        <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+                            {/* Left Side - Ambition Tiers */}
+                            <div style={{ flex: 1 }}>
+                                <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
+                                    Ambition Tier
+                                </h5>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {[
+                                        { value: 'Top 50%', label: 'Top 50% - Solid' },
+                                        { value: 'Top 33%', label: 'Top 33% - Strong' },
+                                        { value: 'Top 20%', label: 'Top 20% - High' },
+                                        { value: 'Top 10%', label: 'Top 10% - Elite' }
+                                    ].map(tier => (
+                                        <label key={tier.value} style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            color: '#cccccc',
+                                            fontSize: '12px',
+                                            cursor: 'pointer'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name="tier"
+                                                value={tier.value}
+                                                checked={selectedTier === tier.value}
+                                                onChange={(e) => setSelectedTier(e.target.value)}
+                                                style={{ margin: 0 }}
+                                            />
+                                            {tier.label}
+                                        </label>
+                                    ))}
+                                </div>
                             </div>
-                            <div style={{ fontSize: '14px', color: '#93c5fd', marginTop: '4px' }}>
-                                Sales set expectations, not performance scores
+
+                            {/* Right Side - Weight Adjustments */}
+                            <div style={{ flex: 1 }}>
+                                <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
+                                    Daypart Weights
+                                </h5>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {Object.entries(daypartWeights).map(([daypart, weight]) => (
+                                        <div key={daypart} style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center'
+                                        }}>
+                                            <span style={{
+                                                color: '#cccccc',
+                                                fontSize: '12px',
+                                                textTransform: 'capitalize',
+                                                minWidth: '60px'
+                                            }}>
+                                                {daypart}:
+                                            </span>
+                                            <input
+                                                type="number"
+                                                value={(weight * 100).toFixed(0)}
+                                                onChange={(e) => {
+                                                    const newWeight = parseFloat(e.target.value) / 100;
+                                                    setDaypartWeights(prev => ({
+                                                        ...prev,
+                                                        [daypart]: newWeight
+                                                    }));
+                                                }}
+                                                min="50"
+                                                max="150"
+                                                step="1"
+                                                style={{
+                                                    width: '45px',
+                                                    padding: '2px 4px',
+                                                    fontSize: '11px',
+                                                    backgroundColor: '#1a1a1a',
+                                                    color: '#ffffff',
+                                                    border: '1px solid #4a4a4a',
+                                                    borderRadius: '3px'
+                                                }}
+                                            />
+                                            <span style={{ color: '#888', fontSize: '11px' }}>%</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
-                        <h4 style={dashboardStyles.controlsTitle}>Actions</h4>
-                        <div style={dashboardStyles.controlsGroup}>
-                            <button style={dashboardStyles.controlButton}>
-                                Save Data
-                            </button>
-                            <button style={dashboardStyles.controlButton}>
-                                Export CSV
-                            </button>
-                            <button 
-                                style={dashboardStyles.controlButton}
-                                onClick={() => onNavigateToReports && onNavigateToReports()}
-                            >
-                                View Reports
-                            </button>
-                            <button style={dashboardStyles.controlButton}>
-                                Reset All
-                            </button>
+                        {/* Daily Sales Display */}
+                        <div style={{
+                            backgroundColor: '#1e3a5f',
+                            border: '1px solid #3b82f6',
+                            borderRadius: '6px',
+                            padding: '12px',
+                            marginBottom: '20px',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '16px', fontWeight: '600', color: '#60a5fa' }}>
+                                Total Daily Sales: ${getTotalSales().toLocaleString()}
+                            </div>
                         </div>
-                        <div style={dashboardStyles.salesInfo}>
-                            <h5 style={dashboardStyles.salesInfoTitle}>Daypart Weights (Operational Reality):</h5>
-                            <div style={dashboardStyles.salesInfoText}>
-                                <div>Breakfast: 76% - Low ticket, high prep, stock for lunch</div>
-                                <div>Lunch: 124% - Peak volume, high throughput</div>
-                                <div>Afternoon: 106% - Post-lunch cleanup + dinner prep</div>
-                                <div>Dinner: 94% - Peak volume + close-down inefficiency</div>
+
+                        {/* Data Management */}
+                        <div>
+                            <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
+                                Data Management
+                            </h5>
+                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                                <button style={{
+                                    padding: '8px 16px',
+                                    backgroundColor: '#3b82f6',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    fontWeight: '600'
+                                }}>
+                                    Save Data
+                                </button>
+                                <button style={{
+                                    padding: '8px 16px',
+                                    backgroundColor: '#059669',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    cursor: 'pointer',
+                                    fontWeight: '600'
+                                }}>
+                                    Export CSV
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -768,73 +830,67 @@ const dashboardStyles = {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        minHeight: '100vh',
+        minHeight: 'calc(100vh - 66px)',
         background: '#0E0E11',
         color: 'white',
         fontFamily: 'system-ui',
-        padding: '15px',
+        padding: '12px',
         boxSizing: 'border-box',
-    },
-    title: {
-        fontSize: '2.2rem',
-        marginBottom: '0.5rem',
-        color: '#fff',
-        textAlign: 'center',
-        fontWeight: 'bold',
     },
     mainContent: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.5rem',  // Reduced gap for tighter spacing
-        maxWidth: '1800px',
+        gap: '12px',
+        maxWidth: '1024px',
         width: '100%',
         alignItems: 'center',
     },
     dialGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '1.5rem',
+        gap: '12px',
         width: '100%',
-        marginBottom: '0.5rem',  // Reduced margin for closer spacing
+        marginBottom: '12px',
     },
     bottomRow: {
         display: 'flex',
         justifyContent: 'space-between',
         width: '100%',
-        gap: '2rem',
+        gap: '15px',
         alignItems: 'flex-start',
     },
     combinedSection: {
         display: 'flex',
-        gap: '2rem',
+        gap: '15px',
         flex: 1,
     },
     combinedDial: {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '0.5rem',
+        gap: '8px',
     },
     combinedLabel: {
-        fontSize: '1.4rem',
+        fontSize: '1.2rem',
         color: '#fff',
         fontWeight: 'bold',
-        marginBottom: '0.5rem',
+        marginBottom: '8px',
         textAlign: 'center',
     },
     controlsPanel: {
         background: '#1a1a1a',
-        padding: '1rem 1.5rem 1.5rem 1.5rem',  // Less top padding
+        padding: '16px',
         borderRadius: '8px',
         border: '1px solid #333',
-        minWidth: '750px',  // Reduced from 1000px to 750px
-        maxWidth: '850px',  // Reduced from 1100px to 850px
+        minWidth: '300px',
+        maxWidth: '340px',
+        height: 'fit-content',
     },
     controlsTitle: {
-        fontSize: '1.4rem',
+        fontSize: '1.2rem',
         color: '#fff',
-        marginBottom: '1rem',
-        marginTop: '0',  // Remove top margin
+        marginBottom: '12px',
+        marginTop: '0',
         fontWeight: 'bold',
         textAlign: 'center',
     },
@@ -896,84 +952,55 @@ const dialStyles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '0.5rem',
-        marginBottom: '0.5rem',
+        background: '#1a1a1a',
+        borderRadius: '8px',
+        border: '1px solid #333',
+        minWidth: '220px',
+        minHeight: '350px',
+        padding: '0',
+        position: 'relative',
     },
-    inputTitle: {
-        fontSize: '1.3rem',
+    daypartTitle: {
+        fontSize: '1.1rem',
         color: '#fff',
-        marginBottom: '0.25rem',
         fontWeight: 'bold',
         textAlign: 'center',
+        margin: '0',
+        padding: '12px',
+        backgroundColor: '#2a2a2a',
+        borderRadius: '8px 8px 0 0',
+        width: '100%',
+        boxSizing: 'border-box',
+    },
+    dialContainer: {
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '10px',
     },
     inputGroup: {
         display: 'flex',
-        gap: '1rem',
-        marginBottom: '0.5rem',
+        gap: '8px',
+        padding: '12px',
+        backgroundColor: '#222',
+        borderRadius: '0 0 8px 8px',
+        width: '100%',
+        boxSizing: 'border-box',
+        justifyContent: 'center',
     },
     inputField: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: '0.25rem',
-    },
-    fieldLabel: {
-        fontSize: '0.75rem',
-        color: '#aaa',
-        fontWeight: 'bold',
-        textAlign: 'center',
+        flex: 1,
     },
     input: {
-        padding: '8px 12px',
-        fontSize: '12px',
+        padding: '6px 8px',
+        fontSize: '11px',
         borderRadius: '4px',
         border: '1px solid #444',
         textAlign: 'center',
         background: '#2a2a2a',
         color: '#fff',
-        width: '100px',
-    },
-    container: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        background: '#1a1a1a',
-        borderRadius: '8px',
-        padding: '0.75rem',
-        border: '1px solid #333',
-        minWidth: '360px',
-        minHeight: '450px',  // Reduced from 520px to 450px
-    },
-    dialContainer: {
-        marginBottom: '0.75rem',
-    },
-    svg: {
-        overflow: 'visible',
-    },
-    dataSection: {
         width: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.5rem',
-        alignItems: 'center',
-        minHeight: '80px',  // Fixed minimum height
-        justifyContent: 'flex-start',
-    },
-    statusBadge: {
-        padding: '0.5rem',
-        borderRadius: '6px',
-        border: '2px solid',
-        textAlign: 'center',
-        width: '100%',
-    },
-    zoneName: {
-        fontSize: '1rem',
-        fontWeight: 'bold',
-        marginBottom: '0.25rem',
-    },
-    zoneAction: {
-        fontSize: '0.75rem',
-        color: '#ccc',
-        lineHeight: '1.2',
+        boxSizing: 'border-box',
     },
 }
