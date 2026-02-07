@@ -319,7 +319,11 @@ function CombinedProductivityDial({ title, combinedSales, combinedActual, target
 }
 
 // Main Dashboard Component
-export default function SimplifiedDashboard() {
+export default function SimplifiedDashboard({ onNavigateToReports }) {
+    // Tier selection state
+    const [selectedTier, setSelectedTier] = useState('Top 20%')
+    
+    // Sales inputs
     const [breakfastSales, setBreakfastSales] = useState('')
     const [lunchSales, setLunchSales] = useState('')
     const [afternoonSales, setAfternoonSales] = useState('')
@@ -332,6 +336,82 @@ export default function SimplifiedDashboard() {
         afternoon: '',
         dinner: ''
     })
+
+    // Tier-based productivity calculation system
+    const tierTables = {
+        'Top 50%': {
+            26000: 85, 28000: 86, 30000: 86.5, 32000: 87, 34000: 88, 36000: 89, 38000: 89.5
+        },
+        'Top 33%': {
+            26000: 88, 28000: 89, 30000: 89.5, 32000: 90, 34000: 90.5, 36000: 91, 38000: 92
+        },
+        'Top 20%': {
+            26000: 90, 28000: 91, 30000: 92, 32000: 93, 34000: 93.5, 36000: 94, 38000: 95
+        },
+        'Top 10%': {
+            26000: 93, 28000: 94, 30000: 95, 32000: 96, 34000: 97, 36000: 98, 38000: 99
+        }
+    };
+
+    const daypartWeights = {
+        'breakfast': 0.76,   // Low ticket, high prep, stock for lunch
+        'lunch': 1.24,       // Peak volume, high throughput
+        'afternoon': 1.06,   // Post-lunch cleanup + dinner prep
+        'dinner': 0.94       // Peak volume + close-down inefficiency
+    };
+
+    const getTotalSales = () => {
+        const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+        const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+        const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+        const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+        return bf + ln + af + dn
+    }
+
+    const calculateTargetProductivity = (daypartKey, totalDailySales) => {
+        const tierTable = tierTables[selectedTier];
+        if (!tierTable) return 85; // fallback
+        
+        // Find closest sales points for interpolation
+        const salesPoints = Object.keys(tierTable).map(Number).sort((a, b) => a - b);
+        
+        if (totalDailySales <= salesPoints[0]) {
+            const baseTarget = tierTable[salesPoints[0]];
+            return Math.round(baseTarget * daypartWeights[daypartKey]);
+        }
+        
+        if (totalDailySales >= salesPoints[salesPoints.length - 1]) {
+            const baseTarget = tierTable[salesPoints[salesPoints.length - 1]];
+            return Math.round(baseTarget * daypartWeights[daypartKey]);
+        }
+        
+        // Linear interpolation between two closest points
+        for (let i = 0; i < salesPoints.length - 1; i++) {
+            if (totalDailySales >= salesPoints[i] && totalDailySales <= salesPoints[i + 1]) {
+                const lower = salesPoints[i];
+                const upper = salesPoints[i + 1];
+                const ratio = (totalDailySales - lower) / (upper - lower);
+                const baseTarget = tierTable[lower] + (ratio * (tierTable[upper] - tierTable[lower]));
+                return Math.round(baseTarget * daypartWeights[daypartKey]);
+            }
+        }
+        
+        // Fallback
+        const baseTarget = tierTable[salesPoints[0]];
+        return Math.round(baseTarget * daypartWeights[daypartKey]);
+    };
+
+    // Helper function to get sales value for a daypart
+    const getDaypartSales = (daypartKey) => {
+        const salesInputs = {
+            breakfast: breakfastSales,
+            lunch: lunchSales,
+            afternoon: afternoonSales,
+            dinner: dinnerSales
+        }
+        const salesInput = salesInputs[daypartKey]
+        return salesInput ? parseInt(salesInput.replace(/[^0-9]/g, '')) : 0
+    }
 
     // Calculate Day (breakfast + lunch) and Night (afternoon + dinner) combined metrics
     const getDayCombinedSales = () => {
@@ -367,11 +447,11 @@ export default function SimplifiedDashboard() {
     }
 
     const getDayCombinedTarget = () => {
-        const daySales = getDayCombinedSales()
-        if (!daySales) return 0
+        const totalSales = getTotalSales()
+        if (!totalSales) return 0
         
-        const bfTarget = calculateTargetProductivity('breakfast', getDaypartSales('breakfast'))
-        const lnTarget = calculateTargetProductivity('lunch', getDaypartSales('lunch'))
+        const bfTarget = calculateTargetProductivity('breakfast', totalSales)
+        const lnTarget = calculateTargetProductivity('lunch', totalSales)
         const bfSales = getDaypartSales('breakfast')
         const lnSales = getDaypartSales('lunch')
         
@@ -380,66 +460,18 @@ export default function SimplifiedDashboard() {
     }
 
     const getNightCombinedTarget = () => {
-        const nightSales = getNightCombinedSales()
-        if (!nightSales) return 0
+        const totalSales = getTotalSales()
+        if (!totalSales) return 0
         
-        const afTarget = calculateTargetProductivity('afternoon', getDaypartSales('afternoon'))
-        const dnTarget = calculateTargetProductivity('dinner', getDaypartSales('dinner'))
+        const afTarget = calculateTargetProductivity('afternoon', totalSales)
+        const dnTarget = calculateTargetProductivity('dinner', totalSales)
         const afSales = getDaypartSales('afternoon')
         const dnSales = getDaypartSales('dinner')
         
         if (afSales + dnSales === 0) return 0
         return ((afSales * afTarget) + (dnSales * dnTarget)) / (afSales + dnSales)
     }
-    // Sales-driven productivity calculation using your specified ranges
-    const calculateTargetProductivity = (daypartKey, daypartSales = 0) => {
-        const salesValue = daypartSales || 0
-        
-        // Define sales ranges and corresponding productivity ranges for each daypart
-        const daypartRanges = {
-            breakfast: { salesMin: 4000, salesMax: 8000, prodMin: 60, prodMax: 80 },
-            lunch: { salesMin: 8000, salesMax: 12000, prodMin: 100, prodMax: 120 },
-            afternoon: { salesMin: 5000, salesMax: 9000, prodMin: 90, prodMax: 100 },
-            dinner: { salesMin: 8000, salesMax: 12000, prodMin: 80, prodMax: 90 }
-        }
-        
-        const range = daypartRanges[daypartKey]
-        if (!range) return 0
-        
-        // Linear interpolation within the sales range
-        let ratio = 0
-        if (salesValue <= range.salesMin) {
-            ratio = 0 // Use minimum productivity
-        } else if (salesValue >= range.salesMax) {
-            ratio = 1 // Use maximum productivity
-        } else {
-            ratio = (salesValue - range.salesMin) / (range.salesMax - range.salesMin)
-        }
-        
-        // Calculate target productivity using interpolation
-        const targetProductivity = range.prodMin + (ratio * (range.prodMax - range.prodMin))
-        return targetProductivity
-    }
-    
-    // Helper function to get sales value for a daypart
-    const getDaypartSales = (daypartKey) => {
-        const salesInputs = {
-            breakfast: breakfastSales,
-            lunch: lunchSales,
-            afternoon: afternoonSales,
-            dinner: dinnerSales
-        }
-        const salesInput = salesInputs[daypartKey]
-        return salesInput ? parseInt(salesInput.replace(/[^0-9]/g, '')) : 0
-    }
 
-    const getTotalSales = () => {
-        const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
-        const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
-        const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
-        const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
-        return bf + ln + af + dn
-    }
 
     const formatCurrency = (value) => {
         if (!value || value === '') return ''
@@ -492,8 +524,8 @@ export default function SimplifiedDashboard() {
                             title="Breakfast"
                             salesInput={breakfastSales}
                             actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
-                            targetProductivity={calculateTargetProductivity('breakfast', getDaypartSales('breakfast'))}
-                            salesContext="Sales-Driven"
+                            targetProductivity={calculateTargetProductivity('breakfast', getTotalSales())}
+                            salesContext="Tier-Based"
                         />
                     </div>
 
@@ -528,8 +560,8 @@ export default function SimplifiedDashboard() {
                             title="Lunch"
                             salesInput={lunchSales}
                             actualProductivity={parseFloat(actualProductivity.lunch) || 0}
-                            targetProductivity={calculateTargetProductivity('lunch', getDaypartSales('lunch'))}
-                            salesContext="Sales-Driven"
+                            targetProductivity={calculateTargetProductivity('lunch', getTotalSales())}
+                            salesContext="Tier-Based"
                         />
                     </div>
 
@@ -564,8 +596,8 @@ export default function SimplifiedDashboard() {
                             title="Afternoon"
                             salesInput={afternoonSales}
                             actualProductivity={parseFloat(actualProductivity.afternoon) || 0}
-                            targetProductivity={calculateTargetProductivity('afternoon', getDaypartSales('afternoon'))}
-                            salesContext="Sales-Driven"
+                            targetProductivity={calculateTargetProductivity('afternoon', getTotalSales())}
+                            salesContext="Tier-Based"
                         />
                     </div>
 
@@ -600,8 +632,8 @@ export default function SimplifiedDashboard() {
                             title="Dinner"
                             salesInput={dinnerSales}
                             actualProductivity={parseFloat(actualProductivity.dinner) || 0}
-                            targetProductivity={calculateTargetProductivity('dinner', getDaypartSales('dinner'))}
-                            salesContext="Sales-Driven"
+                            targetProductivity={calculateTargetProductivity('dinner', getTotalSales())}
+                            salesContext="Tier-Based"
                         />
                     </div>
                 </div>
@@ -632,7 +664,71 @@ export default function SimplifiedDashboard() {
 
                     {/* Controls Panel */}
                     <div style={dashboardStyles.controlsPanel}>
-                        <h4 style={dashboardStyles.controlsTitle}>Controls</h4>
+                        {/* System Explanation */}
+                        <div style={{
+                            backgroundColor: '#2a2a2a',
+                            border: '2px solid #4a4a4a',
+                            borderRadius: '8px',
+                            padding: '16px',
+                            marginBottom: '20px'
+                        }}>
+                            <h3 style={{ margin: '0 0 8px 0', color: '#ffffff', fontSize: '16px', fontWeight: '600' }}>How This Works</h3>
+                            <p style={{ margin: '0', color: '#cccccc', fontSize: '14px', lineHeight: '1.4' }}>
+                                Leadership sets ambition tier → Sales determine daily target → Daypart weights redistribute based on operational reality. 
+                                This isn't about competing with each other—it's about realistic expectations that account for prep, cleanup, and peak volume demands.
+                            </p>
+                        </div>
+
+                        {/* Tier Selection */}
+                        <div style={{ marginBottom: '20px' }}>
+                            <label style={{ 
+                                display: 'block', 
+                                fontWeight: '600', 
+                                color: '#ffffff', 
+                                fontSize: '16px',
+                                marginBottom: '8px'
+                            }}>
+                                Ambition Tier (Leadership Decision)
+                            </label>
+                            <select
+                                value={selectedTier}
+                                onChange={(e) => setSelectedTier(e.target.value)}
+                                style={{
+                                    padding: '10px 12px',
+                                    border: '2px solid #3b82f6',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
+                                    backgroundColor: '#1a1a1a',
+                                    color: '#ffffff',
+                                    minWidth: '200px',
+                                    fontWeight: '600'
+                                }}
+                            >
+                                <option value="Top 50%">Top 50% - Solid Performance</option>
+                                <option value="Top 33%">Top 33% - Strong Performance</option>
+                                <option value="Top 20%">Top 20% - High Performance</option>
+                                <option value="Top 10%">Top 10% - Elite Performance</option>
+                            </select>
+                        </div>
+
+                        {/* Daily Sales Summary */}
+                        <div style={{
+                            backgroundColor: '#1e3a5f',
+                            border: '2px solid #3b82f6',
+                            borderRadius: '8px',
+                            padding: '16px',
+                            marginBottom: '20px',
+                            textAlign: 'center'
+                        }}>
+                            <div style={{ fontSize: '18px', fontWeight: '600', color: '#60a5fa' }}>
+                                Total Daily Sales: ${getTotalSales().toLocaleString()}
+                            </div>
+                            <div style={{ fontSize: '14px', color: '#93c5fd', marginTop: '4px' }}>
+                                Sales set expectations, not performance scores
+                            </div>
+                        </div>
+
+                        <h4 style={dashboardStyles.controlsTitle}>Actions</h4>
                         <div style={dashboardStyles.controlsGroup}>
                             <button style={dashboardStyles.controlButton}>
                                 Save Data
@@ -640,17 +736,23 @@ export default function SimplifiedDashboard() {
                             <button style={dashboardStyles.controlButton}>
                                 Export CSV
                             </button>
+                            <button 
+                                style={dashboardStyles.controlButton}
+                                onClick={() => onNavigateToReports && onNavigateToReports()}
+                            >
+                                View Reports
+                            </button>
                             <button style={dashboardStyles.controlButton}>
                                 Reset All
                             </button>
                         </div>
                         <div style={dashboardStyles.salesInfo}>
-                            <h5 style={dashboardStyles.salesInfoTitle}>Sales-Driven Targets:</h5>
+                            <h5 style={dashboardStyles.salesInfoTitle}>Daypart Weights (Operational Reality):</h5>
                             <div style={dashboardStyles.salesInfoText}>
-                                <div>Breakfast: $4k-$8k → 60-80%</div>
-                                <div>Lunch: $8k-$12k → 100-120%</div>
-                                <div>Afternoon: $5k-$9k → 90-100%</div>
-                                <div>Dinner: $8k-$12k → 80-90%</div>
+                                <div>Breakfast: 76% - Low ticket, high prep, stock for lunch</div>
+                                <div>Lunch: 124% - Peak volume, high throughput</div>
+                                <div>Afternoon: 106% - Post-lunch cleanup + dinner prep</div>
+                                <div>Dinner: 94% - Peak volume + close-down inefficiency</div>
                             </div>
                         </div>
                     </div>
