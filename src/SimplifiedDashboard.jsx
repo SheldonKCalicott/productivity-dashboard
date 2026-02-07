@@ -361,13 +361,6 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
         }
     };
 
-    const daypartWeights = {
-        'breakfast': 0.76,   // Low ticket, high prep, stock for lunch
-        'lunch': 1.24,       // Peak volume, high throughput
-        'afternoon': 1.06,   // Post-lunch cleanup + dinner prep
-        'dinner': 0.94       // Peak volume + close-down inefficiency
-    };
-
     const getTotalSales = () => {
         const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
         const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
@@ -500,37 +493,38 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                 {/* Four Main Daypart Dials */}
                 <div style={dashboardStyles.dialGrid}>
                     <div style={dialStyles.inputSection}>
-                    <h4 style={dialStyles.daypartTitle}>Breakfast</h4>
-                    <div style={dialStyles.dialContainer}>
-                        <SimplifiedProductivityDial
-                            title="Breakfast"
-                            salesInput={breakfastSales}
-                            actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
-                            targetProductivity={calculateTargetProductivity('breakfast', getDaypartSales('breakfast') || 6000)}
-                            salesContext="Tier-Based"
-                        />
-                    </div>
-                    <div style={dialStyles.inputGroup}>
-                        <div style={dialStyles.inputField}>
-                            <input
-                                type="text"
-                                placeholder="Sales: $6,000"
-                                value={formatCurrency(breakfastSales)}
-                                onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))}
-                                style={dialStyles.input}
+                        <h4 style={dialStyles.daypartTitle}>Breakfast</h4>
+                        <div style={dialStyles.dialContainer}>
+                            <SimplifiedProductivityDial
+                                title="Breakfast"
+                                salesInput={breakfastSales}
+                                actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
+                                targetProductivity={calculateTargetProductivity('breakfast', getDaypartSales('breakfast') || 6000)}
+                                salesContext="Tier-Based"
                             />
                         </div>
-                        <div style={dialStyles.inputField}>
-                            <input
-                                type="text"
-                                placeholder="Actual Productivity: 66%"
-                                value={actualProductivity.breakfast}
-                                onChange={(e) => setActualProductivity(prev => ({
-                                    ...prev,
-                                    breakfast: e.target.value.replace(/[^0-9.]/g, '')
-                                }))}
-                                style={dialStyles.input}
-                            />
+                        <div style={dialStyles.inputGroup}>
+                            <div style={dialStyles.inputField}>
+                                <input
+                                    type="text"
+                                    placeholder="Sales: $6,000"
+                                    value={formatCurrency(breakfastSales)}
+                                    onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))}
+                                    style={dialStyles.input}
+                                />
+                            </div>
+                            <div style={dialStyles.inputField}>
+                                <input
+                                    type="text"
+                                    placeholder="Actual Productivity: 66%"
+                                    value={actualProductivity.breakfast}
+                                    onChange={(e) => setActualProductivity(prev => ({
+                                        ...prev,
+                                        breakfast: e.target.value.replace(/[^0-9.]/g, '')
+                                    }))}
+                                    style={dialStyles.input}
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -671,7 +665,6 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                     <div style={dashboardStyles.controlsPanel}>
                         <h4 style={dashboardStyles.controlsTitle}>System Configuration</h4>
                         
-                        {/* System Description */}
                         <div style={{
                             backgroundColor: '#2a2a2a',
                             border: '1px solid #4a4a4a',
@@ -685,9 +678,7 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                             </p>
                         </div>
 
-                        {/* Main Configuration Row */}
                         <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-                            {/* Left Side - Ambition Tiers */}
                             <div style={{ flex: 1 }}>
                                 <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
                                     Ambition Tier
@@ -721,7 +712,6 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                 </div>
                             </div>
 
-                            {/* Right Side - Weight Adjustments */}
                             <div style={{ flex: 1 }}>
                                 <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
                                     Daypart Weights
@@ -771,7 +761,6 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                             </div>
                         </div>
 
-                        {/* Daily Sales Display */}
                         <div style={{
                             backgroundColor: '#1e3a5f',
                             border: '1px solid #3b82f6',
@@ -785,7 +774,6 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                             </div>
                         </div>
 
-                        {/* Data Management */}
                         <div>
                             <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
                                 Data Management
@@ -821,7 +809,7 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                 </div>
             </div>
         </div>
-    )
+    );
 }
 
 const dashboardStyles = {
@@ -893,57 +881,6 @@ const dashboardStyles = {
         marginTop: '0',
         fontWeight: 'bold',
         textAlign: 'center',
-    },
-    controlsGroup: {
-        display: 'flex',
-        flexDirection: 'row',
-        gap: '1rem',
-        marginBottom: '1.5rem',
-        flexWrap: 'wrap',
-    },
-    controlsLabel: {
-        fontSize: '0.9rem',
-        color: '#fff',
-        fontWeight: 'bold',
-    },
-    selectInput: {
-        padding: '8px 12px',
-        fontSize: '14px',
-        borderRadius: '4px',
-        border: '1px solid #444',
-        background: '#333',
-        color: '#fff',
-        minWidth: '150px',
-        cursor: 'pointer',
-    },
-    controlButton: {
-        padding: '12px 24px',
-        fontSize: '14px',
-        borderRadius: '4px',
-        border: '1px solid #444',
-        background: '#333',
-        color: '#fff',
-        cursor: 'pointer',
-        transition: 'background 0.2s ease',
-        flex: '1',
-        minWidth: '120px',
-    },
-    salesInfo: {
-        background: '#2a2a2a',
-        padding: '1rem',
-        borderRadius: '6px',
-        border: '1px solid #555',
-    },
-    salesInfoTitle: {
-        fontSize: '1rem',
-        color: '#fff',
-        marginBottom: '0.5rem',
-        fontWeight: 'bold',
-    },
-    salesInfoText: {
-        fontSize: '0.85rem',
-        color: '#ccc',
-        lineHeight: '1.4',
     },
 }
 
