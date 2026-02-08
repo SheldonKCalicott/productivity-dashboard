@@ -7,6 +7,12 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     const MIN_PRODUCTIVITY = Math.max(1, targetProductivity - DIAL_RANGE/2)
     const MAX_PRODUCTIVITY = targetProductivity + DIAL_RANGE/2
     
+    // Dynamic dial size based on type
+    const dialSize = isDayNight ? 180 : 260
+    const centerX = dialSize / 2
+    const centerY = dialSize / 2
+    const radius = (dialSize / 2) - 30
+    
     // Dial angles: 300° span from 120° to 60° (utilizing more of the gauge)
     const START_ANGLE = 120
     const END_ANGLE = 60
@@ -59,16 +65,16 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
             if (angle >= 360) angle -= 360
 
             const radians = (angle * Math.PI) / 180
-            const outerRadius = 138
-            const innerRadius = 125
-            const labelRadius = 165  // Increased from 150 to move labels further out
+            const outerRadius = radius - 10
+            const innerRadius = radius - 23
+            const labelRadius = radius + 17  // Increased to move labels further out
             
-            const outerX = 160 + outerRadius * Math.cos(radians)
-            const outerY = 160 + outerRadius * Math.sin(radians)
-            const innerX = 160 + innerRadius * Math.cos(radians)
-            const innerY = 160 + innerRadius * Math.sin(radians)
-            const labelX = 160 + labelRadius * Math.cos(radians)
-            const labelY = 160 + labelRadius * Math.sin(radians)
+            const outerX = centerX + outerRadius * Math.cos(radians)
+            const outerY = centerY + outerRadius * Math.sin(radians)
+            const innerX = centerX + innerRadius * Math.cos(radians)
+            const innerY = centerY + innerRadius * Math.sin(radians)
+            const labelX = centerX + labelRadius * Math.cos(radians)
+            const labelY = centerY + labelRadius * Math.sin(radians)
 
             // Highlight the target tick
             const isTarget = Math.abs(productivity - targetProductivity) < 2
@@ -88,7 +94,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                             x={labelX}
                             y={labelY}
                             fill={isTarget ? "#fff" : "#aaa"}
-                            fontSize={isTarget ? "22" : "20"}
+                            fontSize={isDayNight ? (isTarget ? "18" : "16") : (isTarget ? "22" : "20")}
                             fontWeight={isTarget ? "bold" : "normal"}
                             textAnchor="middle"
                             dominantBaseline="middle"
@@ -107,9 +113,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
         if (!targetAngle) return null
 
         const createArc = (startAngle, endAngle, color, opacity = 0.15) => {
-            const radius = 115
-            const centerX = 160
-            const centerY = 160
+            const arcRadius = radius - 32
             
             let actualEndAngle = endAngle
             if (endAngle < startAngle) {
@@ -119,10 +123,10 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
             const startRadian = (startAngle * Math.PI) / 180
             const endRadian = (actualEndAngle * Math.PI) / 180
             
-            const x1 = centerX + radius * Math.cos(startRadian)
-            const y1 = centerY + radius * Math.sin(startRadian)
-            const x2 = centerX + radius * Math.cos((endAngle * Math.PI) / 180)
-            const y2 = centerY + radius * Math.sin((endAngle * Math.PI) / 180)
+            const x1 = centerX + arcRadius * Math.cos(startRadian)
+            const y1 = centerY + arcRadius * Math.sin(startRadian)
+            const x2 = centerX + arcRadius * Math.cos((endAngle * Math.PI) / 180)
+            const y2 = centerY + arcRadius * Math.sin((endAngle * Math.PI) / 180)
             
             const largeArc = (actualEndAngle - startAngle) > 180 ? 1 : 0
             
@@ -130,7 +134,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
             
             return (
                 <path
-                    d={`M ${centerX} ${centerY} L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                    d={`M ${centerX} ${centerY} L ${x1} ${y1} A ${arcRadius} ${arcRadius} 0 ${largeArc} 1 ${x2} ${y2} Z`}
                     fill={color}
                     opacity={opacity}
                 />
@@ -184,12 +188,12 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     return (
         <div style={dialStyles.container}>
             <div style={dialStyles.dialContainer}>
-                <svg width="320" height="320" style={dialStyles.svg}>
+                <svg width={dialSize} height={dialSize} style={dialStyles.svg}>
                     {/* Background circle */}
                     <circle
-                        cx="160"
-                        cy="160"
-                        r="145"
+                        cx={centerX}
+                        cy={centerY}
+                        r={radius + 15}
                         fill="#15161A"
                         stroke="#444"
                         strokeWidth="2"
@@ -205,19 +209,19 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     {targetAngle !== null && (
                         <>
                             <line
-                                x1={160 + 105 * Math.cos((targetAngle * Math.PI) / 180)}
-                                y1={160 + 105 * Math.sin((targetAngle * Math.PI) / 180)}
-                                x2={160 + 125 * Math.cos((targetAngle * Math.PI) / 180)}
-                                y2={160 + 125 * Math.sin((targetAngle * Math.PI) / 180)}
+                                x1={centerX + (radius - 25) * Math.cos((targetAngle * Math.PI) / 180)}
+                                y1={centerY + (radius - 25) * Math.sin((targetAngle * Math.PI) / 180)}
+                                x2={centerX + (radius - 5) * Math.cos((targetAngle * Math.PI) / 180)}
+                                y2={centerY + (radius - 5) * Math.sin((targetAngle * Math.PI) / 180)}
                                 stroke="#fff"
                                 strokeWidth="6"
                                 strokeLinecap="round"
                             />
                             <text
-                                x={160 + 90 * Math.cos((targetAngle * Math.PI) / 180)}
-                                y={160 + 90 * Math.sin((targetAngle * Math.PI) / 180)}
+                                x={centerX + (radius - 40) * Math.cos((targetAngle * Math.PI) / 180)}
+                                y={centerY + (radius - 40) * Math.sin((targetAngle * Math.PI) / 180)}
                                 fill="#fff"
-                                fontSize="13"
+                                fontSize={isDayNight ? "10" : "13"}
                                 fontWeight="bold"
                                 textAnchor="middle"
                                 dominantBaseline="middle"
@@ -230,12 +234,12 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     {/* Actual productivity needle */}
                     {actualAngle !== null && (
                         <line
-                            x1="160"
-                            y1="160"
-                            x2={160 + 100 * Math.cos((actualAngle * Math.PI) / 180)}
-                            y2={160 + 100 * Math.sin((actualAngle * Math.PI) / 180)}
+                            x1={centerX}
+                            y1={centerY}
+                            x2={centerX + (radius - 30) * Math.cos((actualAngle * Math.PI) / 180)}
+                            y2={centerY + (radius - 30) * Math.sin((actualAngle * Math.PI) / 180)}
                             stroke={currentZone?.color || "#fff"}
-                            strokeWidth="5"
+                            strokeWidth={isDayNight ? "3" : "5"}
                             strokeLinecap="round"
                             style={{ transition: 'all 0.3s ease-in-out' }}
                         />
@@ -243,9 +247,9 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     
                     {/* Center dot */}
                     <circle
-                        cx="160"
-                        cy="160"
-                        r="6"
+                        cx={centerX}
+                        cy={centerY}
+                        r={isDayNight ? "4" : "6"}
                         fill="#fff"
                     />
                     
@@ -253,20 +257,20 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     {laborDelta !== null && (
                         <g>
                             <rect
-                                x="130"
-                                y="230"
+                                x={centerX - 30}
+                                y={centerY + 70}
                                 width="60"
-                                height="28"
+                                height={isDayNight ? "22" : "28"}
                                 rx="14"
                                 fill="#333"
                                 stroke="#666"
                                 strokeWidth="1"
                             />
                             <text
-                                x="160"
-                                y="246"
+                                x={centerX}
+                                y={centerY + (isDayNight ? 82 : 86)}
                                 fill={laborDelta > 0 ? "#ff6666" : "#66ff66"}
-                                fontSize="13"
+                                fontSize={isDayNight ? "10" : "13"}
                                 fontWeight="bold"
                                 textAnchor="middle"
                                 dominantBaseline="middle"
@@ -303,7 +307,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
 }
 
 // Day/Night Combined Productivity Dial
-function CombinedProductivityDial({ title, combinedSales, combinedActual, targetProductivity }) {
+function CombinedProductivityDial({ title, combinedSales, combinedActual, targetProductivity, isDayNight = false }) {
     const salesValue = combinedSales || 0
     
     return (
@@ -715,6 +719,7 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                 combinedSales={getDayCombinedSales()}
                                 combinedActual={getDayCombinedActual()}
                                 targetProductivity={getDayCombinedTarget()}
+                                isDayNight={true}
                             />
                         </div>
                         <div style={dashboardStyles.combinedDial}>
@@ -724,6 +729,7 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                 combinedSales={getNightCombinedSales()}
                                 combinedActual={getNightCombinedActual()}
                                 targetProductivity={getNightCombinedTarget()}
+                                isDayNight={true}
                             />
                         </div>
                     </div>
@@ -949,17 +955,19 @@ const dashboardStyles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '6px',
+        gap: '4px',
         background: '#1a1a1a',
-        borderRadius: '8px',
+        borderRadius: '6px',
         border: '1px solid #333',
-        padding: '12px',
+        padding: '8px',
+        minWidth: '120px',
+        maxWidth: '140px',
     },
     combinedLabel: {
-        fontSize: '1.1rem',
+        fontSize: '0.9rem',
         color: '#fff',
         fontWeight: 'bold',
-        marginBottom: '6px',
+        marginBottom: '4px',
         textAlign: 'center',
     },
     controlsPanel: {
@@ -967,8 +975,8 @@ const dashboardStyles = {
         padding: '16px',
         borderRadius: '8px',
         border: '1px solid #333',
-        minWidth: '320px',
-        maxWidth: '360px',
+        minWidth: '600px',
+        maxWidth: '680px',
         height: 'fit-content',
     },
     controlsTitle: {
