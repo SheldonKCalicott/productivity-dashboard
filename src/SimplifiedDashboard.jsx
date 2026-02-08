@@ -344,6 +344,17 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
         afternoon: '',
         dinner: ''
     })
+    
+    // Person In Charge (PIC) names for each daypart
+    const [picNames, setPicNames] = useState({
+        breakfast: '',
+        lunch: '',
+        afternoon: '',
+        dinner: ''
+    })
+    
+    // Export date range selection
+    const [exportDateRange, setExportDateRange] = useState('this-week')
 
     // Tier-based productivity calculation system
     const tierTables = {
@@ -504,25 +515,39 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                             />
                         </div>
                         <div style={dialStyles.inputGroup}>
-                            <div style={dialStyles.inputField}>
-                                <input
-                                    type="text"
-                                    placeholder="Sales: $6,000"
-                                    value={formatCurrency(breakfastSales)}
-                                    onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))}
-                                    style={dialStyles.input}
-                                />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="Sales"
+                                        value={formatCurrency(breakfastSales)}
+                                        onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))}
+                                        style={dialStyles.input}
+                                    />
+                                </div>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="Performance Score"
+                                        value={actualProductivity.breakfast}
+                                        onChange={(e) => setActualProductivity(prev => ({
+                                            ...prev,
+                                            breakfast: e.target.value.replace(/[^0-9.]/g, '')
+                                        }))}
+                                        style={dialStyles.input}
+                                    />
+                                </div>
                             </div>
-                            <div style={dialStyles.inputField}>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
                                 <input
                                     type="text"
-                                    placeholder="Actual Productivity: 66%"
-                                    value={actualProductivity.breakfast}
-                                    onChange={(e) => setActualProductivity(prev => ({
+                                    placeholder="PIC Name"
+                                    value={picNames.breakfast}
+                                    onChange={(e) => setPicNames(prev => ({
                                         ...prev,
-                                        breakfast: e.target.value.replace(/[^0-9.]/g, '')
+                                        breakfast: e.target.value
                                     }))}
-                                    style={dialStyles.input}
+                                    style={{ ...dialStyles.input, width: '70%' }}
                                 />
                             </div>
                         </div>
@@ -540,25 +565,39 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                             />
                         </div>
                         <div style={dialStyles.inputGroup}>
-                            <div style={dialStyles.inputField}>
-                                <input
-                                    type="text"
-                                    placeholder="Sales: $10,000"
-                                    value={formatCurrency(lunchSales)}
-                                    onChange={(e) => setLunchSales(parseCurrency(e.target.value))}
-                                    style={dialStyles.input}
-                                />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="Sales"
+                                        value={formatCurrency(lunchSales)}
+                                        onChange={(e) => setLunchSales(parseCurrency(e.target.value))}
+                                        style={dialStyles.input}
+                                    />
+                                </div>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="Performance Score"
+                                        value={actualProductivity.lunch}
+                                        onChange={(e) => setActualProductivity(prev => ({
+                                            ...prev,
+                                            lunch: e.target.value.replace(/[^0-9.]/g, '')
+                                        }))}
+                                        style={dialStyles.input}
+                                    />
+                                </div>
                             </div>
-                            <div style={dialStyles.inputField}>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
                                 <input
                                     type="text"
-                                    placeholder="Actual Productivity: 107%"
-                                    value={actualProductivity.lunch}
-                                    onChange={(e) => setActualProductivity(prev => ({
+                                    placeholder="PIC Name"
+                                    value={picNames.lunch}
+                                    onChange={(e) => setPicNames(prev => ({
                                         ...prev,
-                                        lunch: e.target.value.replace(/[^0-9.]/g, '')
+                                        lunch: e.target.value
                                     }))}
-                                    style={dialStyles.input}
+                                    style={{ ...dialStyles.input, width: '70%' }}
                                 />
                             </div>
                         </div>
@@ -576,25 +615,39 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                             />
                         </div>
                         <div style={dialStyles.inputGroup}>
-                            <div style={dialStyles.inputField}>
-                                <input
-                                    type="text"
-                                    placeholder="Sales: $7,000"
-                                    value={formatCurrency(afternoonSales)}
-                                    onChange={(e) => setAfternoonSales(parseCurrency(e.target.value))}
-                                    style={dialStyles.input}
-                                />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="Sales"
+                                        value={formatCurrency(afternoonSales)}
+                                        onChange={(e) => setAfternoonSales(parseCurrency(e.target.value))}
+                                        style={dialStyles.input}
+                                    />
+                                </div>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="Performance Score"
+                                        value={actualProductivity.afternoon}
+                                        onChange={(e) => setActualProductivity(prev => ({
+                                            ...prev,
+                                            afternoon: e.target.value.replace(/[^0-9.]/g, '')
+                                        }))}
+                                        style={dialStyles.input}
+                                    />
+                                </div>
                             </div>
-                            <div style={dialStyles.inputField}>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
                                 <input
                                     type="text"
-                                    placeholder="Actual Productivity: 91%"
-                                    value={actualProductivity.afternoon}
-                                    onChange={(e) => setActualProductivity(prev => ({
+                                    placeholder="PIC Name"
+                                    value={picNames.afternoon}
+                                    onChange={(e) => setPicNames(prev => ({
                                         ...prev,
-                                        afternoon: e.target.value.replace(/[^0-9.]/g, '')
+                                        afternoon: e.target.value
                                     }))}
-                                    style={dialStyles.input}
+                                    style={{ ...dialStyles.input, width: '70%' }}
                                 />
                             </div>
                         </div>
@@ -612,25 +665,39 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                             />
                         </div>
                         <div style={dialStyles.inputGroup}>
-                            <div style={dialStyles.inputField}>
-                                <input
-                                    type="text"
-                                    placeholder="Sales: $10,000"
-                                    value={formatCurrency(dinnerSales)}
-                                    onChange={(e) => setDinnerSales(parseCurrency(e.target.value))}
-                                    style={dialStyles.input}
-                                />
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="Sales"
+                                        value={formatCurrency(dinnerSales)}
+                                        onChange={(e) => setDinnerSales(parseCurrency(e.target.value))}
+                                        style={dialStyles.input}
+                                    />
+                                </div>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="Performance Score"
+                                        value={actualProductivity.dinner}
+                                        onChange={(e) => setActualProductivity(prev => ({
+                                            ...prev,
+                                            dinner: e.target.value.replace(/[^0-9.]/g, '')
+                                        }))}
+                                        style={dialStyles.input}
+                                    />
+                                </div>
                             </div>
-                            <div style={dialStyles.inputField}>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
                                 <input
                                     type="text"
-                                    placeholder="Actual Productivity: 81%"
-                                    value={actualProductivity.dinner}
-                                    onChange={(e) => setActualProductivity(prev => ({
+                                    placeholder="PIC Name"
+                                    value={picNames.dinner}
+                                    onChange={(e) => setPicNames(prev => ({
                                         ...prev,
-                                        dinner: e.target.value.replace(/[^0-9.]/g, '')
+                                        dinner: e.target.value
                                     }))}
-                                    style={dialStyles.input}
+                                    style={{ ...dialStyles.input, width: '70%' }}
                                 />
                             </div>
                         </div>
@@ -663,7 +730,7 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
 
                     {/* Controls Panel */}
                     <div style={dashboardStyles.controlsPanel}>
-                        <h4 style={dashboardStyles.controlsTitle}>System Configuration</h4>
+                        <h4 style={dashboardStyles.controlsTitle}>Performance Settings</h4>
                         
                         <div style={{
                             backgroundColor: '#2a2a2a',
@@ -714,70 +781,96 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
 
                             <div style={{ flex: 1 }}>
                                 <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
-                                    Daypart Weights
+                                    Operational Complexity (Starting Values)
                                 </h5>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                    {Object.entries(daypartWeights).map(([daypart, weight]) => (
-                                        <div key={daypart} style={{
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {[
+                                        { key: 'breakfast', name: 'Breakfast', desc: 'Complex items, lower ticket, stock/prep for lunch', weight: 76 },
+                                        { key: 'lunch', name: 'Lunch', desc: 'Peak volume, full team locked in', weight: 124 },
+                                        { key: 'afternoon', name: 'Afternoon', desc: 'Cleanup + dinner prep', weight: 106 },
+                                        { key: 'dinner', name: 'Dinner', desc: 'Peak period + cleanup, stock & close', weight: 94 }
+                                    ].map(({ key, name, desc, weight }) => (
+                                        <div key={key} style={{
                                             display: 'flex',
                                             justifyContent: 'space-between',
-                                            alignItems: 'center'
+                                            alignItems: 'center',
+                                            padding: '4px 0'
                                         }}>
-                                            <span style={{
-                                                color: '#cccccc',
-                                                fontSize: '12px',
-                                                textTransform: 'capitalize',
-                                                minWidth: '60px'
-                                            }}>
-                                                {daypart}:
-                                            </span>
-                                            <input
-                                                type="number"
-                                                value={(weight * 100).toFixed(0)}
-                                                onChange={(e) => {
-                                                    const newWeight = parseFloat(e.target.value) / 100;
-                                                    setDaypartWeights(prev => ({
-                                                        ...prev,
-                                                        [daypart]: newWeight
-                                                    }));
-                                                }}
-                                                min="50"
-                                                max="150"
-                                                step="1"
-                                                style={{
-                                                    width: '48px',
-                                                    padding: '4px 6px',
-                                                    fontSize: '12px',
-                                                    backgroundColor: '#1a1a1a',
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{
                                                     color: '#ffffff',
-                                                    border: '1px solid #4a4a4a',
-                                                    borderRadius: '3px'
-                                                }}
-                                            />
-                                            <span style={{ color: '#888', fontSize: '12px' }}>%</span>
+                                                    fontSize: '12px',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {name}
+                                                </div>
+                                                <div style={{
+                                                    color: '#888',
+                                                    fontSize: '10px'
+                                                }}>
+                                                    {desc}
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                <input
+                                                    type="number"
+                                                    value={(daypartWeights[key] * 100).toFixed(0)}
+                                                    onChange={(e) => {
+                                                        const newWeight = parseFloat(e.target.value) / 100;
+                                                        setDaypartWeights(prev => ({
+                                                            ...prev,
+                                                            [key]: newWeight
+                                                        }));
+                                                    }}
+                                                    min="50"
+                                                    max="150"
+                                                    step="1"
+                                                    style={{
+                                                        width: '48px',
+                                                        padding: '4px 6px',
+                                                        fontSize: '12px',
+                                                        backgroundColor: '#1a1a1a',
+                                                        color: '#ffffff',
+                                                        border: '1px solid #4a4a4a',
+                                                        borderRadius: '3px'
+                                                    }}
+                                                />
+                                                <span style={{ color: '#888', fontSize: '12px' }}>%</span>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         </div>
 
-                        <div style={{
-                            backgroundColor: '#1e3a5f',
-                            border: '1px solid #3b82f6',
-                            borderRadius: '6px',
-                            padding: '12px',
-                            marginBottom: '16px',
-                            textAlign: 'center'
-                        }}>
-                            <div style={{ fontSize: '16px', fontWeight: '600', color: '#60a5fa' }}>
-                                Total Daily Sales: ${getTotalSales().toLocaleString()}
-                            </div>
-                        </div>
-
-                        <div>
+<div>
                             <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
                                 Data Management
                             </h5>
+                            <div style={{ marginBottom: '12px' }}>
+                                <label style={{ display: 'block', color: '#cccccc', fontSize: '12px', marginBottom: '6px' }}>
+                                    Export Date Range:
+                                </label>
+                                <select 
+                                    value={exportDateRange}
+                                    onChange={(e) => setExportDateRange(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '6px 8px',
+                                        fontSize: '12px',
+                                        backgroundColor: '#1a1a1a',
+                                        color: '#ffffff',
+                                        border: '1px solid #4a4a4a',
+                                        borderRadius: '3px',
+                                        marginBottom: '8px'
+                                    }}>
+                                    <option value="this-week">This Week</option>
+                                    <option value="last-week">Last Week</option>
+                                    <option value="last-month">Last Month</option>
+                                    <option value="last-quarter">Last Quarter</option>
+                                    <option value="custom">Custom Dates</option>
+                                </select>
+                            </div>
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                 <button style={{
                                     padding: '8px 14px',
@@ -828,17 +921,17 @@ const dashboardStyles = {
     mainContent: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px',
-        maxWidth: '1200px',
+        gap: '14px',
+        maxWidth: '1350px',
         width: '100%',
         alignItems: 'center',
     },
     dialGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '14px',
+        gap: '16px',
         width: '100%',
-        marginBottom: '16px',
+        marginBottom: '14px',
     },
     bottomRow: {
         display: 'flex',
@@ -856,13 +949,17 @@ const dashboardStyles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '8px',
+        gap: '6px',
+        background: '#1a1a1a',
+        borderRadius: '8px',
+        border: '1px solid #333',
+        padding: '12px',
     },
     combinedLabel: {
-        fontSize: '1.3rem',
+        fontSize: '1.1rem',
         color: '#fff',
         fontWeight: 'bold',
-        marginBottom: '8px',
+        marginBottom: '6px',
         textAlign: 'center',
     },
     controlsPanel: {
@@ -892,8 +989,8 @@ const dialStyles = {
         background: '#1a1a1a',
         borderRadius: '8px',
         border: '1px solid #333',
-        minWidth: '240px',
-        minHeight: '320px',
+        minWidth: '280px',
+        minHeight: '380px',
         padding: '0',
         position: 'relative',
     },
@@ -918,6 +1015,7 @@ const dialStyles = {
     },
     inputGroup: {
         display: 'flex',
+        flexDirection: 'column',
         gap: '8px',
         padding: '12px',
         backgroundColor: '#222',
