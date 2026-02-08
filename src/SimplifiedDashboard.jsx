@@ -668,22 +668,22 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                         <div style={{
                             backgroundColor: '#2a2a2a',
                             border: '1px solid #4a4a4a',
-                            borderRadius: '6px',
-                            padding: '12px',
-                            marginBottom: '20px',
+                            borderRadius: '8px',
+                            padding: '16px',
+                            marginBottom: '24px',
                             textAlign: 'center'
                         }}>
-                            <p style={{ margin: '0', color: '#cccccc', fontSize: '13px', lineHeight: '1.3' }}>
+                            <p style={{ margin: '0', color: '#cccccc', fontSize: '15px', lineHeight: '1.4' }}>
                                 Tier-based targets calculated from daily sales, weighted by operational complexity
                             </p>
                         </div>
 
-                        <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', gap: '24px', marginBottom: '24px' }}>
                             <div style={{ flex: 1 }}>
-                                <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
+                                <h5 style={{ margin: '0 0 16px 0', color: '#ffffff', fontSize: '16px', fontWeight: '600' }}>
                                     Ambition Tier
                                 </h5>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     {[
                                         { value: 'Top 50%', label: 'Top 50% - Solid' },
                                         { value: 'Top 33%', label: 'Top 33% - Strong' },
@@ -695,7 +695,7 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                             alignItems: 'center',
                                             gap: '8px',
                                             color: '#cccccc',
-                                            fontSize: '12px',
+                                            fontSize: '14px',
                                             cursor: 'pointer'
                                         }}>
                                             <input
@@ -713,10 +713,10 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                             </div>
 
                             <div style={{ flex: 1 }}>
-                                <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
+                                <h5 style={{ margin: '0 0 16px 0', color: '#ffffff', fontSize: '16px', fontWeight: '600' }}>
                                     Daypart Weights
                                 </h5>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                     {Object.entries(daypartWeights).map(([daypart, weight]) => (
                                         <div key={daypart} style={{
                                             display: 'flex',
@@ -725,9 +725,9 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                         }}>
                                             <span style={{
                                                 color: '#cccccc',
-                                                fontSize: '12px',
+                                                fontSize: '14px',
                                                 textTransform: 'capitalize',
-                                                minWidth: '60px'
+                                                minWidth: '70px'
                                             }}>
                                                 {daypart}:
                                             </span>
@@ -745,16 +745,16 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                                 max="150"
                                                 step="1"
                                                 style={{
-                                                    width: '45px',
-                                                    padding: '2px 4px',
-                                                    fontSize: '11px',
+                                                    width: '55px',
+                                                    padding: '6px 8px',
+                                                    fontSize: '14px',
                                                     backgroundColor: '#1a1a1a',
                                                     color: '#ffffff',
                                                     border: '1px solid #4a4a4a',
-                                                    borderRadius: '3px'
+                                                    borderRadius: '4px'
                                                 }}
                                             />
-                                            <span style={{ color: '#888', fontSize: '11px' }}>%</span>
+                                            <span style={{ color: '#888', fontSize: '14px' }}>%</span>
                                         </div>
                                     ))}
                                 </div>
@@ -764,40 +764,40 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                         <div style={{
                             backgroundColor: '#1e3a5f',
                             border: '1px solid #3b82f6',
-                            borderRadius: '6px',
-                            padding: '12px',
-                            marginBottom: '20px',
+                            borderRadius: '8px',
+                            padding: '16px',
+                            marginBottom: '24px',
                             textAlign: 'center'
                         }}>
-                            <div style={{ fontSize: '16px', fontWeight: '600', color: '#60a5fa' }}>
+                            <div style={{ fontSize: '18px', fontWeight: '600', color: '#60a5fa' }}>
                                 Total Daily Sales: ${getTotalSales().toLocaleString()}
                             </div>
                         </div>
 
                         <div>
-                            <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
+                            <h5 style={{ margin: '0 0 16px 0', color: '#ffffff', fontSize: '16px', fontWeight: '600' }}>
                                 Data Management
                             </h5>
-                            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                                 <button style={{
-                                    padding: '8px 16px',
+                                    padding: '12px 20px',
                                     backgroundColor: '#3b82f6',
                                     color: '#ffffff',
                                     border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '12px',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
                                     cursor: 'pointer',
                                     fontWeight: '600'
                                 }}>
                                     Save Data
                                 </button>
                                 <button style={{
-                                    padding: '8px 16px',
+                                    padding: '12px 20px',
                                     backgroundColor: '#059669',
                                     color: '#ffffff',
                                     border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '12px',
+                                    borderRadius: '6px',
+                                    fontSize: '14px',
                                     cursor: 'pointer',
                                     fontWeight: '600'
                                 }}>
@@ -822,62 +822,62 @@ const dashboardStyles = {
         background: '#0E0E11',
         color: 'white',
         fontFamily: 'system-ui',
-        padding: '12px',
+        padding: '20px',
         boxSizing: 'border-box',
     },
     mainContent: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px',
-        maxWidth: '1024px',
+        gap: '24px',
+        maxWidth: '1400px',
         width: '100%',
         alignItems: 'center',
     },
     dialGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '12px',
+        gap: '20px',
         width: '100%',
-        marginBottom: '12px',
+        marginBottom: '24px',
     },
     bottomRow: {
         display: 'flex',
         justifyContent: 'space-between',
         width: '100%',
-        gap: '15px',
+        gap: '24px',
         alignItems: 'flex-start',
     },
     combinedSection: {
         display: 'flex',
-        gap: '15px',
+        gap: '24px',
         flex: 1,
     },
     combinedDial: {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        gap: '8px',
+        gap: '12px',
     },
     combinedLabel: {
-        fontSize: '1.2rem',
+        fontSize: '1.5rem',
         color: '#fff',
         fontWeight: 'bold',
-        marginBottom: '8px',
+        marginBottom: '12px',
         textAlign: 'center',
     },
     controlsPanel: {
         background: '#1a1a1a',
-        padding: '16px',
-        borderRadius: '8px',
+        padding: '24px',
+        borderRadius: '12px',
         border: '1px solid #333',
-        minWidth: '300px',
-        maxWidth: '340px',
+        minWidth: '380px',
+        maxWidth: '420px',
         height: 'fit-content',
     },
     controlsTitle: {
-        fontSize: '1.2rem',
+        fontSize: '1.4rem',
         color: '#fff',
-        marginBottom: '12px',
+        marginBottom: '18px',
         marginTop: '0',
         fontWeight: 'bold',
         textAlign: 'center',
@@ -890,22 +890,22 @@ const dialStyles = {
         flexDirection: 'column',
         alignItems: 'center',
         background: '#1a1a1a',
-        borderRadius: '8px',
+        borderRadius: '12px',
         border: '1px solid #333',
-        minWidth: '220px',
-        minHeight: '350px',
+        minWidth: '280px',
+        minHeight: '420px',
         padding: '0',
         position: 'relative',
     },
     daypartTitle: {
-        fontSize: '1.1rem',
+        fontSize: '1.4rem',
         color: '#fff',
         fontWeight: 'bold',
         textAlign: 'center',
         margin: '0',
-        padding: '12px',
+        padding: '16px',
         backgroundColor: '#2a2a2a',
-        borderRadius: '8px 8px 0 0',
+        borderRadius: '12px 12px 0 0',
         width: '100%',
         boxSizing: 'border-box',
     },
@@ -914,14 +914,14 @@ const dialStyles = {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '10px',
+        padding: '16px',
     },
     inputGroup: {
         display: 'flex',
-        gap: '8px',
-        padding: '12px',
+        gap: '12px',
+        padding: '16px',
         backgroundColor: '#222',
-        borderRadius: '0 0 8px 8px',
+        borderRadius: '0 0 12px 12px',
         width: '100%',
         boxSizing: 'border-box',
         justifyContent: 'center',
@@ -930,9 +930,9 @@ const dialStyles = {
         flex: 1,
     },
     input: {
-        padding: '6px 8px',
-        fontSize: '11px',
-        borderRadius: '4px',
+        padding: '10px 12px',
+        fontSize: '14px',
+        borderRadius: '6px',
         border: '1px solid #444',
         textAlign: 'center',
         background: '#2a2a2a',
