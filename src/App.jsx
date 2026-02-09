@@ -23,7 +23,7 @@ export default function App() {
                         >
                             ← Back to Dashboard
                         </button>
-                        <h2 style={navStyles.title}>Productivity Reports</h2>
+                        <h2 style={navStyles.title}>Team Performance Reports</h2>
                         <div style={navStyles.spacer}></div>
                     </nav>
                     <ReportsPage />

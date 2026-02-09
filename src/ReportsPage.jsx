@@ -5,8 +5,10 @@ export default function ReportsPage() {
     const [sortBy, setSortBy] = useState('performance')
     const [customStartDate, setCustomStartDate] = useState('')
     const [customEndDate, setCustomEndDate] = useState('')
-    // Sample PIC performance data integrated with dashboard
-    const [reportData] = useState([
+    const [reportData] = useState([]) // This would be populated from actual saved data
+
+    // Sample data for examples
+    const exampleData = [
         {
             id: 1,
             picName: "Alex Johnson",
@@ -15,9 +17,9 @@ export default function ReportsPage() {
             actualSales: 10500,
             actualProductivity: 118,
             targetProductivity: 115,
-            performanceScore: 102.6, // (actual/target) * 100
+            performanceScore: 102.6,
             tier: "Top 20%",
-            improvement: 8.4 // Recent improvement percentage
+            improvement: 8.4
         },
         {
             id: 2,
@@ -65,38 +67,39 @@ export default function ReportsPage() {
             targetProductivity: 118,
             performanceScore: 105.9,
             tier: "Top 20%",
-            improvement: 12.1 // Recent improvement percentage
+            improvement: 12.1
         }
-    ])
+    ]
 
     // Sort and filter data
     const getSortedFilteredData = () => {
-        let filteredData = reportData
+        let dataSource = filterPeriod === 'example-data' ? exampleData : reportData
+        let filteredData = dataSource
 
         // Enhanced time period filtering
         const today = new Date()
         const todayStr = today.toISOString().split('T')[0]
         
         if (filterPeriod === 'today') {
-            filteredData = reportData.filter(item => item.date === todayStr)
+            filteredData = dataSource.filter(item => item.date === todayStr)
         } else if (filterPeriod === 'this-week') {
             const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-            filteredData = reportData.filter(item => new Date(item.date) >= weekAgo)
+            filteredData = dataSource.filter(item => new Date(item.date) >= weekAgo)
         } else if (filterPeriod === 'last-week') {
             const lastWeekStart = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000)
             const lastWeekEnd = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-            filteredData = reportData.filter(item => {
+            filteredData = dataSource.filter(item => {
                 const itemDate = new Date(item.date)
                 return itemDate >= lastWeekStart && itemDate < lastWeekEnd
             })
         } else if (filterPeriod === 'last-month') {
             const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
-            filteredData = reportData.filter(item => new Date(item.date) >= monthAgo)
+            filteredData = dataSource.filter(item => new Date(item.date) >= monthAgo)
         } else if (filterPeriod === 'last-quarter') {
             const quarterAgo = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate())
-            filteredData = reportData.filter(item => new Date(item.date) >= quarterAgo)
+            filteredData = dataSource.filter(item => new Date(item.date) >= quarterAgo)
         } else if (filterPeriod === 'custom' && customStartDate && customEndDate) {
-            filteredData = reportData.filter(item => {
+            filteredData = dataSource.filter(item => {
                 const itemDate = new Date(item.date)
                 return itemDate >= new Date(customStartDate) && itemDate <= new Date(customEndDate)
             })
@@ -140,10 +143,10 @@ export default function ReportsPage() {
 
     return (
         <div style={styles.container}>
-            <div style={styles.header}>
-                <h1 style={styles.title}>Team Performance Reports</h1>
-                <p style={styles.subtitle}>
-                    Celebrating progress toward realistic, tier-based targets. Every shift contributes to our collective success.
+            {/* Brief Instruction Section */}
+            <div style={styles.instructionSection}>
+                <p style={styles.instruction}>
+                    Track performance across all dayparts and celebrate progress toward realistic, tier-based targets.
                 </p>
             </div>
 
@@ -161,6 +164,7 @@ export default function ReportsPage() {
                         <option value="last-week">Last Week</option>
                         <option value="last-month">Last Month</option>
                         <option value="last-quarter">Last Quarter</option>
+                        <option value="example-data">Example Data</option>
                         <option value="custom">Custom Dates</option>
                     </select>
                 </div>
@@ -199,146 +203,161 @@ export default function ReportsPage() {
                 </div>
             </div>
 
-            {/* Leaderboard */}
-            <div style={styles.leaderboard}>
-                <h2 style={styles.leaderboardTitle}>🏆 Leaderboard</h2>
-                
-                {sortedData.length === 0 ? (
-                    <div style={styles.noData}>
-                        No data available for selected period
-                    </div>
-                ) : (
-                    <div style={styles.scoreboardList}>
-                        {sortedData.map((item, index) => (
-                            <div key={item.id} style={{
-                                ...styles.scoreboardRow,
-                                backgroundColor: index === 0 ? '#1f3a8c' : 
-                                                index === 1 ? '#1e40af' : 
-                                                index === 2 ? '#1d4ed8' : '#1a1a1a'
-                            }}>
-                                <div style={styles.rankColumn}>
-                                    <div style={styles.rankNumber}>#{index + 1}</div>
-                                    <div style={styles.rankIcon}>{getPerformanceIcon(item.performanceScore)}</div>
-                                </div>
-                                
-                                <div style={styles.picColumn}>
-                                    <div style={styles.picNameLarge}>{item.picName}</div>
-                                    <div style={styles.daypartBadge}>{item.daypart}</div>
-                                </div>
-                                
-                                <div style={styles.metricsColumn}>
-                                    <div style={styles.salesFigure}>
-                                        ${item.actualSales.toLocaleString()}
-                                    </div>
-                                    <div style={styles.productivityFigures}>
-                                        {item.actualProductivity}% → {item.targetProductivity}%
-                                    </div>
-                                </div>
-                                
-                                <div style={styles.scoreColumn}>
-                                    <div style={{
-                                        ...styles.performanceScoreLarge,
-                                        color: getPerformanceColor(item.performanceScore)
-                                    }}>
-                                        {item.performanceScore.toFixed(1)}%
-                                    </div>
-                                    <div style={styles.distanceToTarget}>
-                                        {item.performanceScore >= 100 ? 
-                                            `+${(item.performanceScore - 100).toFixed(1)}% above` :
-                                            `${(100 - item.performanceScore).toFixed(1)}% to target`
-                                        }
-                                    </div>
-                                </div>
-                                
-                                <div style={styles.improvementColumn}>
-                                    {item.improvement && (
-                                        <div style={styles.improvementBadge}>
-                                            ↗️ +{item.improvement.toFixed(1)}%
-                                        </div>
-                                    )}
-                                    <div style={styles.miniTierBadge}>{item.tier}</div>
-                                </div>
-                                
-                                {item.performanceScore >= 100 && (
-                                    <div style={styles.achievedIndicator}>✅</div>
-                                )}
+            {/* Main Content: Team Summary (Left) + Leaderboard (Right) */}
+            <div style={styles.mainContentGrid}>
+                {/* Team Summary - Left Side */}
+                <div style={styles.teamSummarySection}>
+                    <h3 style={styles.sectionTitle}>Team Summary</h3>
+                    <p style={styles.sectionDescription}>
+                        Performance insights across all dayparts, measuring consistent target achievement and team growth.
+                    </p>
+                    
+                    <div style={styles.summaryMetrics}>
+                        <div style={styles.summaryCard}>
+                            <div style={styles.summaryNumber}>
+                                {sortedData.filter(item => item.performanceScore >= 100).length}
                             </div>
-                        ))}
-                    </div>
-                )}
-            </div>
-
-            {/* Enhanced Team Summary */}
-            <div style={styles.summary}>
-                <h3 style={styles.summaryTitle}>Team Summary</h3>
-                <p style={styles.summaryDescription}>
-                    Performance insights across all dayparts, measuring consistent target achievement and team growth.
-                </p>
-                
-                <div style={styles.summaryGrid}>
-                    <div style={styles.summaryCard}>
-                        <div style={styles.summaryNumber}>
-                            {sortedData.filter(item => item.performanceScore >= 100).length}
+                            <div style={styles.summaryLabel}>Targets Met</div>
+                            <div style={styles.summarySubtext}>
+                                of {sortedData.length} total shifts
+                            </div>
                         </div>
-                        <div style={styles.summaryLabel}>Targets Met</div>
-                        <div style={styles.summarySubtext}>
-                            of {sortedData.length} total shifts
+                        <div style={styles.summaryCard}>
+                            <div style={styles.summaryNumber}>
+                                {sortedData.length > 0 ? (
+                                    sortedData.reduce((sum, item) => sum + item.performanceScore, 0) / sortedData.length
+                                ).toFixed(1) : 0}%
+                            </div>
+                            <div style={styles.summaryLabel}>Avg Performance</div>
+                            <div style={styles.summarySubtext}>
+                                vs tier-based targets
+                            </div>
                         </div>
-                    </div>
-                    <div style={styles.summaryCard}>
-                        <div style={styles.summaryNumber}>
-                            {sortedData.length > 0 ? (
-                                sortedData.reduce((sum, item) => sum + item.performanceScore, 0) / sortedData.length
-                            ).toFixed(1) : 0}%
+                        <div style={styles.summaryCard}>
+                            <div style={styles.summaryNumber}>
+                                {sortedData.length > 0 ? (
+                                    sortedData.reduce((sum, item) => sum + (item.improvement || 0), 0) / sortedData.length
+                                ).toFixed(1) : 0}%
+                            </div>
+                            <div style={styles.summaryLabel}>Avg Improvement</div>
+                            <div style={styles.summarySubtext}>
+                                recent trend
+                            </div>
                         </div>
-                        <div style={styles.summaryLabel}>Avg Performance</div>
-                        <div style={styles.summarySubtext}>
-                            vs tier-based targets
-                        </div>
-                    </div>
-                    <div style={styles.summaryCard}>
-                        <div style={styles.summaryNumber}>
-                            {sortedData.length > 0 ? (
-                                sortedData.reduce((sum, item) => sum + (item.improvement || 0), 0) / sortedData.length
-                            ).toFixed(1) : 0}%
-                        </div>
-                        <div style={styles.summaryLabel}>Avg Improvement</div>
-                        <div style={styles.summarySubtext}>
-                            recent trend
+                        <div style={styles.summaryCard}>
+                            <div style={styles.summaryNumber}>
+                                {sortedData.length > 0 ? 
+                                    Math.max(...sortedData.map(item => item.performanceScore)).toFixed(1) : 0}%
+                            </div>
+                            <div style={styles.summaryLabel}>Top Score</div>
+                            <div style={styles.summarySubtext}>
+                                best achievement
+                            </div>
                         </div>
                     </div>
-                    <div style={styles.summaryCard}>
-                        <div style={styles.summaryNumber}>
-                            {sortedData.length > 0 ? 
-                                Math.max(...sortedData.map(item => item.performanceScore)).toFixed(1) : 0}%
-                        </div>
-                        <div style={styles.summaryLabel}>Top Score</div>
-                        <div style={styles.summarySubtext}>
-                            best achievement
-                        </div>
+                    
+                    <div style={styles.insightBox}>
+                        <h4 style={styles.insightTitle}>💡 Key Insights</h4>
+                        <ul style={styles.insightList}>
+                            <li style={styles.insightItem}>• Each daypart has unique challenges - breakfast complexity vs. lunch volume</li>
+                            <li style={styles.insightItem}>• Targets adjust automatically based on sales and operational weights</li>
+                            <li style={styles.insightItem}>• Consistency matters more than peak performance on high-sales days</li>
+                            <li style={styles.insightItem}>• Improvement trends show team development over time</li>
+                        </ul>
                     </div>
                 </div>
-                
-                <div style={styles.insightBox}>
-                    <h4 style={styles.insightTitle}>💡 Key Insights</h4>
-                    <ul style={styles.insightList}>
-                        <li style={styles.insightItem}>• Each daypart has unique challenges - breakfast complexity vs. lunch volume</li>
-                        <li style={styles.insightItem}>• Targets adjust automatically based on sales and operational weights</li>
-                        <li style={styles.insightItem}>• Consistency matters more than peak performance on high-sales days</li>
-                        <li style={styles.insightItem}>• Improvement trends show team development over time</li>
-                    </ul>
+
+                {/* Leaderboard - Right Side */}
+                <div style={styles.leaderboardSection}>
+                    <h2 style={styles.leaderboardTitle}>🏆 Leaderboard</h2>
+                    
+                    {sortedData.length === 0 ? (
+                        <div style={styles.noData}>
+                            {filterPeriod === 'example-data' ? 
+                                "No example data available" : 
+                                "No performance data saved yet. Use the dashboard to record daily metrics, then view reports here."
+                            }
+                        </div>
+                    ) : (
+                        <div style={styles.scoreboardList}>
+                            {sortedData.map((item, index) => {
+                                // Progressive color scheme: brightest blue to black
+                                let backgroundColor
+                                if (index === 0) backgroundColor = '#3b82f6' // Bright blue
+                                else if (index === 1) backgroundColor = '#2563eb' // Medium blue
+                                else if (index === 2) backgroundColor = '#1d4ed8' // Darker blue 
+                                else if (index === 3) backgroundColor = '#1e40af' // Even darker
+                                else if (index === 4) backgroundColor = '#1e3a8a' // Dark blue
+                                else backgroundColor = `#${Math.max(16 - index * 2, 5).toString(16)}${Math.max(16 - index * 2, 5).toString(16)}${Math.max(16 - index * 2, 5).toString(16)}` // Progressive to black
+                                
+                                return (
+                                <div key={item.id} style={{
+                                    ...styles.scoreboardRow,
+                                    backgroundColor
+                                }}>
+                                    <div style={styles.rankColumn}>
+                                        <div style={styles.rankNumber}>#{index + 1}</div>
+                                        <div style={styles.rankIcon}>{getPerformanceIcon(item.performanceScore)}</div>
+                                    </div>
+                                    
+                                    <div style={styles.picColumn}>
+                                        <div style={styles.picNameLarge}>{item.picName}</div>
+                                        <div style={styles.daypartBadge}>{item.daypart}</div>
+                                    </div>
+                                    
+                                    <div style={styles.metricsColumn}>
+                                        <div style={styles.salesFigure}>
+                                            ${item.actualSales.toLocaleString()}
+                                        </div>
+                                        <div style={styles.productivityFigures}>
+                                            {item.actualProductivity}% → {item.targetProductivity}%
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={styles.scoreColumn}>
+                                        <div style={{
+                                            ...styles.performanceScoreLarge,
+                                            color: getPerformanceColor(item.performanceScore)
+                                        }}>
+                                            {item.performanceScore.toFixed(1)}%
+                                        </div>
+                                        <div style={styles.distanceToTarget}>
+                                            {item.performanceScore >= 100 ? 
+                                                `+${(item.performanceScore - 100).toFixed(1)}% above` :
+                                                `${(100 - item.performanceScore).toFixed(1)}% to target`
+                                            }
+                                        </div>
+                                    </div>
+                                    
+                                    <div style={styles.improvementColumn}>
+                                        {item.improvement && (
+                                            <div style={styles.improvementBadge}>
+                                                ↗️ +{item.improvement.toFixed(1)}%
+                                            </div>
+                                        )}
+                                        <div style={styles.miniTierBadge}>{item.tier}</div>
+                                    </div>
+                                    
+                                    {item.performanceScore >= 100 && (
+                                        <div style={styles.achievedIndicator}>✅</div>
+                                    )}
+                                </div>
+                                )
+                            })}
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Our Philosophy - Moved to Bottom */}
-            <div style={styles.teamMessage}>
-                <h3 style={styles.teamTitle}>Our Philosophy</h3>
-                <p style={styles.teamText}>
+            {/* Our Philosophy - Bottom Section */}
+            <div style={styles.philosophySection}>
+                <h3 style={styles.philosophyTitle}>Our Philosophy</h3>
+                <p style={styles.philosophyText}>
                     This isn't about being better than each other—it's about each of us hitting our individual targets 
                     based on the unique challenges of our daypart and sales volume. We win together when everyone 
                     reaches their realistic, context-aware goals.
                 </p>
-                <p style={styles.teamText}>
+                <p style={styles.philosophyText}>
                     <strong>Remember:</strong> A breakfast shift hitting 95% of a complexity-adjusted target 
                     is just as valuable as a lunch shift hitting 105% of their high-volume target. We measure 
                     progress, not perfection.
@@ -705,5 +724,75 @@ const styles = {
         fontSize: '14px',
         color: '#d1d5db',
         marginBottom: '8px'
+    },
+    
+    // New layout styles
+    instructionSection: {
+        textAlign: 'center',
+        marginBottom: '25px',
+        padding: '12px 20px'
+    },
+    instruction: {
+        fontSize: '16px',
+        color: '#94a3b8',
+        margin: '0',
+        fontWeight: '500'
+    },
+    mainContentGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '30px',
+        marginBottom: '40px',
+        '@media (max-width: 1024px)': {
+            gridTemplateColumns: '1fr',
+            gap: '25px'
+        }
+    },
+    teamSummarySection: {
+        backgroundColor: '#1e293b',
+        borderRadius: '12px',
+        padding: '24px'
+    },
+    leaderboardSection: {
+        backgroundColor: '#1e293b',
+        borderRadius: '12px',
+        padding: '24px'
+    },
+    sectionTitle: {
+        fontSize: '1.5rem',
+        fontWeight: '600',
+        marginBottom: '12px',
+        color: '#ffffff'
+    },
+    sectionDescription: {
+        fontSize: '14px',
+        color: '#94a3b8',
+        marginBottom: '20px',
+        lineHeight: '1.5'
+    },
+    summaryMetrics: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '16px',
+        marginBottom: '24px'
+    },
+    philosophySection: {
+        backgroundColor: '#1e293b',
+        border: '2px solid #3b82f6',
+        borderRadius: '12px',
+        padding: '24px',
+        textAlign: 'center'
+    },
+    philosophyTitle: {
+        fontSize: '1.5rem',
+        fontWeight: '600',
+        marginBottom: '12px',
+        color: '#60a5fa'
+    },
+    philosophyText: {
+        fontSize: '16px',
+        lineHeight: '1.6',
+        color: '#cbd5e1',
+        margin: '0 0 16px 0'
     }
 }

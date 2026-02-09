@@ -8,7 +8,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     const MAX_PRODUCTIVITY = targetProductivity + DIAL_RANGE/2
     
     // Dynamic dial size based on type
-    const dialSize = isDayNight ? 180 : 260
+    const dialSize = isDayNight ? 220 : 240
     const centerX = dialSize / 2
     const centerY = dialSize / 2
     const radius = (dialSize / 2) - 30
@@ -94,7 +94,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                             x={labelX}
                             y={labelY}
                             fill={isTarget ? "#fff" : "#aaa"}
-                            fontSize={isDayNight ? (isTarget ? "18" : "16") : (isTarget ? "22" : "20")}
+                            fontSize={isDayNight ? (isTarget ? "16" : "14") : (isTarget ? "18" : "16")}
                             fontWeight={isTarget ? "bold" : "normal"}
                             textAnchor="middle"
                             dominantBaseline="middle"
@@ -171,9 +171,9 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
         
         const diff = actualProductivity - targetProductivity
         if (diff <= -12) return { zone: "Recovery", action: "Reduce labor / extra breaks or early leave", color: "#ff4444" }
-        if (diff <= -4) return { zone: "Stabilize", action: "Monitor performance - adjust staffing as needed", color: "#ffaa00" }
+        if (diff <= -4) return { zone: "Stabilize", action: "Monitor - adjust staffing as needed", color: "#ffaa00" }
         if (diff <= 4) return { zone: "Sustain", action: "Stay the course", color: "#44ff44" }
-        return { zone: "Invest", action: "Focus on operational excellence and training", color: "#4488ff" }
+        return { zone: "Invest", action: "Clean & Create Emotional Connections", color: "#4488ff" }
     }
 
     const currentZone = getCurrentZone()
@@ -193,7 +193,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     <circle
                         cx={centerX}
                         cy={centerY}
-                        r={radius + 15}
+                        r={isDayNight ? radius + 15 : radius + 5}
                         fill="#15161A"
                         stroke="#444"
                         strokeWidth="2"
@@ -325,7 +325,7 @@ function CombinedProductivityDial({ title, combinedSales, combinedActual, target
 // Main Dashboard Component
 export default function SimplifiedDashboard({ onNavigateToReports }) {
     // Tier selection state
-    const [selectedTier, setSelectedTier] = useState('Top 20%')
+    const [selectedTier, setSelectedTier] = useState('Top 50%')
     
     // Adjustable daypart weights
     const [daypartWeights, setDaypartWeights] = useState({
@@ -359,20 +359,26 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
     
     // Export date range selection
     const [exportDateRange, setExportDateRange] = useState('this-week')
+    
+    // Save banner state
+    const [showSaveBanner, setShowSaveBanner] = useState(false)
+    
+    // Save date state
+    const [saveDate, setSaveDate] = useState(new Date().toISOString().split('T')[0])
 
     // Tier-based productivity calculation system
     const tierTables = {
         'Top 50%': {
-            26000: 85, 28000: 86, 30000: 86.5, 32000: 87, 34000: 88, 36000: 89, 38000: 89.5
+            1000: 75, 2000: 80, 3000: 82, 4000: 84.75, 5000: 86.25, 6000: 87.75, 7000: 89.25, 8000: 90, 9000: 91.5, 10000: 93, 12000: 96, 15000: 100, 20000: 105, 25000: 110, 30000: 115
         },
         'Top 33%': {
-            26000: 88, 28000: 89, 30000: 89.5, 32000: 90, 34000: 90.5, 36000: 91, 38000: 92
+            1000: 78, 2000: 82, 3000: 85, 4000: 87.5, 5000: 89, 6000: 90.5, 7000: 92, 8000: 93.5, 9000: 95, 10000: 96.5, 12000: 99, 15000: 103
         },
         'Top 20%': {
-            26000: 90, 28000: 91, 30000: 92, 32000: 93, 34000: 93.5, 36000: 94, 38000: 95
+            1000: 80, 2000: 85, 3000: 88, 4000: 90, 5000: 92, 6000: 94, 7000: 96, 8000: 98, 9000: 100, 10000: 102, 12000: 106, 15000: 110
         },
         'Top 10%': {
-            26000: 93, 28000: 94, 30000: 95, 32000: 96, 34000: 97, 36000: 98, 38000: 99
+            1000: 83, 2000: 88, 3000: 92, 4000: 95, 5000: 98, 6000: 101, 7000: 104, 8000: 107, 9000: 110, 10000: 113, 12000: 118, 15000: 125
         }
     };
 
@@ -429,7 +435,44 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
         return salesInput ? parseInt(salesInput.replace(/[^0-9]/g, '')) : 0
     }
 
-    // Calculate Day (breakfast + lunch) and Night (afternoon + dinner) combined metrics
+    // Helper functions for save and export
+    const handleSaveSettings = () => {
+        setShowSaveBanner(true)
+        setTimeout(() => setShowSaveBanner(false), 3000)
+    }
+    
+    const handleExportCSV = () => {
+        const csvData = []
+        csvData.push(['Daypart', 'Sales', 'Actual Productivity', 'Target Productivity', 'PIC Name'])
+        
+        const dayparts = [
+            { name: 'Breakfast', sales: breakfastSales, actual: actualProductivity.breakfast, pic: picNames.breakfast },
+            { name: 'Lunch', sales: lunchSales, actual: actualProductivity.lunch, pic: picNames.lunch },
+            { name: 'Afternoon', sales: afternoonSales, actual: actualProductivity.afternoon, pic: picNames.afternoon },
+            { name: 'Dinner', sales: dinnerSales, actual: actualProductivity.dinner, pic: picNames.dinner }
+        ]
+        
+        dayparts.forEach(daypart => {
+            const sales = daypart.sales || '0'
+            const actualProd = daypart.actual || '0'
+            const targetProd = calculateTargetProductivity(daypart.name.toLowerCase(), getDaypartSales(daypart.name.toLowerCase()) || 0)
+            csvData.push([daypart.name, sales, actualProd, targetProd, daypart.pic || ''])
+        })
+        
+        const csvContent = csvData.map(row => row.join('\t')).join('\n')
+        const blob = new Blob([csvContent], { type: 'text/tab-separated-values;charset=utf-8;' })
+        const link = document.createElement('a')
+        
+        if (link.download !== undefined) {
+            const url = URL.createObjectURL(blob)
+            link.setAttribute('href', url)
+            link.setAttribute('download', `productivity-dashboard-${new Date().toISOString().split('T')[0]}.csv`)
+            link.style.visibility = 'hidden'
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+        }
+    }
     const getDayCombinedSales = () => {
         const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
         const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
@@ -463,29 +506,27 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
     }
 
     const getDayCombinedTarget = () => {
-        const totalSales = getTotalSales()
-        if (!totalSales) return 0
-        
-        const bfTarget = calculateTargetProductivity('breakfast', totalSales)
-        const lnTarget = calculateTargetProductivity('lunch', totalSales)
         const bfSales = getDaypartSales('breakfast')
         const lnSales = getDaypartSales('lunch')
+        const dayCombinedSales = bfSales + lnSales
+        if (dayCombinedSales === 0) return 0
         
-        if (bfSales + lnSales === 0) return 0
-        return ((bfSales * bfTarget) + (lnSales * lnTarget)) / (bfSales + lnSales)
+        const bfTarget = calculateTargetProductivity('breakfast', bfSales)
+        const lnTarget = calculateTargetProductivity('lunch', lnSales)
+        
+        return ((bfSales * bfTarget) + (lnSales * lnTarget)) / dayCombinedSales
     }
 
     const getNightCombinedTarget = () => {
-        const totalSales = getTotalSales()
-        if (!totalSales) return 0
-        
-        const afTarget = calculateTargetProductivity('afternoon', totalSales)
-        const dnTarget = calculateTargetProductivity('dinner', totalSales)
         const afSales = getDaypartSales('afternoon')
         const dnSales = getDaypartSales('dinner')
+        const nightCombinedSales = afSales + dnSales
+        if (nightCombinedSales === 0) return 0
         
-        if (afSales + dnSales === 0) return 0
-        return ((afSales * afTarget) + (dnSales * dnTarget)) / (afSales + dnSales)
+        const afTarget = calculateTargetProductivity('afternoon', afSales)
+        const dnTarget = calculateTargetProductivity('dinner', dnSales)
+        
+        return ((afSales * afTarget) + (dnSales * dnTarget)) / nightCombinedSales
     }
 
 
@@ -737,22 +778,22 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                     {/* Controls Panel */}
                     <div style={dashboardStyles.controlsPanel}>
                         <h4 style={dashboardStyles.controlsTitle}>Performance Settings</h4>
-                        
-                        <div style={{
-                            backgroundColor: '#2a2a2a',
-                            border: '1px solid #4a4a4a',
-                            borderRadius: '6px',
-                            padding: '12px',
-                            marginBottom: '16px',
-                            textAlign: 'center'
-                        }}>
-                            <p style={{ margin: '0', color: '#cccccc', fontSize: '13px', lineHeight: '1.3' }}>
-                                Tier-based targets calculated from daily sales, weighted by operational complexity
-                            </p>
-                        </div>
 
                         <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
                             <div style={{ flex: 1 }}>
+                                <div style={{
+                                    backgroundColor: '#2a2a2a',
+                                    border: '1px solid #4a4a4a',
+                                    borderRadius: '6px',
+                                    padding: '12px',
+                                    marginBottom: '16px',
+                                    textAlign: 'left'
+                                }}>
+                                    <p style={{ margin: '0', color: '#cccccc', fontSize: '13px', lineHeight: '1.3', textAlign: 'center' }}>
+                                        Tier-based targets calculated from daily sales, weighted by operational complexity
+                                    </p>
+                                </div>
+                                
                                 <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
                                     Ambition Tier
                                 </h5>
@@ -787,22 +828,48 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
 
                             <div style={{ flex: 1 }}>
                                 <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
-                                    Operational Complexity (Starting Values)
+                                    Operational Weights
                                 </h5>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                     {[
-                                        { key: 'breakfast', name: 'Breakfast', desc: 'Complex items, lower ticket, stock/prep for lunch', weight: 76 },
+                                        { key: 'breakfast', name: 'Breakfast', desc: 'Complex items, lower ticket, stock for lunch', weight: 76 },
                                         { key: 'lunch', name: 'Lunch', desc: 'Peak volume, full team locked in', weight: 124 },
                                         { key: 'afternoon', name: 'Afternoon', desc: 'Cleanup + dinner prep', weight: 106 },
                                         { key: 'dinner', name: 'Dinner', desc: 'Peak period + cleanup, stock & close', weight: 94 }
                                     ].map(({ key, name, desc, weight }) => (
                                         <div key={key} style={{
                                             display: 'flex',
-                                            justifyContent: 'space-between',
                                             alignItems: 'center',
                                             padding: '4px 0'
                                         }}>
-                                            <div style={{ flex: 1 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '60px' }}>
+                                                <input
+                                                    type="number"
+                                                    value={(daypartWeights[key] * 100).toFixed(0)}
+                                                    placeholder={weight.toString()}
+                                                    onChange={(e) => {
+                                                        const newWeight = parseFloat(e.target.value) / 100;
+                                                        setDaypartWeights(prev => ({
+                                                            ...prev,
+                                                            [key]: newWeight
+                                                        }));
+                                                    }}
+                                                    min="50"
+                                                    max="150"
+                                                    step="1"
+                                                    style={{
+                                                        width: '38px',
+                                                        padding: '4px 6px',
+                                                        fontSize: '12px',
+                                                        backgroundColor: '#1a1a1a',
+                                                        color: '#ffffff',
+                                                        border: '1px solid #4a4a4a',
+                                                        borderRadius: '3px'
+                                                    }}
+                                                />
+                                                <span style={{ color: '#888', fontSize: '12px' }}>%</span>
+                                            </div>
+                                            <div style={{ marginLeft: '12px' }}>
                                                 <div style={{
                                                     color: '#ffffff',
                                                     fontSize: '12px',
@@ -817,91 +884,129 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                                     {desc}
                                                 </div>
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <input
-                                                    type="number"
-                                                    value={(daypartWeights[key] * 100).toFixed(0)}
-                                                    onChange={(e) => {
-                                                        const newWeight = parseFloat(e.target.value) / 100;
-                                                        setDaypartWeights(prev => ({
-                                                            ...prev,
-                                                            [key]: newWeight
-                                                        }));
-                                                    }}
-                                                    min="50"
-                                                    max="150"
-                                                    step="1"
-                                                    style={{
-                                                        width: '48px',
-                                                        padding: '4px 6px',
-                                                        fontSize: '12px',
-                                                        backgroundColor: '#1a1a1a',
-                                                        color: '#ffffff',
-                                                        border: '1px solid #4a4a4a',
-                                                        borderRadius: '3px'
-                                                    }}
-                                                />
-                                                <span style={{ color: '#888', fontSize: '12px' }}>%</span>
-                                            </div>
                                         </div>
                                     ))}
+                                </div>
+                                
+                                {/* Total Weight Calculation */}
+                                <div style={{ 
+                                    marginTop: '8px', 
+                                    paddingTop: '8px', 
+                                    borderTop: '1px solid #4a4a4a',
+                                    textAlign: 'center'
+                                }}>
+                                    <span style={{ color: '#888', fontSize: '11px' }}>
+                                        Total Average: {((daypartWeights.breakfast + daypartWeights.lunch + daypartWeights.afternoon + daypartWeights.dinner) * 25).toFixed(0)}%
+                                    </span>
                                 </div>
                             </div>
                         </div>
 
-<div>
-                            <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600' }}>
+                        <div>
+                            <h5 style={{ margin: '0 0 12px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600', textAlign: 'center' }}>
                                 Data Management
                             </h5>
-                            <div style={{ marginBottom: '12px' }}>
-                                <label style={{ display: 'block', color: '#cccccc', fontSize: '12px', marginBottom: '6px' }}>
-                                    Export Date Range:
-                                </label>
-                                <select 
-                                    value={exportDateRange}
-                                    onChange={(e) => setExportDateRange(e.target.value)}
-                                    style={{
-                                        width: '100%',
-                                        padding: '6px 8px',
-                                        fontSize: '12px',
-                                        backgroundColor: '#1a1a1a',
-                                        color: '#ffffff',
-                                        border: '1px solid #4a4a4a',
-                                        borderRadius: '3px',
-                                        marginBottom: '8px'
-                                    }}>
-                                    <option value="this-week">This Week</option>
-                                    <option value="last-week">Last Week</option>
-                                    <option value="last-month">Last Month</option>
-                                    <option value="last-quarter">Last Quarter</option>
-                                    <option value="custom">Custom Dates</option>
-                                </select>
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                <button style={{
-                                    padding: '8px 14px',
-                                    backgroundColor: '#3b82f6',
-                                    color: '#ffffff',
-                                    border: 'none',
+                            
+                            {/* Save Banner */}
+                            {showSaveBanner && (
+                                <div style={{
+                                    backgroundColor: '#10b981',
+                                    color: '#fff',
+                                    padding: '8px 16px',
                                     borderRadius: '4px',
-                                    fontSize: '12px',
-                                    cursor: 'pointer',
+                                    marginBottom: '16px',
+                                    textAlign: 'center',
+                                    fontSize: '14px',
                                     fontWeight: '600'
                                 }}>
-                                    Save Data
-                                </button>
-                                <button style={{
-                                    padding: '8px 14px',
-                                    backgroundColor: '#059669',
-                                    color: '#ffffff',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '12px',
-                                    cursor: 'pointer',
-                                    fontWeight: '600'
-                                }}>
-                                    Export CSV
-                                </button>
+                                    Data Saved Successfully!
+                                </div>
+                            )}
+                            
+                            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+                                {/* Save Data Section - Left */}
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <label style={{ display: 'block', color: '#cccccc', fontSize: '12px', marginBottom: '6px' }}>
+                                            Save Date:
+                                        </label>
+                                        <input 
+                                            type="date" 
+                                            value={saveDate}
+                                            onChange={(e) => setSaveDate(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '6px 8px',
+                                                fontSize: '12px',
+                                                backgroundColor: '#1a1a1a',
+                                                color: '#ffffff',
+                                                border: '1px solid #4a4a4a',
+                                                borderRadius: '3px',
+                                                marginBottom: '8px'
+                                            }}
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={handleSaveSettings}
+                                        style={{
+                                            padding: '8px 14px',
+                                            backgroundColor: '#3b82f6',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            fontSize: '12px',
+                                            cursor: 'pointer',
+                                            fontWeight: '600',
+                                            width: '100%'
+                                        }}
+                                    >
+                                        Save Data
+                                    </button>
+                                </div>
+                                
+                                {/* Export Section - Right */}
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ marginBottom: '12px' }}>
+                                        <label style={{ display: 'block', color: '#cccccc', fontSize: '12px', marginBottom: '6px' }}>
+                                            Export Range:
+                                        </label>
+                                        <select 
+                                            value={exportDateRange}
+                                            onChange={(e) => setExportDateRange(e.target.value)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '6px 8px',
+                                                fontSize: '12px',
+                                                backgroundColor: '#1a1a1a',
+                                                color: '#ffffff',
+                                                border: '1px solid #4a4a4a',
+                                                borderRadius: '3px',
+                                                marginBottom: '8px'
+                                            }}>
+                                            <option value="this-week">This Week</option>
+                                            <option value="last-week">Last Week</option>
+                                            <option value="last-month">Last Month</option>
+                                            <option value="last-quarter">Last Quarter</option>
+                                            <option value="custom">Custom Dates</option>
+                                        </select>
+                                    </div>
+                                    <button 
+                                        onClick={handleExportCSV}
+                                        style={{
+                                            padding: '8px 14px',
+                                            backgroundColor: '#059669',
+                                            color: '#ffffff',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            fontSize: '12px',
+                                            cursor: 'pointer',
+                                            fontWeight: '600',
+                                            width: '100%'
+                                        }}
+                                    >
+                                        Export CSV
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -959,9 +1064,9 @@ const dashboardStyles = {
         background: '#1a1a1a',
         borderRadius: '6px',
         border: '1px solid #333',
-        padding: '8px',
-        minWidth: '120px',
-        maxWidth: '140px',
+        padding: '12px',
+        minWidth: '270px',
+        maxWidth: '315px',
     },
     combinedLabel: {
         fontSize: '0.9rem',
@@ -997,7 +1102,7 @@ const dialStyles = {
         background: '#1a1a1a',
         borderRadius: '8px',
         border: '1px solid #333',
-        minWidth: '280px',
+        minWidth: '320px',
         minHeight: '380px',
         padding: '0',
         position: 'relative',
@@ -1045,5 +1150,27 @@ const dialStyles = {
         color: '#fff',
         width: '100%',
         boxSizing: 'border-box',
+    },
+    statusBadge: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '12px',
+        borderRadius: '6px',
+        border: '2px solid',
+        margin: '8px 0',
+        textAlign: 'center',
+    },
+    zoneName: {
+        fontSize: '14px',
+        fontWeight: 'bold',
+        marginBottom: '4px',
+        textAlign: 'center',
+    },
+    zoneAction: {
+        fontSize: '12px',
+        opacity: 0.9,
+        textAlign: 'center',
+        lineHeight: '1.3',
     },
 }
