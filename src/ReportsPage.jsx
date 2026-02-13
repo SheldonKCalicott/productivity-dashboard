@@ -743,7 +743,7 @@ const styles = {
         gridTemplateColumns: '1fr 1fr',
         gap: '30px',
         marginBottom: '40px',
-        '@media (max-width: 1024px)': {
+        '@media (maxwidth: 1024px)': {
             gridTemplateColumns: '1fr',
             gap: '25px'
         }
