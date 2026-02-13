@@ -1,4 +1,5 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
+import apiService from './apiService.js'
 
 // Simplified Productivity Dial - focused on ONE job: actual vs target
 function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, noDataMessage = "Enter sales and actual productivity below" }) {
