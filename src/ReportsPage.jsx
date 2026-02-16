@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 
-export default function ReportsPage() {
-    const [filterPeriod, setFilterPeriod] = useState('today')
+export default function ReportsPage({ isDemo = false }) {
+    const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'example-data' : 'today')
     const [sortBy, setSortBy] = useState('performance')
     const [customStartDate, setCustomStartDate] = useState('')
     const [customEndDate, setCustomEndDate] = useState('')
@@ -152,24 +152,26 @@ export default function ReportsPage() {
 
             {/* Filters and Controls */}
             <div style={styles.controls}>
-                <div style={styles.filterGroup}>
-                    <label style={styles.filterLabel}>Time Period:</label>
-                    <select 
-                        value={filterPeriod}
-                        onChange={(e) => setFilterPeriod(e.target.value)}
-                        style={styles.select}
-                    >
-                        <option value="today">Today</option>
-                        <option value="this-week">This Week</option>
-                        <option value="last-week">Last Week</option>
-                        <option value="last-month">Last Month</option>
-                        <option value="last-quarter">Last Quarter</option>
-                        <option value="example-data">Example Data</option>
-                        <option value="custom">Custom Dates</option>
-                    </select>
-                </div>
+                {!isDemo && (
+                    <div style={styles.filterGroup}>
+                        <label style={styles.filterLabel}>Time Period:</label>
+                        <select 
+                            value={filterPeriod}
+                            onChange={(e) => setFilterPeriod(e.target.value)}
+                            style={styles.select}
+                        >
+                            <option value="today">Today</option>
+                            <option value="this-week">This Week</option>
+                            <option value="last-week">Last Week</option>
+                            <option value="last-month">Last Month</option>
+                            <option value="last-quarter">Last Quarter</option>
+                            <option value="example-data">Example Data</option>
+                            <option value="custom">Custom Dates</option>
+                        </select>
+                    </div>
+                )}
 
-                {filterPeriod === 'custom' && (
+                {!isDemo && filterPeriod === 'custom' && (
                     <div style={styles.filterGroup}>
                         <label style={styles.filterLabel}>Date Range:</label>
                         <div style={{ display: 'flex', gap: '8px' }}>

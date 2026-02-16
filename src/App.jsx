@@ -1,59 +1,148 @@
-import React, { useState } from 'react'
-import DaypartDashboard from './DaypartDashboard'
-import DaypartDashboardForsyth from './DaypartDashboardForsyth'
+import React from 'react'
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom'
+import DashboardSelector from './DashboardSelector'
+import StoreLogin from './StoreLogin'  
+import ProtectedRoute from './ProtectedRoute'
 import SimplifiedDashboard from './SimplifiedDashboard'
 import ReportsPage from './ReportsPage'
 
-export default function App() {
-    // Check environment variable to determine which dashboard to render
-    const storeName = import.meta.env.VITE_STORE_NAME || 'simplified'
-    const [currentPage, setCurrentPage] = useState('dashboard')
+// Navigation wrapper component for dashboards
+function DashboardWrapper({ children, title, isTemplate = false, storeNumber = null }) {
+    const navigate = useNavigate()
+    const location = useLocation()
     
-    // Navigation for simplified dashboard
-    const isSimplified = storeName.toLowerCase() === 'simplified'
+    const isReportsPage = location.pathname.includes('/reports')
     
-    if (isSimplified) {
-        if (currentPage === 'reports') {
-            return (
-                <div>
-                    <nav style={navStyles.nav}>
+    return (
+        <div>
+            <nav style={navStyles.nav}>
+                {isReportsPage ? (
+                    <>
                         <button 
-                            onClick={() => setCurrentPage('dashboard')} 
+                            onClick={() => navigate(-1)} 
                             style={navStyles.button}
                         >
                             ← Back to Dashboard
                         </button>
-                        <h2 style={navStyles.title}>Team Performance Reports</h2>
-                        <div style={navStyles.spacer}></div>
-                    </nav>
-                    <ReportsPage />
-                </div>
-            )
-        }
-        
+                        <h2 style={navStyles.title}>
+                            {isTemplate ? 'Demo Reports' : `${title} Reports`}
+                        </h2>
+                        <Link to="/" style={{...navStyles.button, textDecoration: 'none'}}>
+                            🏠 Home
+                        </Link>
+                    </>
+                ) : (
+                    <>
+                        <Link to="/" style={{...navStyles.button, textDecoration: 'none'}}>
+                            ← Home
+                        </Link>
+                        <h2 style={navStyles.title}>
+                            {title} {isTemplate ? '(Demo)' : 'Dashboard'}
+                        </h2>
+                        <button 
+                            onClick={() => {
+                                if (isTemplate) {
+                                    navigate('/template/reports')
+                                } else {
+                                    navigate(`/store/${title.toLowerCase()}/reports`)
+                                }
+                            }} 
+                            style={{...navStyles.button, backgroundColor: '#3b82f6'}}
+                        >
+                            📊 View Reports
+                        </button>
+                    </>
+                )}
+            </nav>
+            {children}
+        </div>
+    )
+}
+
+// Template wrapper (public demo)
+function TemplateWrapper() {
+    const location = useLocation()
+    
+    const isReportsPage = location.pathname.includes('/reports')
+    
+    if (isReportsPage) {
         return (
-            <div>
-                <nav style={navStyles.nav}>
-                    <div style={navStyles.spacer}></div>
-                    <h2 style={navStyles.title}>Productivity Dashboard</h2>
-                    <button 
-                        onClick={() => setCurrentPage('reports')} 
-                        style={navStyles.button}
-                    >
-                        View Reports →
-                    </button>
-                </nav>
-                <SimplifiedDashboard onNavigateToReports={() => setCurrentPage('reports')} />
-            </div>
+            <DashboardWrapper title="Demo Template" isTemplate={true}>
+                <ReportsPage isDemo={true} />
+            </DashboardWrapper>
         )
     }
     
-    if (storeName.toLowerCase() === 'forsyth') {
-        return <DaypartDashboardForsyth />
+    return (
+        <DashboardWrapper title="Demo Template" isTemplate={true}>
+            <SimplifiedDashboard onNavigateToReports={null} />
+        </DashboardWrapper>
+    )
+}
+
+// Store wrapper (protected with authentication)
+function StoreWrapper({ storeName, storeNumber }) {
+    const location = useLocation()
+    
+    const isReportsPage = location.pathname.includes('/reports')
+    
+    if (isReportsPage) {
+        return (
+            <ProtectedRoute storeNumber={storeNumber}>
+                <DashboardWrapper title={storeName} storeNumber={storeNumber}>
+                    <ReportsPage />
+                </DashboardWrapper>
+            </ProtectedRoute>
+        )
     }
     
-    // Default to Tuskawilla
-    return <DaypartDashboard />
+    return (
+        <ProtectedRoute storeNumber={storeNumber}>
+            <DashboardWrapper title={storeName} storeNumber={storeNumber}>
+                <SimplifiedDashboard onNavigateToReports={null} />
+            </DashboardWrapper>
+        </ProtectedRoute>
+    )
+}
+
+export default function App() {
+    return (
+        <Router>
+            <Routes>
+                {/* Home page - Dashboard selector */}
+                <Route path="/" element={<DashboardSelector />} />
+                
+                {/* Store login page */}
+                <Route path="/store-access" element={<StoreLogin />} />
+                
+                {/* Public template dashboard */}
+                <Route path="/template" element={<TemplateWrapper />} />
+                <Route path="/template/reports" element={<TemplateWrapper />} />
+                
+                {/* Protected store dashboards */}
+                <Route 
+                    path="/store/tuskawilla" 
+                    element={<StoreWrapper storeName="Tuskawilla" storeNumber="04680" />} 
+                />
+                <Route 
+                    path="/store/tuskawilla/reports" 
+                    element={<StoreWrapper storeName="Tuskawilla" storeNumber="04680" />} 
+                />
+                
+                <Route 
+                    path="/store/forsyth" 
+                    element={<StoreWrapper storeName="Forsyth" storeNumber="00661" />} 
+                />
+                <Route 
+                    path="/store/forsyth/reports" 
+                    element={<StoreWrapper storeName="Forsyth" storeNumber="00661" />} 
+                />
+                
+                {/* Catch-all redirect to home */}
+                <Route path="*" element={<DashboardSelector />} />
+            </Routes>
+        </Router>
+    )
 }
 
 const navStyles = {
