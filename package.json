@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "server": "node backend/server.js",
     "dev:full": "concurrently \"npm run server\" \"npm run dev\"",
-    "db:setup": "node backend/setup-db.js"
+    "dev:vercel": "vercel dev",
+    "db:setup": "node backend/setup-db.js",
+    "deploy": "vercel --prod"
   },
   "dependencies": {
     "react": "^19.2.0",

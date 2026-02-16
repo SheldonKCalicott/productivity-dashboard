@@ -1,6 +1,7 @@
 // API service functions for communicating with the backend
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+    (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 const STORE_NAME = import.meta.env.VITE_STORE_NAME || 'simplified';
 
 class ApiService {
