@@ -4,9 +4,6 @@
       "maxDuration": 30
     }
   },
-  "env": {
-    "DATABASE_URL": "@database_url"
-  },
   "build": {
     "env": {
       "VITE_API_URL": "/api"
