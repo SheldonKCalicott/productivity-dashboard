@@ -16,11 +16,8 @@ export default async function handler(req, res) {
     }
 
     const pool = getPool();
-    const client = await pool.connect();
     
     try {
-        await client.query('BEGIN');
-        
         const {
             storeName = 'simplified',
             date,
@@ -34,7 +31,7 @@ export default async function handler(req, res) {
         // Update/Insert productivity records for each daypart
         for (const [daypart, data] of Object.entries(daypartsData)) {
             if (data.sales || data.actualProductivity || data.picName) {
-                await client.query(`
+                await pool.query(`
                     INSERT INTO productivity_records 
                     (store_id, record_date, daypart, sales_amount, actual_productivity, target_productivity, pic_name)
                     VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -59,7 +56,7 @@ export default async function handler(req, res) {
 
         // Update operational weights
         if (operationalWeights) {
-            await client.query(`
+            await pool.query(`
                 UPDATE operational_weights 
                 SET breakfast = $2, lunch = $3, afternoon = $4, dinner = $5, updated_at = CURRENT_TIMESTAMP
                 WHERE store_id = $1
@@ -74,21 +71,17 @@ export default async function handler(req, res) {
 
         // Update store settings
         if (ambitionTier) {
-            await client.query(`
+            await pool.query(`
                 UPDATE store_settings 
                 SET ambition_tier = $2, updated_at = CURRENT_TIMESTAMP
                 WHERE store_id = $1
             `, [storeId, ambitionTier]);
         }
 
-        await client.query('COMMIT');
         res.json({ success: true, message: 'Data saved successfully' });
         
     } catch (error) {
-        await client.query('ROLLBACK');
         console.error('Error saving productivity data:', error);
         res.status(500).json({ error: 'Failed to save data' });
-    } finally {
-        client.release();
     }
 }
