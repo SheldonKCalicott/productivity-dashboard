@@ -478,10 +478,9 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                     endDate = lastQuarterEnd.toISOString().split('T')[0];
                     break;
                 case 'custom-start-date':
-                    // For now, use current date as both start and end
-                    // You could add custom date inputs in the UI later
-                    startDate = saveDate;
-                    endDate = saveDate;
+                    // Demo mode - use today's date
+                    startDate = today.toISOString().split('T')[0];
+                    endDate = today.toISOString().split('T')[0];
                     break;
                 default:
                     startDate = today.toISOString().split('T')[0];
@@ -491,8 +490,8 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
             const result = await apiService.exportToCSV(startDate, endDate);
             
             // Show success message
-            setShowSaveBanner(true);
-            setTimeout(() => setShowSaveBanner(false), 3000);
+            setShowDemoBanner(true);
+            setTimeout(() => setShowDemoBanner(false), 3000);
             
         } catch (error) {
             console.error('Export failed:', error);
@@ -976,7 +975,7 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                 </h5>
                                 
                                 {/* Save Banner */}
-                                {showSaveBanner && (
+                                {showDemoBanner && (
                                     <div style={{
                                         backgroundColor: '#10b981',
                                         color: '#fff',
@@ -998,38 +997,29 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                     </h6>
                                     <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', marginBottom: '6px' }}>
                                         <div style={{ flex: 1 }}>
-                                            <input 
-                                                type="date" 
-                                                value={saveDate}
-                                                onChange={(e) => setSaveDate(e.target.value)}
-                                                style={{
-                                                    width: '70%',
-                                                    padding: '4px 6px',
-                                                    fontSize: '11px',
-                                                    backgroundColor: '#1a1a1a',
-                                                    color: '#ffffff',
-                                                    border: '1px solid #4a4a4a',
-                                                    borderRadius: '3px'
-                                                }}
-                                            />
+                                            <span style={{
+                                                fontSize: '11px',
+                                                color: '#94a3b8',
+                                                fontStyle: 'italic'
+                                            }}>
+                                                Demo Mode - No Dates
+                                            </span>
                                         </div>
                                         <button 
                                             onClick={handleDemoAction}
-                                            disabled={isSaving}
                                             style={{
                                                 padding: '4px 8px',
-                                                backgroundColor: isSaving ? '#6b7280' : '#3b82f6',
+                                                backgroundColor: '#3b82f6',
                                                 color: '#ffffff',
                                                 border: 'none',
                                                 borderRadius: '3px',
                                                 fontSize: '11px',
-                                                cursor: isSaving ? 'not-allowed' : 'pointer',
+                                                cursor: 'pointer',
                                                 fontWeight: '600',
-                                                whiteSpace: 'nowrap',
-                                                opacity: isSaving ? 0.7 : 1
+                                                whiteSpace: 'nowrap'
                                             }}
                                         >
-                                            {isSaving ? 'Saving...' : 'Save'}
+                                            Demo Save
                                         </button>
                                     </div>
                                 </div>
