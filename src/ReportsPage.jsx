@@ -476,8 +476,6 @@ export default function ReportsPage({ isDemo = false }) {
                 </p>
             </div>
         </div>
-        )}
-        </div>
     )
 }
 
