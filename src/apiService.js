@@ -2,7 +2,16 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 
     (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-const STORE_NAME = import.meta.env.VITE_STORE_NAME || 'simplified';
+
+// Get store name from current URL path
+function getStoreNameFromPath() {
+    const path = window.location.pathname;
+    const storeMatch = path.match(/\/store\/(\d+)/);
+    if (storeMatch) {
+        return storeMatch[1]; // Return store number (e.g., '04680')
+    }
+    return 'simplified'; // Default for demo/template
+}
 
 class ApiService {
     
@@ -32,14 +41,16 @@ class ApiService {
     }
 
     // Get store information (weights, settings, etc.)
-    async getStoreInfo(storeName = STORE_NAME) {
-        return this.request(`/store/${storeName}`);
+    async getStoreInfo(storeName = null) {
+        const store = storeName || getStoreNameFromPath();
+        return this.request(`/store/${store}`);
     }
 
     // Save productivity data
-    async saveProductivityData(data) {
+    async saveProductivityData(data, storeName = null) {
+        const store = storeName || getStoreNameFromPath();
         const payload = {
-            storeName: STORE_NAME,
+            storeName: store,
             date: data.date,
             daypartsData: {
                 breakfast: {
@@ -78,13 +89,15 @@ class ApiService {
     }
 
     // Load productivity data for a specific date
-    async loadProductivityData(date, storeName = STORE_NAME) {
-        return this.request(`/productivity/${storeName}/${date}`);
+    async loadProductivityData(date, storeName = null) {
+        const store = storeName || getStoreNameFromPath();
+        return this.request(`/productivity/${store}/${date}`);
     }
 
     // Load productivity data for a date range
-    async loadProductivityRange(startDate, endDate, storeName = STORE_NAME) {
-        return this.request(`/productivity/${storeName}/range/${startDate}/${endDate}`);
+    async loadProductivityRange(startDate, endDate, storeName = null) {
+        const store = storeName || getStoreNameFromPath();
+        return this.request(`/productivity/${store}/range/${startDate}/${endDate}`);
     }
 
     // Check API health
@@ -118,9 +131,10 @@ class ApiService {
     }
 
     // Export data to CSV format
-    async exportToCSV(startDate, endDate, storeName = STORE_NAME) {
+    async exportToCSV(startDate, endDate, storeName = null) {
+        const store = storeName || getStoreNameFromPath();
         try {
-            const data = await this.loadProductivityRange(startDate, endDate, storeName);
+            const data = await this.loadProductivityRange(startDate, endDate, store);
             
             // Group by date
             const groupedByDate = data.reduce((acc, record) => {
@@ -140,10 +154,12 @@ class ApiService {
                 ['breakfast', 'lunch', 'afternoon', 'dinner'].forEach(daypart => {
                     const record = dayparts[daypart];
                     if (record) {
+                        const salesFormatted = record.sales_amount ? 
+                            `$${Number(record.sales_amount).toLocaleString()}` : '$0';
                         csvRows.push([
                             date,
                             daypart.charAt(0).toUpperCase() + daypart.slice(1),
-                            record.sales_amount || '0',
+                            salesFormatted,
                             record.actual_productivity || '0',
                             record.target_productivity || '0',
                             record.pic_name || ''
@@ -162,7 +178,7 @@ class ApiService {
             if (link.download !== undefined) {
                 const url = URL.createObjectURL(blob);
                 link.setAttribute('href', url);
-                link.setAttribute('download', `productivity-data-${storeName}-${startDate}-${endDate}.csv`);
+                link.setAttribute('download', `productivity-data-${store}-${startDate}-${endDate}.csv`);
                 link.style.visibility = 'hidden';
                 document.body.appendChild(link);
                 link.click();
