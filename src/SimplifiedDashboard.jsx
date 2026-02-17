@@ -489,10 +489,14 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                 setDinnerSales(formatted.dinnerSales);
                 setActualProductivity(formatted.actualProductivity);
                 setPicNames(formatted.picNames);
+            } else {
+                // Clear all fields when no data is found for the selected date
+                clearAllInputs();
             }
         } catch (error) {
             console.error('Error loading productivity data:', error);
-            // Don't show error to user for missing data - it's normal
+            // Clear fields on error too
+            clearAllInputs();
         } finally {
             setIsLoading(false);
         }

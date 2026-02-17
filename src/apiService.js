@@ -191,11 +191,20 @@ class ApiService {
                 });
             });
 
-            // Convert to CSV string
-            const csvContent = csvRows.map(row => row.join('\t')).join('\n');
+            // Convert to CSV string with proper escaping
+            const csvContent = csvRows.map(row => 
+                row.map(cell => {
+                    // Escape cells that contain commas, quotes, or newlines
+                    const cellStr = String(cell || '');
+                    if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+                        return `"${cellStr.replace(/"/g, '""')}"`;
+                    }
+                    return cellStr;
+                }).join(',')
+            ).join('\n');
             
             // Create and download file
-            const blob = new Blob([csvContent], { type: 'text/tab-separated-values;charset=utf-8;' });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             
             if (link.download !== undefined) {
