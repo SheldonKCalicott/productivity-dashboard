@@ -19,13 +19,41 @@ function getPool() {
   return pool;
 }
 
-// Helper function to get store ID by name
+// Helper function to get store ID by name (creates store if it doesn't exist)
 export async function getStoreId(storeName = 'simplified') {
     const pool = getPool();
-    const result = await pool.query('SELECT id FROM stores WHERE name = $1', [storeName]);
+    let result = await pool.query('SELECT id FROM stores WHERE name = $1', [storeName]);
+    
     if (result.rows.length === 0) {
-        throw new Error(`Store '${storeName}' not found`);
+        // Create the store if it doesn't exist
+        const storeLocation = storeName === '04680' ? 'Tuskawilla' : 
+                             storeName === '00661' ? 'Forsyth' : 
+                             storeName === 'simplified' ? 'Demo Location' : 
+                             `Store ${storeName}`;
+        
+        const newStoreResult = await pool.query(
+            'INSERT INTO stores (name, location) VALUES ($1, $2) RETURNING id',
+            [storeName, storeLocation]
+        );
+        
+        const storeId = newStoreResult.rows[0].id;
+        
+        // Create default operational weights for the new store
+        await pool.query(
+            'INSERT INTO operational_weights (store_id, breakfast, lunch, afternoon, dinner) VALUES ($1, $2, $3, $4, $5)',
+            [storeId, 0.76, 1.24, 1.06, 0.94]
+        );
+        
+        // Create default store settings for the new store
+        await pool.query(
+            'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
+            [storeId, 'Top 50%']
+        );
+        
+        console.log(`Created new store: ${storeName} (${storeLocation}) with ID: ${storeId}`);
+        return storeId;
     }
+    
     return result.rows[0].id;
 }
 

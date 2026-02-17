@@ -82,6 +82,11 @@ export default async function handler(req, res) {
         
     } catch (error) {
         console.error('Error saving productivity data:', error);
-        res.status(500).json({ error: 'Failed to save data' });
+        console.error('Request body:', req.body);
+        res.status(500).json({ 
+            error: 'Failed to save data',
+            message: error.message,
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 }
