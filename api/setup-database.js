@@ -16,13 +16,12 @@ export default async function handler(req, res) {
     }
 
     const pool = getPool();
-    const client = await pool.connect();
     
     try {
-        console.log('Connected to database');
+        console.log('Setting up database schema...');
 
         // Create stores table
-        await client.query(`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS stores (
                 id SERIAL PRIMARY KEY,
                 name VARCHAR(100) NOT NULL UNIQUE,
@@ -34,7 +33,7 @@ export default async function handler(req, res) {
         `);
 
         // Create productivity_records table
-        await client.query(`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS productivity_records (
                 id SERIAL PRIMARY KEY,
                 store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE,
@@ -51,7 +50,7 @@ export default async function handler(req, res) {
         `);
 
         // Create operational_weights table
-        await client.query(`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS operational_weights (
                 id SERIAL PRIMARY KEY,
                 store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE,
@@ -65,7 +64,7 @@ export default async function handler(req, res) {
         `);
 
         // Create store_settings table
-        await client.query(`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS store_settings (
                 id SERIAL PRIMARY KEY,
                 store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE UNIQUE,
@@ -76,11 +75,11 @@ export default async function handler(req, res) {
         `);
 
         // Insert default store if it doesn't exist
-        const storeResult = await client.query('SELECT id FROM stores WHERE name = $1', ['simplified']);
+        const storeResult = await pool.query('SELECT id FROM stores WHERE name = $1', ['simplified']);
         let storeId;
         
         if (storeResult.rows.length === 0) {
-            const newStoreResult = await client.query(
+            const newStoreResult = await pool.query(
                 'INSERT INTO stores (name, location) VALUES ($1, $2) RETURNING id',
                 ['simplified', 'Main Location']
             );
@@ -92,9 +91,9 @@ export default async function handler(req, res) {
         }
 
         // Insert default operational weights for the store
-        const weightsResult = await client.query('SELECT id FROM operational_weights WHERE store_id = $1', [storeId]);
+        const weightsResult = await pool.query('SELECT id FROM operational_weights WHERE store_id = $1', [storeId]);
         if (weightsResult.rows.length === 0) {
-            await client.query(
+            await pool.query(
                 'INSERT INTO operational_weights (store_id, breakfast, lunch, afternoon, dinner) VALUES ($1, $2, $3, $4, $5)',
                 [storeId, 0.76, 1.24, 1.06, 0.94]
             );
@@ -102,9 +101,9 @@ export default async function handler(req, res) {
         }
 
         // Insert default store settings
-        const settingsResult = await client.query('SELECT id FROM store_settings WHERE store_id = $1', [storeId]);
+        const settingsResult = await pool.query('SELECT id FROM store_settings WHERE store_id = $1', [storeId]);
         if (settingsResult.rows.length === 0) {
-            await client.query(
+            await pool.query(
                 'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
                 [storeId, 'Top 50%']
             );
@@ -126,7 +125,5 @@ export default async function handler(req, res) {
             message: error.message,
             timestamp: new Date().toISOString()
         });
-    } finally {
-        client.release();
     }
 }
