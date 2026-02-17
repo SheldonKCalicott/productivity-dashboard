@@ -2,6 +2,14 @@
 import { getPool, getStoreId } from '../_db.js';
 
 export default async function handler(req, res) {
+    console.error('=== PRODUCTIVITY SAVE API CALLED ===');
+    console.error('Method:', req.method);
+    console.error('URL:', req.url);
+    console.error('Headers:', JSON.stringify(req.headers, null, 2));
+    console.error('Query:', JSON.stringify(req.query, null, 2));
+    console.error('Body type:', typeof req.body);
+    console.error('Request body:', JSON.stringify(req.body, null, 2));
+    
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -12,15 +20,25 @@ export default async function handler(req, res) {
     }
 
     if (req.method !== 'POST') {
+        console.error('Method not allowed:', req.method);
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    console.error('=== PRODUCTIVITY SAVE API CALLED ===');
-    console.error('Method:', req.method);
-    console.error('URL:', req.url);
-    console.error('Request body:', JSON.stringify(req.body, null, 2));
-
     const pool = getPool();
+    console.error('Database pool created successfully');
+    
+    // Test database connectivity
+    try {
+        const testResult = await pool.query('SELECT NOW() as test_time');
+        console.error('Database test successful:', testResult.rows[0]);
+    } catch (dbError) {
+        console.error('Database connectivity test failed:', dbError);
+        return res.status(500).json({ 
+            error: 'Database connection failed',
+            message: dbError.message,
+            details: process.env.NODE_ENV === 'development' ? dbError.stack : 'Check server logs'
+        });
+    }
     
     try {
         const {

@@ -26,22 +26,35 @@ class ApiService {
             ...options,
         };
 
+        console.log('Making API request to:', url);
+        console.log('Request config:', config);
+
         try {
             const response = await fetch(url, config);
             
+            console.log('Response status:', response.status);
+            console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+            
             if (!response.ok) {
                 let errorMessage = `HTTP error! status: ${response.status}`;
+                let errorDetails = null;
                 try {
-                    const errorData = await response.json();
+                    errorDetails = await response.text();
+                    console.log('Error response body:', errorDetails);
+                    const errorData = JSON.parse(errorDetails);
                     errorMessage = errorData.message || errorData.error || errorMessage;
                 } catch (e) {
                     // If response isn't JSON, use status text
+                    console.log('Could not parse error response as JSON:', e.message);
                     errorMessage = response.statusText || errorMessage;
                 }
+                console.error('API request failed with:', errorMessage);
                 throw new Error(errorMessage);
             }
             
-            return await response.json();
+            const result = await response.json();
+            console.log('API request successful:', result);
+            return result;
         } catch (error) {
             console.error('API request failed:', error);
             console.error('Request URL:', url);
