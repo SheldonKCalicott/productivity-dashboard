@@ -405,10 +405,6 @@ export default function DaypartDashboard({ onNavigateToReports }) {
     })
 
     const [showSaveBanner, setShowSaveBanner] = useState(false)
-    
-    // Save date state
-    const [saveDate, setSaveDate] = useState(new Date().toISOString().split('T')[0])
-    const [hasAutoSaved, setHasAutoSaved] = useState(false)
 
     // Load/clear data when save date changes
     useEffect(() => {

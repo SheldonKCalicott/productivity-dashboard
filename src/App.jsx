@@ -2,8 +2,6 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom'
 import DashboardSelector from './DashboardSelector'
 import SimplifiedDashboard from './SimplifiedDashboard'
-import DaypartDashboard from './DaypartDashboard'
-import DaypartDashboardForsyth from './DaypartDashboardForsyth'
 import ReportsPage from './ReportsPage'
 import StoreAccess from './StoreAccess'
 
@@ -137,13 +135,7 @@ function StoreWrapper({ storeNumber }) {
     
     return (
         <DashboardWrapper title={storeName}>
-            {storeNumber === '04680' ? (
-                <DaypartDashboard />
-            ) : storeNumber === '00661' ? (
-                <DaypartDashboardForsyth />
-            ) : (
-                <SimplifiedDashboard onNavigateToReports={null} />
-            )}
+            <SimplifiedDashboard onNavigateToReports={null} />
         </DashboardWrapper>
     )
 }
