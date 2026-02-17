@@ -15,8 +15,10 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    console.log('=== PRODUCTIVITY SAVE API CALLED ===');
-    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.error('=== PRODUCTIVITY SAVE API CALLED ===');
+    console.error('Method:', req.method);
+    console.error('URL:', req.url);
+    console.error('Request body:', JSON.stringify(req.body, null, 2));
 
     const pool = getPool();
     
@@ -29,7 +31,7 @@ export default async function handler(req, res) {
             ambitionTier
         } = req.body;
 
-        console.log('Parsed request data:', {
+        console.error('Parsed request data:', {
             storeName,
             date,
             daypartsData: Object.keys(daypartsData),
@@ -37,15 +39,15 @@ export default async function handler(req, res) {
             ambitionTier
         });
 
-        console.log('Getting store ID for:', storeName);
+        console.error('Getting store ID for:', storeName);
         const storeId = await getStoreId(storeName);
-        console.log('Store ID:', storeId);
+        console.error('Store ID:', storeId);
 
-        console.log('Processing dayparts data...');
+        console.error('Processing dayparts data...');
         // Update/Insert productivity records for each daypart
         for (const [daypart, data] of Object.entries(daypartsData)) {
             if (data.sales || data.actualProductivity || data.picName) {
-                console.log(`Processing ${daypart}:`, data);
+                console.error(`Processing ${daypart}:`, data);
                 await pool.query(`
                     INSERT INTO productivity_records 
                     (store_id, record_date, daypart, sales_amount, actual_productivity, target_productivity, pic_name)
@@ -68,11 +70,11 @@ export default async function handler(req, res) {
                 ]);
             }
         }
-        console.log('Dayparts processing completed');
+        console.error('Dayparts processing completed');
 
         // Update operational weights
         if (operationalWeights) {
-            console.log('Updating operational weights:', operationalWeights);
+            console.error('Updating operational weights:', operationalWeights);
             await pool.query(`
                 UPDATE operational_weights 
                 SET breakfast = $2, lunch = $3, afternoon = $4, dinner = $5, updated_at = CURRENT_TIMESTAMP
@@ -88,7 +90,7 @@ export default async function handler(req, res) {
 
         // Update store settings
         if (ambitionTier) {
-            console.log('Updating store settings with ambition tier:', ambitionTier);
+            console.error('Updating store settings with ambition tier:', ambitionTier);
             await pool.query(`
                 UPDATE store_settings 
                 SET ambition_tier = $2, updated_at = CURRENT_TIMESTAMP
@@ -96,7 +98,7 @@ export default async function handler(req, res) {
             `, [storeId, ambitionTier]);
         }
 
-        console.log('All updates completed successfully');
+        console.error('All updates completed successfully');
         res.json({ success: true, message: 'Data saved successfully' });
         
     } catch (error) {

@@ -50,7 +50,7 @@ export async function getStoreId(storeName = 'simplified') {
             [storeId, 'Top 50%']
         );
         
-        console.log(`Created new store: ${storeName} (${storeLocation}) with ID: ${storeId}`);
+        console.error(`Created new store: ${storeName} (${storeLocation}) with ID: ${storeId}`);
         return storeId;
     }
     

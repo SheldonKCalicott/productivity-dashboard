@@ -2,6 +2,10 @@
 import { getPool, getStoreId } from '../_db.js';
 
 export default async function handler(req, res) {
+    console.error('=== PRODUCTIVITY GET API CALLED ===');
+    console.error('Method:', req.method);
+    console.error('URL:', req.url);
+    
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -12,11 +16,13 @@ export default async function handler(req, res) {
     }
 
     if (req.method !== 'GET') {
+        console.error('Method not allowed:', req.method);
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     const pool = getPool();
     const params = req.query.params || [];
+    console.error('Parsed params:', params);
     
     try {
         // Handle different URL patterns:
@@ -26,7 +32,9 @@ export default async function handler(req, res) {
         if (params.length === 2) {
             // Get productivity data for a specific date
             const [storeName, date] = params;
+            console.error('Getting data for store:', storeName, 'date:', date);
             const storeId = await getStoreId(storeName);
+            console.error('Store ID found:', storeId);
 
             const result = await pool.query(`
                 SELECT * FROM productivity_records 
@@ -50,12 +58,15 @@ export default async function handler(req, res) {
                 };
             });
 
+            console.error('Returning dayparts data:', daypartsData);
             return res.json(daypartsData);
             
         } else if (params.length === 4 && params[1] === 'range') {
             // Get productivity data for a date range
             const [storeName, , startDate, endDate] = params;
+            console.error('Getting range data for store:', storeName, 'from:', startDate, 'to:', endDate);
             const storeId = await getStoreId(storeName);
+            console.error('Store ID found:', storeId);
 
             const result = await pool.query(`
                 SELECT * FROM productivity_records 
@@ -72,11 +83,17 @@ export default async function handler(req, res) {
             return res.json(result.rows);
             
         } else {
-            return res.status(400).json({ error: 'Invalid URL pattern' });
+            console.error('Invalid URL pattern. Params length:', params.length, 'Params:', params);
+            return res.status(400).json({ error: 'Invalid URL pattern', params, length: params.length });
         }
         
     } catch (error) {
         console.error('Error fetching productivity data:', error);
-        res.status(500).json({ error: 'Internal server error' });
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ 
+            error: 'Internal server error', 
+            message: error.message,
+            details: process.env.NODE_ENV === 'development' ? error.stack : 'Check server logs'
+        });
     }
 }
