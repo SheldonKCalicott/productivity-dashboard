@@ -6,7 +6,7 @@ export default function DashboardSelector() {
         <div style={styles.container}>
             <div style={styles.header}>
                 <h1 style={styles.title}>Productivity Dashboard</h1>
-                <p style={styles.subtitle}>Restaurant productivity tracking and performance management</p>
+                <p style={styles.subtitle}>Choose your dashboard or explore the demo</p>
             </div>
             
             <div style={styles.dashboardGrid}>
@@ -40,7 +40,7 @@ export default function DashboardSelector() {
                     </div>
                 </Link>
 
-                <Link to="/store-access" style={styles.dashboardCard}
+                <Link to="/store/04680" style={styles.dashboardCard}
                     onMouseEnter={(e) => {
                         e.currentTarget.style.transform = 'translateY(-5px)'
                         e.currentTarget.style.borderColor = '#10b981'
@@ -53,18 +53,47 @@ export default function DashboardSelector() {
                     }}
                 >
                     <div style={styles.cardContent}>
-                        <h2 style={styles.cardTitle}>🔐 Store Access</h2>
+                        <h2 style={styles.cardTitle}>🏪 Tuskawilla (04680)</h2>
                         <p style={styles.cardDescription}>
-                            Access your store's dashboard with live data, sales tracking, and performance analytics.
+                            Access Tuskawilla store dashboard with live productivity tracking and performance analytics.
                         </p>
                         <div style={styles.cardFeatures}>
-                            <span style={styles.feature}>• Secure Store Login</span>
+                            <span style={styles.feature}>• Store #04680</span>
                             <span style={styles.feature}>• Live Performance Data</span>
-                            <span style={styles.feature}>• Store-Specific Analytics</span>
-                            <span style={styles.feature}>• Real-time Tracking</span>
+                            <span style={styles.feature}>• Productivity Analytics</span>
+                            <span style={styles.feature}>• Team Reports</span>
                         </div>
                         <div style={{...styles.cardButton, backgroundColor: '#10b981'}}>
-                            Store Login →
+                            Open Tuskawilla →
+                        </div>
+                    </div>
+                </Link>
+
+                <Link to="/store/00661" style={styles.dashboardCard}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-5px)'
+                        e.currentTarget.style.borderColor = '#8b5cf6'
+                        e.currentTarget.style.boxShadow = '0 20px 40px rgba(139, 92, 246, 0.2)'
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)'
+                        e.currentTarget.style.borderColor = '#334155'
+                        e.currentTarget.style.boxShadow = 'none'
+                    }}
+                >
+                    <div style={styles.cardContent}>
+                        <h2 style={styles.cardTitle}>🏪 Forsyth (00661)</h2>
+                        <p style={styles.cardDescription}>
+                            Access Forsyth store dashboard with live productivity tracking and performance analytics.
+                        </p>
+                        <div style={styles.cardFeatures}>
+                            <span style={styles.feature}>• Store #00661</span>
+                            <span style={styles.feature}>• Live Performance Data</span>
+                            <span style={styles.feature}>• Productivity Analytics</span>
+                            <span style={styles.feature}>• Team Reports</span>
+                        </div>
+                        <div style={{...styles.cardButton, backgroundColor: '#8b5cf6'}}>
+                            Open Forsyth →
                         </div>
                     </div>
                 </Link>
@@ -113,8 +142,8 @@ const styles = {
     },
     dashboardGrid: {
         display: 'flex',
-        gap: '40px',
-        maxWidth: '1000px',
+        gap: '30px',
+        maxWidth: '1400px',
         width: '100%',
         justifyContent: 'center',
         alignItems: 'stretch',
@@ -131,8 +160,8 @@ const styles = {
         cursor: 'pointer',
         position: 'relative',
         overflow: 'hidden',
-        minWidth: '400px',
-        maxWidth: '450px',
+        minWidth: '350px',
+        maxWidth: '400px',
         flex: '1',
         display: 'flex',
         flexDirection: 'column',

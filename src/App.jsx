@@ -1,8 +1,6 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom'
 import DashboardSelector from './DashboardSelector'
-import StoreLogin from './StoreLogin'  
-import ProtectedRoute from './ProtectedRoute'
 import SimplifiedDashboard from './SimplifiedDashboard'
 import ReportsPage from './ReportsPage'
 
@@ -44,7 +42,10 @@ function DashboardWrapper({ children, title, isTemplate = false, storeNumber = n
                                 if (isTemplate) {
                                     navigate('/template/reports')
                                 } else {
-                                    navigate(`/store/${title.toLowerCase()}/reports`)
+                                    // Extract store number from current path
+                                    const pathParts = window.location.pathname.split('/')
+                                    const storeNumber = pathParts[2]
+                                    navigate(`/store/${storeNumber}/reports`)
                                 }
                             }} 
                             style={{...navStyles.button, backgroundColor: '#3b82f6'}}
@@ -80,28 +81,31 @@ function TemplateWrapper() {
     )
 }
 
-// Store wrapper (protected with authentication)
-function StoreWrapper({ storeName, storeNumber }) {
+// Store wrapper (direct access by store number)
+function StoreWrapper({ storeNumber }) {
     const location = useLocation()
     
+    // Map store numbers to display names
+    const storeNames = {
+        '04680': 'Tuskawilla',
+        '00661': 'Forsyth'
+    }
+    
+    const storeName = storeNames[storeNumber] || `Store ${storeNumber}`
     const isReportsPage = location.pathname.includes('/reports')
     
     if (isReportsPage) {
         return (
-            <ProtectedRoute storeNumber={storeNumber}>
-                <DashboardWrapper title={storeName} storeNumber={storeNumber}>
-                    <ReportsPage />
-                </DashboardWrapper>
-            </ProtectedRoute>
+            <DashboardWrapper title={storeName}>
+                <ReportsPage />
+            </DashboardWrapper>
         )
     }
     
     return (
-        <ProtectedRoute storeNumber={storeNumber}>
-            <DashboardWrapper title={storeName} storeNumber={storeNumber}>
-                <SimplifiedDashboard onNavigateToReports={null} />
-            </DashboardWrapper>
-        </ProtectedRoute>
+        <DashboardWrapper title={storeName}>
+            <SimplifiedDashboard onNavigateToReports={null} />
+        </DashboardWrapper>
     )
 }
 
@@ -112,30 +116,27 @@ export default function App() {
                 {/* Home page - Dashboard selector */}
                 <Route path="/" element={<DashboardSelector />} />
                 
-                {/* Store login page */}
-                <Route path="/store-access" element={<StoreLogin />} />
-                
                 {/* Public template dashboard */}
                 <Route path="/template" element={<TemplateWrapper />} />
                 <Route path="/template/reports" element={<TemplateWrapper />} />
                 
-                {/* Protected store dashboards */}
+                {/* Store number routing - direct access */}
                 <Route 
-                    path="/store/tuskawilla" 
-                    element={<StoreWrapper storeName="Tuskawilla" storeNumber="04680" />} 
+                    path="/store/04680" 
+                    element={<StoreWrapper storeNumber="04680" />} 
                 />
                 <Route 
-                    path="/store/tuskawilla/reports" 
-                    element={<StoreWrapper storeName="Tuskawilla" storeNumber="04680" />} 
+                    path="/store/04680/reports" 
+                    element={<StoreWrapper storeNumber="04680" />} 
                 />
                 
                 <Route 
-                    path="/store/forsyth" 
-                    element={<StoreWrapper storeName="Forsyth" storeNumber="00661" />} 
+                    path="/store/00661" 
+                    element={<StoreWrapper storeNumber="00661" />} 
                 />
                 <Route 
-                    path="/store/forsyth/reports" 
-                    element={<StoreWrapper storeName="Forsyth" storeNumber="00661" />} 
+                    path="/store/00661/reports" 
+                    element={<StoreWrapper storeNumber="00661" />} 
                 />
                 
                 {/* Catch-all redirect to home */}
