@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation 
 import DashboardSelector from './DashboardSelector'
 import SimplifiedDashboard from './SimplifiedDashboard'
 import ReportsPage from './ReportsPage'
+import StoreAccess from './StoreAccess'
 
 // Navigation wrapper component for dashboards
 function DashboardWrapper({ children, title, isTemplate = false, storeNumber = null }) {
@@ -119,6 +120,9 @@ export default function App() {
                 {/* Public template dashboard */}
                 <Route path="/template" element={<TemplateWrapper />} />
                 <Route path="/template/reports" element={<TemplateWrapper />} />
+                
+                {/* Store access page - enter store number */}
+                <Route path="/store-access" element={<StoreAccess />} />
                 
                 {/* Store number routing - direct access */}
                 <Route 
