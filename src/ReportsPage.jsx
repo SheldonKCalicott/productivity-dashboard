@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import apiService from './apiService'
 
 export default function ReportsPage({ isDemo = false }) {
-    const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'example-data' : 'today')
+    const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'example-data' : 'this-week')
     const [sortBy, setSortBy] = useState('performance')
     const [customStartDate, setCustomStartDate] = useState('')
     const [customEndDate, setCustomEndDate] = useState('')
@@ -126,9 +126,7 @@ export default function ReportsPage({ isDemo = false }) {
         const today = new Date();
         let startDate, endDate;
         
-        if (filterPeriod === 'today') {
-            startDate = endDate = today.toISOString().split('T')[0];
-        } else if (filterPeriod === 'this-week') {
+        if (filterPeriod === 'this-week') {
             const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
             startDate = weekAgo.toISOString().split('T')[0];
             endDate = today.toISOString().split('T')[0];
@@ -155,7 +153,7 @@ export default function ReportsPage({ isDemo = false }) {
         loadReportData(startDate, endDate);
     }, [filterPeriod, customStartDate, customEndDate, isDemo]);
 
-    // Sort and filter data
+    // Sort and filter data, then group by PIC name for leaderboard
     const getSortedFilteredData = () => {
         // Use demo data if in demo mode, otherwise use loaded data
         let dataSource = (filterPeriod === 'example-data' || isDemo) ? exampleData : reportData
@@ -167,9 +165,7 @@ export default function ReportsPage({ isDemo = false }) {
             const today = new Date()
             const todayStr = today.toISOString().split('T')[0]
             
-            if (filterPeriod === 'today') {
-                filteredData = dataSource.filter(item => item.date === todayStr)
-            } else if (filterPeriod === 'this-week') {
+            if (filterPeriod === 'this-week') {
                 const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
                 filteredData = dataSource.filter(item => new Date(item.date) >= weekAgo)
             } else if (filterPeriod === 'last-week') {
@@ -193,8 +189,41 @@ export default function ReportsPage({ isDemo = false }) {
             }
         }
 
+        // Group by PIC name and calculate averages
+        const picAverages = {}
+        filteredData.forEach(item => {
+            if (!picAverages[item.picName]) {
+                picAverages[item.picName] = {
+                    picName: item.picName,
+                    totalProductivity: 0,
+                    totalTargetProductivity: 0,
+                    totalSales: 0,
+                    totalImprovement: 0,
+                    count: 0,
+                    tier: item.tier
+                }
+            }
+            picAverages[item.picName].totalProductivity += item.actualProductivity
+            picAverages[item.picName].totalTargetProductivity += item.targetProductivity
+            picAverages[item.picName].totalSales += item.actualSales
+            picAverages[item.picName].totalImprovement += (item.improvement || 0)
+            picAverages[item.picName].count++
+        })
+
+        // Convert to array with averages
+        const averagedData = Object.values(picAverages).map((pic, index) => ({
+            id: index + 1,
+            picName: pic.picName,
+            actualProductivity: Math.round(pic.totalProductivity / pic.count),
+            targetProductivity: Math.round(pic.totalTargetProductivity / pic.count),
+            actualSales: Math.round(pic.totalSales / pic.count),
+            improvement: pic.totalImprovement / pic.count,
+            performanceScore: (pic.totalProductivity / pic.count) / (pic.totalTargetProductivity / pic.count) * 100,
+            tier: pic.tier
+        }))
+
         // Enhanced sorting: performance score measures distance to target, not raw sales
-        return [...filteredData].sort((a, b) => {
+        return [...averagedData].sort((a, b) => {
             if (sortBy === 'performance') {
                 // Sort by how close to target (100%), then by score
                 const aDistance = Math.abs(100 - a.performanceScore)
@@ -207,8 +236,6 @@ export default function ReportsPage({ isDemo = false }) {
                 return (b.improvement || 0) - (a.improvement || 0) // Best improvement first
             } else if (sortBy === 'name') {
                 return a.picName.localeCompare(b.picName)
-            } else if (sortBy === 'daypart') {
-                return a.daypart.localeCompare(b.daypart)
             }
             return 0
         })
@@ -248,7 +275,6 @@ export default function ReportsPage({ isDemo = false }) {
                             onChange={(e) => setFilterPeriod(e.target.value)}
                             style={styles.select}
                         >
-                            <option value="today">Today</option>
                             <option value="this-week">This Week</option>
                             <option value="last-week">Last Week</option>
                             <option value="last-month">Last Month</option>
@@ -366,7 +392,7 @@ export default function ReportsPage({ isDemo = false }) {
 
                 {/* Leaderboard - Right Side */}
                 <div style={styles.leaderboardSection}>
-                    <h2 style={styles.leaderboardTitle}>📊 Performance Leaderboard</h2>
+                    <h2 style={styles.leaderboardTitle}>📊 Leaderboard</h2>
                     
                     {sortedData.length === 0 ? (
                         <div style={styles.noData}>
@@ -381,21 +407,28 @@ export default function ReportsPage({ isDemo = false }) {
                             <div style={styles.leaderboardHeaders}>
                                 <div style={styles.rankHeader}>Rank</div>
                                 <div style={styles.picHeader}>PIC Name</div>
-                                <div style={styles.daypartHeader}>Daypart</div>
-                                <div style={styles.productivityHeader}>Productivity</div>
+                                <div style={styles.productivityHeader}>Avg Productivity</div>
                                 <div style={styles.targetHeader}>vs Target</div>
-                                <div style={styles.salesHeader}>Sales</div>
+                                <div style={styles.salesHeader}>Avg Sales</div>
                                 <div style={styles.improvementHeader}>Improvement</div>
                             </div>
                             
                             <div style={styles.scoreboardList}>
                                 {sortedData.slice(0, 10).map((item, index) => {
-                                    // Progressive color scheme: brightest blue to darker
-                                    let backgroundColor
-                                    if (index === 0) backgroundColor = '#3b82f6' // Bright blue
-                                    else if (index === 1) backgroundColor = '#2563eb' // Medium blue
-                                    else if (index === 2) backgroundColor = '#1d4ed8' // Darker blue 
-                                    else backgroundColor = '#1e293b' // Dark gray for others
+                                    // Progressive shades of blue for each row
+                                    const blueShades = [
+                                        '#3b82f6', // Bright blue
+                                        '#2563eb', // Medium-bright blue  
+                                        '#1d4ed8', // Medium blue
+                                        '#1e40af', // Darker blue
+                                        '#1e3a8a', // Dark blue
+                                        '#1e3a8a', // Dark blue (repeat)
+                                        '#172b69', // Darker blue
+                                        '#172b69', // Darker blue (repeat)
+                                        '#0f1f47', // Very dark blue
+                                        '#0f1f47'  // Very dark blue (repeat)
+                                    ]
+                                    const backgroundColor = blueShades[index] || '#1e293b'
                                     
                                     const percentAboveTarget = item.targetProductivity ? 
                                         ((item.actualProductivity - item.targetProductivity) / item.targetProductivity * 100) : 0;
@@ -413,11 +446,6 @@ export default function ReportsPage({ isDemo = false }) {
                                         {/* PIC Name */}
                                         <div style={styles.picColumn}>
                                             <div style={styles.picNameLarge}>{item.picName}</div>
-                                        </div>
-                                        
-                                        {/* Daypart */}
-                                        <div style={styles.daypartColumn}>
-                                            <div style={styles.daypartBadge}>{item.daypart}</div>
                                         </div>
                                         
                                         {/* Actual Productivity */}

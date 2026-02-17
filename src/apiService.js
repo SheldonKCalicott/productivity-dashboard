@@ -179,8 +179,9 @@ class ApiService {
                     if (record) {
                         const salesFormatted = record.sales_amount ? 
                             `$${Number(record.sales_amount).toLocaleString()}` : '$0';
+                        const dateFormatted = record.record_date.split('T')[0]; // Remove time, just YYYY-MM-DD
                         csvRows.push([
-                            date,
+                            dateFormatted,
                             daypart.charAt(0).toUpperCase() + daypart.slice(1),
                             salesFormatted,
                             record.actual_productivity || '0',
