@@ -30,12 +30,22 @@ class ApiService {
             const response = await fetch(url, config);
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                let errorMessage = `HTTP error! status: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || errorData.error || errorMessage;
+                } catch (e) {
+                    // If response isn't JSON, use status text
+                    errorMessage = response.statusText || errorMessage;
+                }
+                throw new Error(errorMessage);
             }
             
             return await response.json();
         } catch (error) {
             console.error('API request failed:', error);
+            console.error('Request URL:', url);
+            console.error('Request config:', config);
             throw error;
         }
     }
