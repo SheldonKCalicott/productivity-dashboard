@@ -19,7 +19,7 @@ function getPool() {
 }
 
 // Helper function to get store ID by name (creates store if it doesn't exist)
-export async function getStoreId(storeName = 'simplified') {
+async function getStoreId(storeName = 'simplified') {
     const pool = getPool();
     let result = await pool.query('SELECT id FROM stores WHERE name = $1', [storeName]);
     

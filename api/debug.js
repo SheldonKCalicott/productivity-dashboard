@@ -1,6 +1,4 @@
-// Debug endpoint to test database connectivity and environment
-const { getPool, getStoreId } = require('./_db.js');
-
+// Debug endpoint to test basic connectivity
 module.exports = async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -11,23 +9,27 @@ module.exports = async function handler(req, res) {
         return res.status(200).end();
     }
 
-    const debug = {
-        timestamp: new Date().toISOString(),
-        method: req.method,
-        url: req.url,
-        query: req.query,
-        env: {
-            NODE_ENV: process.env.NODE_ENV,
-            DATABASE_URL_PRESENT: !!process.env.DATABASE_URL,
-            DATABASE_URL_PREFIX: process.env.DATABASE_URL?.substring(0, 20) + '...'
-        }
-    };
-
     try {
-        // Test database connection
-        const pool = getPool();
-        const testQuery = await pool.query('SELECT NOW() as current_time, version() as db_version');
-        debug.database = {
+        res.json({
+            status: 'ok',
+            message: 'Debug endpoint is working',
+            timestamp: new Date().toISOString(),
+            method: req.method,
+            url: req.url,
+            query: req.query,
+            env: {
+                NODE_ENV: process.env.NODE_ENV,
+                DATABASE_URL_PRESENT: !!process.env.DATABASE_URL
+            }
+        });
+    } catch (error) {
+        console.error('Debug endpoint error:', error);
+        res.status(500).json({
+            status: 'error',
+            message: error.message
+        });
+    }
+};
             connected: true,
             currentTime: testQuery.rows[0].current_time,
             version: testQuery.rows[0].db_version.substring(0, 50) + '...'
