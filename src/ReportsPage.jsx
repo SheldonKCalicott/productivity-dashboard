@@ -366,7 +366,7 @@ export default function ReportsPage({ isDemo = false }) {
 
                 {/* Leaderboard - Right Side */}
                 <div style={styles.leaderboardSection}>
-                    <h2 style={styles.leaderboardTitle}>🏆 Leaderboard</h2>
+                    <h2 style={styles.leaderboardTitle}>📊 Performance Leaderboard</h2>
                     
                     {sortedData.length === 0 ? (
                         <div style={styles.noData}>
@@ -376,71 +376,86 @@ export default function ReportsPage({ isDemo = false }) {
                             }
                         </div>
                     ) : (
-                        <div style={styles.scoreboardList}>
-                            {sortedData.map((item, index) => {
-                                // Progressive color scheme: brightest blue to black
-                                let backgroundColor
-                                if (index === 0) backgroundColor = '#3b82f6' // Bright blue
-                                else if (index === 1) backgroundColor = '#2563eb' // Medium blue
-                                else if (index === 2) backgroundColor = '#1d4ed8' // Darker blue 
-                                else if (index === 3) backgroundColor = '#1e40af' // Even darker
-                                else if (index === 4) backgroundColor = '#1e3a8a' // Dark blue
-                                else backgroundColor = `#${Math.max(16 - index * 2, 5).toString(16)}${Math.max(16 - index * 2, 5).toString(16)}${Math.max(16 - index * 2, 5).toString(16)}` // Progressive to black
-                                
-                                return (
-                                <div key={item.id} style={{
-                                    ...styles.scoreboardRow,
-                                    backgroundColor
-                                }}>
-                                    <div style={styles.rankColumn}>
-                                        <div style={styles.rankNumber}>#{index + 1}</div>
-                                        <div style={styles.rankIcon}>{getPerformanceIcon(item.performanceScore)}</div>
-                                    </div>
+                        <div>
+                            {/* Headers */}
+                            <div style={styles.leaderboardHeaders}>
+                                <div style={styles.rankHeader}>Rank</div>
+                                <div style={styles.picHeader}>PIC Name</div>
+                                <div style={styles.daypartHeader}>Daypart</div>
+                                <div style={styles.productivityHeader}>Productivity</div>
+                                <div style={styles.targetHeader}>vs Target</div>
+                                <div style={styles.salesHeader}>Sales</div>
+                                <div style={styles.improvementHeader}>Improvement</div>
+                            </div>
+                            
+                            <div style={styles.scoreboardList}>
+                                {sortedData.slice(0, 10).map((item, index) => {
+                                    // Progressive color scheme: brightest blue to darker
+                                    let backgroundColor
+                                    if (index === 0) backgroundColor = '#3b82f6' // Bright blue
+                                    else if (index === 1) backgroundColor = '#2563eb' // Medium blue
+                                    else if (index === 2) backgroundColor = '#1d4ed8' // Darker blue 
+                                    else backgroundColor = '#1e293b' // Dark gray for others
                                     
-                                    <div style={styles.picColumn}>
-                                        <div style={styles.picNameLarge}>{item.picName}</div>
-                                        <div style={styles.daypartBadge}>{item.daypart}</div>
-                                    </div>
+                                    const percentAboveTarget = item.targetProductivity ? 
+                                        ((item.actualProductivity - item.targetProductivity) / item.targetProductivity * 100) : 0;
                                     
-                                    <div style={styles.metricsColumn}>
-                                        <div style={styles.salesFigure}>
-                                            ${item.actualSales.toLocaleString()}
+                                    return (
+                                    <div key={item.id} style={{
+                                        ...styles.scoreboardRow,
+                                        backgroundColor
+                                    }}>
+                                        {/* Rank */}
+                                        <div style={styles.rankColumn}>
+                                            <div style={styles.rankNumber}>#{index + 1}</div>
                                         </div>
-                                        <div style={styles.productivityFigures}>
-                                            {item.actualProductivity}% → {item.targetProductivity}%
+                                        
+                                        {/* PIC Name */}
+                                        <div style={styles.picColumn}>
+                                            <div style={styles.picNameLarge}>{item.picName}</div>
                                         </div>
-                                    </div>
-                                    
-                                    <div style={styles.scoreColumn}>
-                                        <div style={{
-                                            ...styles.performanceScoreLarge,
-                                            color: getPerformanceColor(item.performanceScore)
-                                        }}>
-                                            {item.performanceScore.toFixed(1)}%
+                                        
+                                        {/* Daypart */}
+                                        <div style={styles.daypartColumn}>
+                                            <div style={styles.daypartBadge}>{item.daypart}</div>
                                         </div>
-                                        <div style={styles.distanceToTarget}>
-                                            {item.performanceScore >= 100 ? 
-                                                `+${(item.performanceScore - 100).toFixed(1)}% above` :
-                                                `${(100 - item.performanceScore).toFixed(1)}% to target`
-                                            }
+                                        
+                                        {/* Actual Productivity */}
+                                        <div style={styles.productivityColumn}>
+                                            <div style={styles.productivityValue}>{item.actualProductivity}%</div>
                                         </div>
-                                    </div>
-                                    
-                                    <div style={styles.improvementColumn}>
-                                        {item.improvement && (
-                                            <div style={styles.improvementBadge}>
-                                                ↗️ +{item.improvement.toFixed(1)}%
+                                        
+                                        {/* Percent Above Target */}
+                                        <div style={styles.targetColumn}>
+                                            <div style={{
+                                                ...styles.targetValue,
+                                                color: percentAboveTarget >= 0 ? '#34d399' : '#f87171'
+                                            }}>
+                                                {percentAboveTarget >= 0 ? '+' : ''}{percentAboveTarget.toFixed(1)}%
                                             </div>
-                                        )}
-                                        <div style={styles.miniTierBadge}>{item.tier}</div>
+                                        </div>
+                                        
+                                        {/* Sales */}
+                                        <div style={styles.salesColumn}>
+                                            <div style={styles.salesValue}>
+                                                ${item.actualSales.toLocaleString()}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Improvement */}
+                                        <div style={styles.improvementColumn}>
+                                            {item.improvement ? (
+                                                <div style={styles.improvementValue}>
+                                                    +{item.improvement.toFixed(1)}%
+                                                </div>
+                                            ) : (
+                                                <div style={styles.improvementValue}>--</div>
+                                            )}
+                                        </div>
                                     </div>
-                                    
-                                    {item.performanceScore >= 100 && (
-                                        <div style={styles.achievedIndicator}>✅</div>
-                                    )}
-                                </div>
-                                )
-                            })}
+                                    )
+                                })}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -694,105 +709,112 @@ const styles = {
     scoreboardList: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px'
+        gap: '4px', // Reduced from 8px
+        marginTop: '8px'
     },
     scoreboardRow: {
         display: 'flex',
         alignItems: 'center',
-        padding: '16px',
-        borderRadius: '8px',
+        padding: '8px 12px', // Reduced from 16px
+        borderRadius: '6px', // Reduced from 8px
         border: '1px solid #374151',
-        transition: 'all 0.2s ease'
+        transition: 'all 0.2s ease',
+        minHeight: '45px' // Reduced height
     },
+    
+    // Header styles
+    leaderboardHeaders: {
+        display: 'flex',
+        alignItems: 'center',
+        padding: '8px 12px',
+        borderBottom: '2px solid #374151',
+        marginBottom: '8px',
+        fontSize: '12px',
+        fontWeight: '600',
+        color: '#94a3b8',
+        textTransform: 'uppercase'
+    },
+    rankHeader: { minWidth: '50px', textAlign: 'center' },
+    picHeader: { flex: '2', marginRight: '12px' },
+    daypartHeader: { minWidth: '80px', marginRight: '12px' },
+    productivityHeader: { minWidth: '80px', marginRight: '12px', textAlign: 'center' },
+    targetHeader: { minWidth: '70px', marginRight: '12px', textAlign: 'center' },
+    salesHeader: { minWidth: '80px', marginRight: '12px', textAlign: 'center' },
+    improvementHeader: { minWidth: '80px', textAlign: 'center' },
+    
+    // Column styles
     rankColumn: {
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
-        minWidth: '60px',
-        marginRight: '16px'
+        justifyContent: 'center',
+        minWidth: '50px',
+        marginRight: '12px'
     },
     rankNumber: {
-        fontSize: '18px',
+        fontSize: '16px', // Reduced from 18px
         fontWeight: '700',
         color: '#fbbf24'
     },
-    rankIcon: {
-        fontSize: '20px',
-        marginTop: '4px'
-    },
     picColumn: {
-        flex: '1',
-        marginRight: '16px'
+        flex: '2',
+        marginRight: '12px'
     },
     picNameLarge: {
-        fontSize: '18px',
+        fontSize: '14px', // Reduced from 18px
         fontWeight: '600',
-        color: '#ffffff',
-        marginBottom: '4px'
+        color: '#e2e8f0', // Better contrast
+        lineHeight: '1.2'
+    },
+    daypartColumn: {
+        minWidth: '80px',
+        marginRight: '12px'
     },
     daypartBadge: {
-        fontSize: '12px',
-        padding: '2px 8px',
-        backgroundColor: '#3b82f6',
+        fontSize: '11px', // Reduced from 12px
+        padding: '3px 8px', // Reduced padding
+        backgroundColor: '#6b7280', // Gray instead of blue
         color: '#ffffff',
-        borderRadius: '12px',
+        borderRadius: '8px',
         fontWeight: '500',
         display: 'inline-block'
     },
-    metricsColumn: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        minWidth: '120px',
-        marginRight: '16px'
-    },
-    salesFigure: {
-        fontSize: '14px',
-        fontWeight: '600',
-        color: '#10b981',
-        marginBottom: '2px'
-    },
-    productivityFigures: {
-        fontSize: '12px',
-        color: '#94a3b8'
-    },
-    scoreColumn: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        minWidth: '100px',
-        marginRight: '16px'
-    },
-    performanceScoreLarge: {
-        fontSize: '20px',
-        fontWeight: '700',
-        marginBottom: '4px'
-    },
-    distanceToTarget: {
-        fontSize: '11px',
-        color: '#6b7280',
+    productivityColumn: {
+        minWidth: '80px',
+        marginRight: '12px',
         textAlign: 'center'
     },
+    productivityValue: {
+        fontSize: '14px',
+        fontWeight: '600',
+        color: '#e2e8f0' // Better contrast
+    },
+    targetColumn: {
+        minWidth: '70px',
+        marginRight: '12px',
+        textAlign: 'center'
+    },
+    targetValue: {
+        fontSize: '13px',
+        fontWeight: '600'
+    },
+    salesColumn: {
+        minWidth: '80px',
+        marginRight: '12px',
+        textAlign: 'center'
+    },
+    salesValue: {
+        fontSize: '13px',
+        fontWeight: '600',
+        color: '#60a5fa' // Light blue instead of green
+    },
     improvementColumn: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        minWidth: '80px'
+        minWidth: '80px',
+        textAlign: 'center'
     },
-    improvementBadge: {
-        fontSize: '11px',
-        padding: '2px 6px',
-        backgroundColor: '#059669',
-        color: '#ffffff',
-        borderRadius: '8px',
-        marginBottom: '4px'
-    },
-    miniTierBadge: {
-        fontSize: '10px',
-        padding: '1px 4px',
-        backgroundColor: '#6b7280',
-        color: '#ffffff',
-        borderRadius: '6px'
+    improvementValue: {
+        fontSize: '12px',
+        fontWeight: '600',
+        color: '#34d399' // Light green
     },
     achievedIndicator: {
         fontSize: '16px',
@@ -855,7 +877,8 @@ const styles = {
     leaderboardSection: {
         backgroundColor: '#1e293b',
         borderRadius: '12px',
-        padding: '24px'
+        padding: '16px', // Reduced from 24px
+        border: '2px solid #334155'
     },
     sectionTitle: {
         fontSize: '1.5rem',
