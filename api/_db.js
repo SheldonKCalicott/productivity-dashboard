@@ -1,6 +1,5 @@
 // Database connection helper for Vercel serverless functions
-import pkg from 'pg';
-const { Pool } = pkg;
+const { Pool } = require('pg');
 
 let pool;
 
@@ -57,4 +56,4 @@ export async function getStoreId(storeName = 'simplified') {
     return result.rows[0].id;
 }
 
-export { getPool };
+module.exports = { getPool, getStoreId };

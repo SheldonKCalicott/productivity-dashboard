@@ -1,7 +1,7 @@
 // Vercel API route: /api/productivity/[...params]
-import { getPool, getStoreId } from '../_db.js';
+const { getPool, getStoreId } = require('../_db.js');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
     console.error('=== PRODUCTIVITY GET API CALLED ===');
     console.error('Method:', req.method);
     console.error('URL:', req.url);
