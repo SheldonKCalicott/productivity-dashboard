@@ -358,18 +358,8 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
     // Export date range selection
     const [exportDateRange, setExportDateRange] = useState('this-week')
     
-    // Save banner state
-    const [showSaveBanner, setShowSaveBanner] = useState(false)
-    
-    // Loading state
-    const [isLoading, setIsLoading] = useState(false)
-    const [isSaving, setIsSaving] = useState(false)
-    
-    // Save date state
-    const [saveDate, setSaveDate] = useState(new Date().toISOString().split('T')[0])
-    
-    // Auto-save tracking
-    const [hasAutoSaved, setHasAutoSaved] = useState(false)
+    // Demo banner state (no saving for demo)
+    const [showDemoBanner, setShowDemoBanner] = useState(false)
 
     // Tier-based productivity calculation system
     const tierTables = {
@@ -440,135 +430,17 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
         return salesInput ? parseInt(salesInput.replace(/[^0-9]/g, '')) : 0
     }
 
-    // Load data from database
-    useEffect(() => {
-        loadProductivityData(saveDate);
-    }, [saveDate]);
+    // Demo mode - no data loading or saving
+    // All data is local-only for demonstration purposes
 
-    // Auto-save at 11:59 PM daily
-    useEffect(() => {
-        const checkAutoSave = () => {
-            const now = new Date()
-            const hours = now.getHours()
-            const minutes = now.getMinutes()
-            const currentDateStr = now.toISOString().split('T')[0]
-            
-            // Check if it's 11:59 PM and we haven't auto-saved today
-            if (hours === 23 && minutes === 59 && !hasAutoSaved && saveDate === currentDateStr) {
-                console.log('Auto-saving at 11:59 PM...')
-                handleSaveSettings(true) // Pass true to indicate auto-save
-                setHasAutoSaved(true)
-            }
-            
-            // Reset auto-save flag at midnight
-            if (hours === 0 && minutes === 0) {
-                setHasAutoSaved(false)
-            }
-        }
-        
-        // Check every minute
-        const interval = setInterval(checkAutoSave, 60000)
-        checkAutoSave() // Initial check
-        
-        return () => clearInterval(interval)
-    }, [hasAutoSaved, saveDate])
-
-    const loadProductivityData = async (date) => {
-        if (isLoading) return;
-        
-        setIsLoading(true);
-        try {
-            const data = await apiService.loadProductivityData(date);
-            if (data && Object.keys(data).length > 0) {
-                const formatted = apiService.formatLoadedData(data);
-                
-                // Update state with loaded data
-                setBreakfastSales(formatted.breakfastSales);
-                setLunchSales(formatted.lunchSales);
-                setAfternoonSales(formatted.afternoonSales);
-                setDinnerSales(formatted.dinnerSales);
-                setActualProductivity(formatted.actualProductivity);
-                setPicNames(formatted.picNames);
-            } else {
-                // Clear all fields when no data is found for the selected date
-                clearAllInputs();
-            }
-        } catch (error) {
-            console.error('Error loading productivity data:', error);
-            // Clear fields on error too
-            clearAllInputs();
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Helper function to clear all input fields
-    const clearAllInputs = () => {
-        setBreakfastSales('')
-        setLunchSales('')
-        setAfternoonSales('')
-        setDinnerSales('')
-        setActualProductivity({
-            breakfast: '',
-            lunch: '',
-            afternoon: '',
-            dinner: ''
-        })
-        setPicNames({
-            breakfast: '',
-            lunch: '',
-            afternoon: '',
-            dinner: ''
-        })
+    // Demo helper functions
+    const showDemoMessage = () => {
+        setShowDemoBanner(true)
+        setTimeout(() => setShowDemoBanner(false), 3000)
     }
-
-    // Helper functions for save and export
-    const handleSaveSettings = async (isAutoSave = false) => {
-        if (isSaving) return;
-        
-        setIsSaving(true);
-        try {
-            // Prepare data for saving
-            const dataToSave = {
-                date: saveDate,
-                breakfastSales,
-                lunchSales,
-                afternoonSales,
-                dinnerSales,
-                actualProductivity,
-                picNames,
-                daypartWeights,
-                selectedTier,
-                targetProductivity: {
-                    breakfast: calculateTargetProductivity('breakfast', getDaypartSales('breakfast') || 5000),
-                    lunch: calculateTargetProductivity('lunch', getDaypartSales('lunch') || 9000),
-                    afternoon: calculateTargetProductivity('afternoon', getDaypartSales('afternoon') || 6000),
-                    dinner: calculateTargetProductivity('dinner', getDaypartSales('dinner') || 9000)
-                }
-            };
-
-            await apiService.saveProductivityData(dataToSave);
-            
-            // Show success message (don't clear inputs on manual save)
-            setShowSaveBanner(true);
-            
-            // Show different message for auto-save vs manual save
-            const successMessage = isAutoSave ? 'Data auto-saved successfully at 11:59 PM!' : 'Data saved successfully!'
-            console.log(successMessage)
-            
-            // Only clear inputs for auto-save, not manual save
-            if (isAutoSave) {
-                clearAllInputs()
-            }
-            
-            setTimeout(() => setShowSaveBanner(false), 3000);
-        } catch (error) {
-            console.error('Error saving productivity data:', error);
-            const errorMessage = isAutoSave ? 'Auto-save failed. Please save manually.' : 'Failed to save data. Please check your connection and try again.'
-            alert(errorMessage);
-        } finally {
-            setIsSaving(false);
-        }
+    
+    const handleDemoAction = () => {
+        showDemoMessage()
     }
     
     const handleExportCSV = async () => {
@@ -1142,7 +1014,7 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                             />
                                         </div>
                                         <button 
-                                            onClick={handleSaveSettings}
+                                            onClick={handleDemoAction}
                                             disabled={isSaving}
                                             style={{
                                                 padding: '4px 8px',
@@ -1189,7 +1061,7 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                             </select>
                                         </div>
                                         <button 
-                                            onClick={handleExportCSV}
+                                            onClick={handleDemoExport}
                                             style={{
                                                 padding: '4px 8px',
                                                 backgroundColor: '#059669',

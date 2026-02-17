@@ -406,8 +406,9 @@ export default function DaypartDashboard({ onNavigateToReports }) {
 
     const [showSaveBanner, setShowSaveBanner] = useState(false)
 
+    // Load/clear data when save date changes
     useEffect(() => {
-        const savedData = localStorage.getItem('daypartDashboard')
+        const savedData = localStorage.getItem(`daypartDashboard_${saveDate}`)
         if (savedData) {
             try {
                 const parsedData = JSON.parse(savedData)
@@ -418,11 +419,53 @@ export default function DaypartDashboard({ onNavigateToReports }) {
                 if (parsedData.daypartTargets) setDaypartTargets(parsedData.daypartTargets)
             } catch (error) {
                 console.error('Failed to load saved data:', error)
+                clearAllInputs()
+            }
+        } else {
+            clearAllInputs()
+        }
+    }, [saveDate])
+
+    // Auto-save at 11:59 PM daily
+    useEffect(() => {
+        const checkAutoSave = () => {
+            const now = new Date()
+            const hours = now.getHours()
+            const minutes = now.getMinutes()
+            const currentDateStr = now.toISOString().split('T')[0]
+            
+            if (hours === 23 && minutes === 59 && !hasAutoSaved && saveDate === currentDateStr) {
+                console.log('Auto-saving at 11:59 PM...')
+                handleSaveData(true)
+                setHasAutoSaved(true)
+                
+                // Update to next day and clear inputs
+                setTimeout(() => {
+                    const nextDay = new Date()
+                    nextDay.setDate(nextDay.getDate() + 1)
+                    setSaveDate(nextDay.toISOString().split('T')[0])
+                    setHasAutoSaved(false)
+                }, 60000)
+            }
+            
+            if (hours === 0 && minutes === 0 && hasAutoSaved) {
+                setHasAutoSaved(false)
             }
         }
-    }, [])
+        
+        const interval = setInterval(checkAutoSave, 60000)
+        checkAutoSave()
+        
+        return () => clearInterval(interval)
+    }, [hasAutoSaved, saveDate])
 
-    const handleSaveData = () => {
+    const clearAllInputs = () => {
+        setSalesInputs({})
+        setProductivityInputs({})
+        setPicInputs({})
+    }
+
+    const handleSaveData = (isAutoSave = false) => {
         const dataToSave = {
             salesInputs,
             productivityInputs,
@@ -431,9 +474,14 @@ export default function DaypartDashboard({ onNavigateToReports }) {
             daypartTargets,
             timestamp: new Date().toISOString()
         }
-        localStorage.setItem('daypartDashboard', JSON.stringify(dataToSave))
+        localStorage.setItem(`daypartDashboard_${saveDate}`, JSON.stringify(dataToSave))
         setShowSaveBanner(true)
         setTimeout(() => setShowSaveBanner(false), 3000)
+        
+        // Clear inputs only for auto-save
+        if (isAutoSave) {
+            clearAllInputs()
+        }
     }
 
     const handleExportCSV = () => {
@@ -597,6 +645,35 @@ export default function DaypartDashboard({ onNavigateToReports }) {
 
                 {/* Action Buttons Row */}
                 <div style={dashboardStyles.bottomRow}>
+                    {/* Date Selector */}
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        marginBottom: '12px',
+                        justifyContent: 'center'
+                    }}>
+                        <label style={{
+                            marginRight: '8px',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            color: '#fff'
+                        }}>
+                            Save Date:
+                        </label>
+                        <input
+                            type="date"
+                            value={saveDate}
+                            onChange={(e) => setSaveDate(e.target.value)}
+                            style={{
+                                padding: '6px 10px',
+                                fontSize: '14px',
+                                backgroundColor: '#1a1a1a',
+                                color: '#fff',
+                                border: '1px solid #4a4a4a',
+                                borderRadius: '4px'
+                            }}
+                        />
+                    </div>
                     <div style={dashboardStyles.buttonRow}>
                         {showSaveBanner && (
                             <div style={{
