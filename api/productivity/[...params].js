@@ -1,7 +1,57 @@
 // Vercel API route: /api/productivity/[...params]
-const { getPool, getStoreId } = require('../_db.js');
+const { Pool } = require('pg');
 
-module.exports = async function handler(req, res) {
+let pool;
+function getPool() {
+  if (!pool) {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false
+      },
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
+  }
+  return pool;
+}
+
+async function getStoreId(storeName = 'simplified') {
+    const pool = getPool();
+    let result = await pool.query('SELECT id FROM stores WHERE name = $1', [storeName]);
+    
+    if (result.rows.length === 0) {
+        const storeLocation = storeName === '04680' ? 'Tuskawilla' : 
+                             storeName === '00661' ? 'Forsyth' : 
+                             storeName === 'simplified' ? 'Demo Location' : 
+                             `Store ${storeName}`;
+        
+        const newStoreResult = await pool.query(
+            'INSERT INTO stores (name, location) VALUES ($1, $2) RETURNING id',
+            [storeName, storeLocation]
+        );
+        
+        const storeId = newStoreResult.rows[0].id;
+        
+        await pool.query(
+            'INSERT INTO operational_weights (store_id, breakfast, lunch, afternoon, dinner) VALUES ($1, $2, $3, $4, $5)',
+            [storeId, 0.76, 1.24, 1.06, 0.94]
+        );
+        
+        await pool.query(
+            'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
+            [storeId, 'Top 50%']
+        );
+        
+        console.error(`Created new store: ${storeName} (${storeLocation}) with ID: ${storeId}`);
+        return storeId;
+    }
+    
+    return result.rows[0].id;
+}
+
+export default async function handler(req, res) {
     console.error('=== PRODUCTIVITY GET API CALLED ===');
     console.error('Method:', req.method);
     console.error('URL:', req.url);
