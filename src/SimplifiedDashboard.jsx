@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react"
-import apiService from './apiService.js'
 
 // Simplified Productivity Dial - focused on ONE job: actual vs target
 function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, noDataMessage = "Enter sales and actual productivity below" }) {
@@ -443,60 +442,8 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
         showDemoMessage()
     }
     
-    const handleExportCSV = async () => {
-        try {
-            // Calculate date range based on selection
-            let startDate, endDate;
-            const today = new Date();
-            
-            switch (exportDateRange) {
-                case 'this-week':
-                    const startOfWeek = new Date(today);
-                    startOfWeek.setDate(today.getDate() - today.getDay());
-                    startDate = startOfWeek.toISOString().split('T')[0];
-                    endDate = today.toISOString().split('T')[0];
-                    break;
-                case 'last-week':
-                    const lastWeekEnd = new Date(today);
-                    lastWeekEnd.setDate(today.getDate() - today.getDay() - 1);
-                    const lastWeekStart = new Date(lastWeekEnd);
-                    lastWeekStart.setDate(lastWeekEnd.getDate() - 6);
-                    startDate = lastWeekStart.toISOString().split('T')[0];
-                    endDate = lastWeekEnd.toISOString().split('T')[0];
-                    break;
-                case 'last-month':
-                    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-                    const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
-                    startDate = lastMonth.toISOString().split('T')[0];
-                    endDate = lastMonthEnd.toISOString().split('T')[0];
-                    break;
-                case 'last-quarter':
-                    const currentQuarter = Math.floor((today.getMonth() + 3) / 3);
-                    const lastQuarterStart = new Date(today.getFullYear(), (currentQuarter - 2) * 3, 1);
-                    const lastQuarterEnd = new Date(today.getFullYear(), (currentQuarter - 1) * 3, 0);
-                    startDate = lastQuarterStart.toISOString().split('T')[0];
-                    endDate = lastQuarterEnd.toISOString().split('T')[0];
-                    break;
-                case 'custom-start-date':
-                    // Demo mode - use today's date
-                    startDate = today.toISOString().split('T')[0];
-                    endDate = today.toISOString().split('T')[0];
-                    break;
-                default:
-                    startDate = today.toISOString().split('T')[0];
-                    endDate = today.toISOString().split('T')[0];
-            }
-
-            const result = await apiService.exportToCSV(startDate, endDate);
-            
-            // Show success message
-            setShowDemoBanner(true);
-            setTimeout(() => setShowDemoBanner(false), 3000);
-            
-        } catch (error) {
-            console.error('Export failed:', error);
-            alert('Failed to export data. Please check your connection and try again.');
-        }
+    const handleDemoExport = () => {
+        showDemoMessage()
     }
     const getDayCombinedSales = () => {
         const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
