@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import apiService from './apiService'
 
 export default function ReportsPage({ isDemo = false }) {
-    const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'example-data' : 'this-week')
+    const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'example-data' : 'last-30-days')
     const [sortBy, setSortBy] = useState('performance')
     const [customStartDate, setCustomStartDate] = useState('')
     const [customEndDate, setCustomEndDate] = useState('')
@@ -126,22 +126,17 @@ export default function ReportsPage({ isDemo = false }) {
         const today = new Date();
         let startDate, endDate;
         
-        if (filterPeriod === 'this-week') {
-            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-            startDate = weekAgo.toISOString().split('T')[0];
+        if (filterPeriod === 'last-30-days') {
+            const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+            startDate = thirtyDaysAgo.toISOString().split('T')[0];
             endDate = today.toISOString().split('T')[0];
-        } else if (filterPeriod === 'last-week') {
-            const lastWeekStart = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
-            const lastWeekEnd = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-            startDate = lastWeekStart.toISOString().split('T')[0];
-            endDate = lastWeekEnd.toISOString().split('T')[0];
-        } else if (filterPeriod === 'last-month') {
-            const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
-            startDate = monthAgo.toISOString().split('T')[0];
+        } else if (filterPeriod === 'last-90-days') {
+            const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+            startDate = ninetyDaysAgo.toISOString().split('T')[0];
             endDate = today.toISOString().split('T')[0];
-        } else if (filterPeriod === 'last-quarter') {
-            const quarterAgo = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate());
-            startDate = quarterAgo.toISOString().split('T')[0];
+        } else if (filterPeriod === 'ytd') {
+            const yearStart = new Date(today.getFullYear(), 0, 1);
+            startDate = yearStart.toISOString().split('T')[0];
             endDate = today.toISOString().split('T')[0];
         } else if (filterPeriod === 'custom' && customStartDate && customEndDate) {
             startDate = customStartDate;
@@ -165,22 +160,15 @@ export default function ReportsPage({ isDemo = false }) {
             const today = new Date()
             const todayStr = today.toISOString().split('T')[0]
             
-            if (filterPeriod === 'this-week') {
-                const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-                filteredData = dataSource.filter(item => new Date(item.date) >= weekAgo)
-            } else if (filterPeriod === 'last-week') {
-                const lastWeekStart = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000)
-                const lastWeekEnd = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-                filteredData = dataSource.filter(item => {
-                    const itemDate = new Date(item.date)
-                    return itemDate >= lastWeekStart && itemDate < lastWeekEnd
-                })
-            } else if (filterPeriod === 'last-month') {
-                const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
-                filteredData = dataSource.filter(item => new Date(item.date) >= monthAgo)
-            } else if (filterPeriod === 'last-quarter') {
-                const quarterAgo = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate())
-                filteredData = dataSource.filter(item => new Date(item.date) >= quarterAgo)
+            if (filterPeriod === 'last-30-days') {
+                const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+                filteredData = dataSource.filter(item => new Date(item.date) >= thirtyDaysAgo)
+            } else if (filterPeriod === 'last-90-days') {
+                const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
+                filteredData = dataSource.filter(item => new Date(item.date) >= ninetyDaysAgo)
+            } else if (filterPeriod === 'ytd') {
+                const yearStart = new Date(today.getFullYear(), 0, 1)
+                filteredData = dataSource.filter(item => new Date(item.date) >= yearStart)
             } else if (filterPeriod === 'custom' && customStartDate && customEndDate) {
                 filteredData = dataSource.filter(item => {
                     const itemDate = new Date(item.date)
@@ -189,49 +177,45 @@ export default function ReportsPage({ isDemo = false }) {
             }
         }
 
-        // Group by PIC name and calculate averages
+        // Group by PIC name and calculate target achievement metrics
         const picAverages = {}
         filteredData.forEach(item => {
             if (!picAverages[item.picName]) {
                 picAverages[item.picName] = {
                     picName: item.picName,
-                    totalProductivity: 0,
-                    totalTargetProductivity: 0,
+                    totalPercentAboveTarget: 0,
                     totalSales: 0,
                     totalImprovement: 0,
                     count: 0,
                     tier: item.tier
                 }
             }
-            picAverages[item.picName].totalProductivity += item.actualProductivity
-            picAverages[item.picName].totalTargetProductivity += item.targetProductivity
+            // Calculate percent above target for this record
+            const percentAboveTarget = item.targetProductivity ? 
+                ((item.actualProductivity - item.targetProductivity) / item.targetProductivity * 100) : 0
+            
+            picAverages[item.picName].totalPercentAboveTarget += percentAboveTarget
             picAverages[item.picName].totalSales += item.actualSales
             picAverages[item.picName].totalImprovement += (item.improvement || 0)
             picAverages[item.picName].count++
         })
 
-        // Convert to array with averages
+        // Convert to array with target achievement focus
         const averagedData = Object.values(picAverages).map((pic, index) => ({
             id: index + 1,
             picName: pic.picName,
-            actualProductivity: Math.round(pic.totalProductivity / pic.count),
-            targetProductivity: Math.round(pic.totalTargetProductivity / pic.count),
+            avgPercentAboveTarget: pic.totalPercentAboveTarget / pic.count,
             actualSales: Math.round(pic.totalSales / pic.count),
             improvement: pic.totalImprovement / pic.count,
-            performanceScore: (pic.totalProductivity / pic.count) / (pic.totalTargetProductivity / pic.count) * 100,
+            targetAchievementScore: 100 + (pic.totalPercentAboveTarget / pic.count), // 100% + avg percent above target
             tier: pic.tier
         }))
 
-        // Enhanced sorting: performance score measures distance to target, not raw sales
+        // Enhanced sorting: focus on target achievement and improvement
         return [...averagedData].sort((a, b) => {
             if (sortBy === 'performance') {
-                // Sort by how close to target (100%), then by score
-                const aDistance = Math.abs(100 - a.performanceScore)
-                const bDistance = Math.abs(100 - b.performanceScore)
-                if (aDistance === bDistance) {
-                    return b.performanceScore - a.performanceScore // Higher score wins if same distance
-                }
-                return aDistance - bDistance // Closer to target wins
+                // Sort by target achievement score (higher % above target wins)
+                return b.targetAchievementScore - a.targetAchievementScore
             } else if (sortBy === 'improvement') {
                 return (b.improvement || 0) - (a.improvement || 0) // Best improvement first
             } else if (sortBy === 'name') {
@@ -241,17 +225,18 @@ export default function ReportsPage({ isDemo = false }) {
         })
     }
 
-    const getPerformanceColor = (score) => {
-        if (score >= 100) return '#22c55e' // green
-        if (score >= 95) return '#eab308' // yellow
-        return '#ef4444' // red
+    const getTargetAchievementColor = (score) => {
+        if (score >= 105) return '#22c55e' // green - exceeding target
+        if (score >= 100) return '#3b82f6' // blue - meeting target
+        if (score >= 95) return '#eab308' // yellow - close to target
+        return '#ef4444' // red - below target
     }
 
-    const getPerformanceIcon = (score) => {
-        if (score >= 105) return '🏆'
-        if (score >= 100) return '✅'
-        if (score >= 95) return '📊'
-        return '⚠️'
+    const getTargetAchievementIcon = (score) => {
+        if (score >= 105) return '🏆' // Exceeding target
+        if (score >= 100) return '✅' // Meeting target
+        if (score >= 95) return '📊' // Close to target
+        return '⚠️' // Below target
     }
 
     const sortedData = getSortedFilteredData()
@@ -275,10 +260,9 @@ export default function ReportsPage({ isDemo = false }) {
                             onChange={(e) => setFilterPeriod(e.target.value)}
                             style={styles.select}
                         >
-                            <option value="this-week">This Week</option>
-                            <option value="last-week">Last Week</option>
-                            <option value="last-month">Last Month</option>
-                            <option value="last-quarter">Last Quarter</option>
+                            <option value="last-30-days">Last 30 Days</option>
+                            <option value="last-90-days">Last 90 Days</option>
+                            <option value="ytd">Year to Date</option>
                             <option value="example-data">Example Data</option>
                             <option value="custom">Custom Dates</option>
                         </select>
@@ -338,7 +322,7 @@ export default function ReportsPage({ isDemo = false }) {
                     <div style={styles.summaryMetrics}>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {sortedData.filter(item => item.performanceScore >= 100).length}
+                                {sortedData.filter(item => item.targetAchievementScore >= 100).length}
                             </div>
                             <div style={styles.summaryLabel}>Targets Met</div>
                             <div style={styles.summarySubtext}>
@@ -348,10 +332,10 @@ export default function ReportsPage({ isDemo = false }) {
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
                                 {sortedData.length > 0 ? (
-                                    sortedData.reduce((sum, item) => sum + item.performanceScore, 0) / sortedData.length
+                                    sortedData.reduce((sum, item) => sum + item.targetAchievementScore, 0) / sortedData.length
                                 ).toFixed(1) : 0}%
                             </div>
-                            <div style={styles.summaryLabel}>Avg Performance</div>
+                            <div style={styles.summaryLabel}>Avg Achievement</div>
                             <div style={styles.summarySubtext}>
                                 vs tier-based targets
                             </div>
@@ -370,7 +354,7 @@ export default function ReportsPage({ isDemo = false }) {
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
                                 {sortedData.length > 0 ? 
-                                    Math.max(...sortedData.map(item => item.performanceScore)).toFixed(1) : 0}%
+                                    Math.max(...sortedData.map(item => item.targetAchievementScore)).toFixed(1) : 0}%
                             </div>
                             <div style={styles.summaryLabel}>Top Score</div>
                             <div style={styles.summarySubtext}>
@@ -407,8 +391,8 @@ export default function ReportsPage({ isDemo = false }) {
                             <div style={styles.leaderboardHeaders}>
                                 <div style={styles.rankHeader}>Rank</div>
                                 <div style={styles.picHeader}>PIC Name</div>
-                                <div style={styles.productivityHeader}>Avg Productivity</div>
-                                <div style={styles.targetHeader}>vs Target</div>
+                                <div style={styles.productivityHeader}>Achievement Score</div>
+                                <div style={styles.targetHeader}>% Above Target</div>
                                 <div style={styles.salesHeader}>Avg Sales</div>
                                 <div style={styles.improvementHeader}>Improvement</div>
                             </div>
@@ -430,9 +414,6 @@ export default function ReportsPage({ isDemo = false }) {
                                     ]
                                     const backgroundColor = blueShades[index] || '#1e293b'
                                     
-                                    const percentAboveTarget = item.targetProductivity ? 
-                                        ((item.actualProductivity - item.targetProductivity) / item.targetProductivity * 100) : 0;
-                                    
                                     return (
                                     <div key={item.id} style={{
                                         ...styles.scoreboardRow,
@@ -448,18 +429,23 @@ export default function ReportsPage({ isDemo = false }) {
                                             <div style={styles.picNameLarge}>{item.picName}</div>
                                         </div>
                                         
-                                        {/* Actual Productivity */}
+                                        {/* Target Achievement Score */}
                                         <div style={styles.productivityColumn}>
-                                            <div style={styles.productivityValue}>{item.actualProductivity}%</div>
+                                            <div style={{
+                                                ...styles.productivityValue,
+                                                color: getTargetAchievementColor(item.targetAchievementScore)
+                                            }}>
+                                                {getTargetAchievementIcon(item.targetAchievementScore)} {item.targetAchievementScore.toFixed(1)}%
+                                            </div>
                                         </div>
                                         
                                         {/* Percent Above Target */}
                                         <div style={styles.targetColumn}>
                                             <div style={{
                                                 ...styles.targetValue,
-                                                color: percentAboveTarget >= 0 ? '#34d399' : '#f87171'
+                                                color: item.avgPercentAboveTarget >= 0 ? '#34d399' : '#f87171'
                                             }}>
-                                                {percentAboveTarget >= 0 ? '+' : ''}{percentAboveTarget.toFixed(1)}%
+                                                {item.avgPercentAboveTarget >= 0 ? '+' : ''}{item.avgPercentAboveTarget.toFixed(1)}%
                                             </div>
                                         </div>
                                         

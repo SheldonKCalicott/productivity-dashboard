@@ -5,6 +5,36 @@ import SimplifiedDashboard from './SimplifiedDashboard'
 import ReportsPage from './ReportsPage'
 import StoreAccess from './StoreAccess'
 
+// Global styles for landscape orientation
+const globalStyles = `
+  @media (max-width: 768px) {
+    body {
+      transform: rotate(90deg);
+      transform-origin: center center;
+      position: fixed;
+      width: 100vh;
+      height: 100vw;
+      overflow-x: hidden;
+      top: 0;
+      left: 0;
+    }
+    
+    #root {
+      width: 100vh;
+      height: 100vw;
+      overflow: hidden;
+    }
+  }
+`
+
+// Inject global styles
+if (!document.getElementById('global-landscape-styles')) {
+  const style = document.createElement('style')
+  style.id = 'global-landscape-styles'
+  style.textContent = globalStyles
+  document.head.appendChild(style)
+}
+
 // Navigation wrapper component for dashboards
 function DashboardWrapper({ children, title, isTemplate = false, storeNumber = null }) {
     const navigate = useNavigate()
@@ -169,18 +199,22 @@ const navStyles = {
         textAlign: 'center'
     },
     button: {
-        padding: '12px 24px',
+        padding: '8px 16px',
         backgroundColor: '#3b82f6',
         color: '#ffffff',
         border: 'none',
         borderRadius: '6px',
-        fontSize: '16px',
+        fontSize: '14px',
         fontWeight: '600',
         cursor: 'pointer',
         transition: 'background-color 0.2s',
-        minWidth: '140px'
+        minWidth: '100px',
+        textAlign: 'center',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
     },
     spacer: {
-        minWidth: '140px'
+        minWidth: '100px'
     }
 }

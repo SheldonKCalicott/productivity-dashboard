@@ -549,13 +549,17 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
 
             await apiService.saveProductivityData(dataToSave);
             
-            // Clear input fields and show success message
-            clearAllInputs()
+            // Show success message (don't clear inputs on manual save)
             setShowSaveBanner(true);
             
             // Show different message for auto-save vs manual save
             const successMessage = isAutoSave ? 'Data auto-saved successfully at 11:59 PM!' : 'Data saved successfully!'
             console.log(successMessage)
+            
+            // Only clear inputs for auto-save, not manual save
+            if (isAutoSave) {
+                clearAllInputs()
+            }
             
             setTimeout(() => setShowSaveBanner(false), 3000);
         } catch (error) {
