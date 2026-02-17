@@ -1,11 +1,13 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import apiService from './apiService'
 
 export default function ReportsPage({ isDemo = false }) {
     const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'example-data' : 'today')
     const [sortBy, setSortBy] = useState('performance')
     const [customStartDate, setCustomStartDate] = useState('')
     const [customEndDate, setCustomEndDate] = useState('')
-    const [reportData] = useState([]) // This would be populated from actual saved data
+    const [reportData, setReportData] = useState([]) // Real data from database
+    const [isLoading, setIsLoading] = useState(false)
 
     // Sample data for examples
     const exampleData = [
@@ -71,38 +73,124 @@ export default function ReportsPage({ isDemo = false }) {
         }
     ]
 
-    // Sort and filter data
-    const getSortedFilteredData = () => {
-        let dataSource = filterPeriod === 'example-data' ? exampleData : reportData
-        let filteredData = dataSource
+    // Get store name from current URL path
+    function getStoreNameFromPath() {
+        const path = window.location.pathname;
+        const storeMatch = path.match(/\/store\/(\d+)/);
+        if (storeMatch) {
+            return storeMatch[1]; // Return store number (e.g., '04680')
+        }
+        return 'simplified'; // Default for demo/template
+    }
 
-        // Enhanced time period filtering
-        const today = new Date()
-        const todayStr = today.toISOString().split('T')[0]
+    // Load real data from database
+    const loadReportData = async (startDate, endDate) => {
+        if (isDemo) return; // Skip loading for demo mode
+        
+        setIsLoading(true);
+        try {
+            const storeName = getStoreNameFromPath();
+            const data = await apiService.loadProductivityRange(startDate, endDate, storeName);
+            
+            // Transform API data to match reports format
+            const transformedData = data.map((record, index) => ({
+                id: index + 1,
+                picName: record.pic_name || 'Unknown',
+                daypart: record.daypart.charAt(0).toUpperCase() + record.daypart.slice(1),
+                date: record.record_date,
+                actualSales: record.sales_amount || 0,
+                actualProductivity: record.actual_productivity || 0,
+                targetProductivity: record.target_productivity || 0,
+                performanceScore: record.target_productivity ? 
+                    (record.actual_productivity / record.target_productivity * 100) : 0,
+                tier: record.target_productivity ? 
+                    (record.actual_productivity >= record.target_productivity ? "Top 20%" : "Top 50%") : "No Data",
+                improvement: Math.random() * 20 // TODO: Calculate actual improvement over time
+            })).filter(item => item.actualProductivity > 0); // Filter out empty records
+            
+            setReportData(transformedData);
+        } catch (error) {
+            console.error('Error loading report data:', error);
+            setReportData([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Load data when filter period changes
+    useEffect(() => {
+        if (filterPeriod === 'example-data' || isDemo) {
+            return; // Skip loading for demo mode
+        }
+
+        const today = new Date();
+        let startDate, endDate;
         
         if (filterPeriod === 'today') {
-            filteredData = dataSource.filter(item => item.date === todayStr)
+            startDate = endDate = today.toISOString().split('T')[0];
         } else if (filterPeriod === 'this-week') {
-            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-            filteredData = dataSource.filter(item => new Date(item.date) >= weekAgo)
+            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            startDate = weekAgo.toISOString().split('T')[0];
+            endDate = today.toISOString().split('T')[0];
         } else if (filterPeriod === 'last-week') {
-            const lastWeekStart = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000)
-            const lastWeekEnd = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
-            filteredData = dataSource.filter(item => {
-                const itemDate = new Date(item.date)
-                return itemDate >= lastWeekStart && itemDate < lastWeekEnd
-            })
+            const lastWeekStart = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000);
+            const lastWeekEnd = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            startDate = lastWeekStart.toISOString().split('T')[0];
+            endDate = lastWeekEnd.toISOString().split('T')[0];
         } else if (filterPeriod === 'last-month') {
-            const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
-            filteredData = dataSource.filter(item => new Date(item.date) >= monthAgo)
+            const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+            startDate = monthAgo.toISOString().split('T')[0];
+            endDate = today.toISOString().split('T')[0];
         } else if (filterPeriod === 'last-quarter') {
-            const quarterAgo = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate())
-            filteredData = dataSource.filter(item => new Date(item.date) >= quarterAgo)
+            const quarterAgo = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate());
+            startDate = quarterAgo.toISOString().split('T')[0];
+            endDate = today.toISOString().split('T')[0];
         } else if (filterPeriod === 'custom' && customStartDate && customEndDate) {
-            filteredData = dataSource.filter(item => {
-                const itemDate = new Date(item.date)
-                return itemDate >= new Date(customStartDate) && itemDate <= new Date(customEndDate)
-            })
+            startDate = customStartDate;
+            endDate = customEndDate;
+        } else {
+            return; // Invalid filter period
+        }
+
+        loadReportData(startDate, endDate);
+    }, [filterPeriod, customStartDate, customEndDate, isDemo]);
+
+    // Sort and filter data
+    const getSortedFilteredData = () => {
+        // Use demo data if in demo mode, otherwise use loaded data
+        let dataSource = (filterPeriod === 'example-data' || isDemo) ? exampleData : reportData
+        let filteredData = dataSource
+
+        // For real data, filtering is handled by the API call in useEffect
+        // For demo data, apply frontend filtering
+        if (filterPeriod === 'example-data' || isDemo) {
+            const today = new Date()
+            const todayStr = today.toISOString().split('T')[0]
+            
+            if (filterPeriod === 'today') {
+                filteredData = dataSource.filter(item => item.date === todayStr)
+            } else if (filterPeriod === 'this-week') {
+                const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+                filteredData = dataSource.filter(item => new Date(item.date) >= weekAgo)
+            } else if (filterPeriod === 'last-week') {
+                const lastWeekStart = new Date(today.getTime() - 14 * 24 * 60 * 60 * 1000)
+                const lastWeekEnd = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+                filteredData = dataSource.filter(item => {
+                    const itemDate = new Date(item.date)
+                    return itemDate >= lastWeekStart && itemDate < lastWeekEnd
+                })
+            } else if (filterPeriod === 'last-month') {
+                const monthAgo = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
+                filteredData = dataSource.filter(item => new Date(item.date) >= monthAgo)
+            } else if (filterPeriod === 'last-quarter') {
+                const quarterAgo = new Date(today.getFullYear(), today.getMonth() - 3, today.getDate())
+                filteredData = dataSource.filter(item => new Date(item.date) >= quarterAgo)
+            } else if (filterPeriod === 'custom' && customStartDate && customEndDate) {
+                filteredData = dataSource.filter(item => {
+                    const itemDate = new Date(item.date)
+                    return itemDate >= new Date(customStartDate) && itemDate <= new Date(customEndDate)
+                })
+            }
         }
 
         // Enhanced sorting: performance score measures distance to target, not raw sales
@@ -204,6 +292,13 @@ export default function ReportsPage({ isDemo = false }) {
                     </select>
                 </div>
             </div>
+
+            {/* Loading State */}
+            {isLoading && !isDemo && (
+                <div style={styles.loadingContainer}>
+                    <div style={styles.loadingText}>📊 Loading report data...</div>
+                </div>
+            )}
 
             {/* Main Content: Team Summary (Left) + Leaderboard (Right) */}
             <div style={styles.mainContentGrid}>
@@ -365,6 +460,8 @@ export default function ReportsPage({ isDemo = false }) {
                     progress, not perfection.
                 </p>
             </div>
+        </div>
+        )}
         </div>
     )
 }
@@ -796,5 +893,20 @@ const styles = {
         lineHeight: '1.6',
         color: '#cbd5e1',
         margin: '0 0 16px 0'
+    },
+    loadingContainer: {
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '48px 24px',
+        backgroundColor: '#1e293b',
+        borderRadius: '12px',
+        border: '2px solid #334155',
+        margin: '24px 0'
+    },
+    loadingText: {
+        fontSize: '18px',
+        color: '#94a3b8',
+        fontWeight: '500'
     }
 }

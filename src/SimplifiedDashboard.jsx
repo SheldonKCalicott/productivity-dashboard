@@ -367,6 +367,9 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
     
     // Save date state
     const [saveDate, setSaveDate] = useState(new Date().toISOString().split('T')[0])
+    
+    // Auto-save tracking
+    const [hasAutoSaved, setHasAutoSaved] = useState(false)
 
     // Tier-based productivity calculation system
     const tierTables = {
@@ -442,6 +445,34 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
         loadProductivityData(saveDate);
     }, [saveDate]);
 
+    // Auto-save at 11:59 PM daily
+    useEffect(() => {
+        const checkAutoSave = () => {
+            const now = new Date()
+            const hours = now.getHours()
+            const minutes = now.getMinutes()
+            const currentDateStr = now.toISOString().split('T')[0]
+            
+            // Check if it's 11:59 PM and we haven't auto-saved today
+            if (hours === 23 && minutes === 59 && !hasAutoSaved && saveDate === currentDateStr) {
+                console.log('Auto-saving at 11:59 PM...')
+                handleSaveSettings(true) // Pass true to indicate auto-save
+                setHasAutoSaved(true)
+            }
+            
+            // Reset auto-save flag at midnight
+            if (hours === 0 && minutes === 0) {
+                setHasAutoSaved(false)
+            }
+        }
+        
+        // Check every minute
+        const interval = setInterval(checkAutoSave, 60000)
+        checkAutoSave() // Initial check
+        
+        return () => clearInterval(interval)
+    }, [hasAutoSaved, saveDate])
+
     const loadProductivityData = async (date) => {
         if (isLoading) return;
         
@@ -467,8 +498,28 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
         }
     };
 
+    // Helper function to clear all input fields
+    const clearAllInputs = () => {
+        setBreakfastSales('')
+        setLunchSales('')
+        setAfternoonSales('')
+        setDinnerSales('')
+        setActualProductivity({
+            breakfast: '',
+            lunch: '',
+            afternoon: '',
+            dinner: ''
+        })
+        setPicNames({
+            breakfast: '',
+            lunch: '',
+            afternoon: '',
+            dinner: ''
+        })
+    }
+
     // Helper functions for save and export
-    const handleSaveSettings = async () => {
+    const handleSaveSettings = async (isAutoSave = false) => {
         if (isSaving) return;
         
         setIsSaving(true);
@@ -493,12 +544,20 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
             };
 
             await apiService.saveProductivityData(dataToSave);
+            
+            // Clear input fields and show success message
+            clearAllInputs()
             setShowSaveBanner(true);
+            
+            // Show different message for auto-save vs manual save
+            const successMessage = isAutoSave ? 'Data auto-saved successfully at 11:59 PM!' : 'Data saved successfully!'
+            console.log(successMessage)
+            
             setTimeout(() => setShowSaveBanner(false), 3000);
         } catch (error) {
             console.error('Error saving productivity data:', error);
-            // You could add an error banner here
-            alert('Failed to save data. Please check your connection and try again.');
+            const errorMessage = isAutoSave ? 'Auto-save failed. Please save manually.' : 'Failed to save data. Please check your connection and try again.'
+            alert(errorMessage);
         } finally {
             setIsSaving(false);
         }
