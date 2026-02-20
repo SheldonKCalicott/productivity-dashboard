@@ -20,15 +20,26 @@ function getPool() {
 module.exports = async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
 
-    if (req.method !== 'POST') {
-        return res.status(405).json({ error: 'Method not allowed - use POST' });
+    // Allow GET requests with confirmation parameter
+    if (req.method === 'GET') {
+        const { confirm } = req.query;
+        if (confirm !== 'yes') {
+            return res.json({
+                message: 'Reset confirmation required',
+                instruction: 'Add ?confirm=yes to the URL to confirm reset',
+                example: '/api/reset-all-data?confirm=yes',
+                warning: 'This will delete ALL productivity data from the database'
+            });
+        }
+    } else if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
     const pool = getPool();
