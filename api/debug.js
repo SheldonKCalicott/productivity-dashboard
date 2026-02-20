@@ -30,31 +30,3 @@ module.exports = async function handler(req, res) {
         });
     }
 };
-            connected: true,
-            currentTime: testQuery.rows[0].current_time,
-            version: testQuery.rows[0].db_version.substring(0, 50) + '...'
-        };
-
-        // Test store creation
-        if (req.query.testStore) {
-            const storeId = await getStoreId(req.query.testStore);
-            debug.testStore = {
-                name: req.query.testStore,
-                id: storeId
-            };
-        }
-
-        res.json({
-            status: 'ok',
-            debug
-        });
-    } catch (error) {
-        console.error('Debug endpoint error:', error);
-        res.status(500).json({
-            status: 'error',
-            message: error.message,
-            stack: error.stack,
-            debug
-        });
-    }
-}
