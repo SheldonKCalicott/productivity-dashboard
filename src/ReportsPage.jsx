@@ -83,32 +83,131 @@ export default function ReportsPage({ isDemo = false }) {
         return 'simplified'; // Default for demo/template
     }
 
-    // Load real data from database
+    // Load data from localStorage for store reports
+    const loadLocalStorageData = (startDate, endDate, storeName) => {
+        try {
+            const allData = []
+            const startTime = new Date(startDate).getTime()
+            const endTime = new Date(endDate).getTime()
+            
+            // Scan localStorage for store data within date range
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i)
+                if (key && key.startsWith(`store_${storeName}_`)) {
+                    const dateStr = key.split('_')[2]
+                    if (dateStr) {
+                        const itemTime = new Date(dateStr).getTime()
+                        if (itemTime >= startTime && itemTime <= endTime) {
+                            try {
+                                const savedData = JSON.parse(localStorage.getItem(key))
+                                if (savedData?.salesInputs && savedData?.productivity) {
+                                    // Convert localStorage data to report format
+                                    const daypartData = [
+                                        { daypart: 'breakfast', sales: savedData.salesInputs.breakfastSales, productivity: savedData.productivity.breakfast, pic: savedData.picNames?.breakfast },
+                                        { daypart: 'lunch', sales: savedData.salesInputs.lunchSales, productivity: savedData.productivity.lunch, pic: savedData.picNames?.lunch },
+                                        { daypart: 'afternoon', sales: savedData.salesInputs.afternoonSales, productivity: savedData.productivity.afternoon, pic: savedData.picNames?.afternoon },
+                                        { daypart: 'dinner', sales: savedData.salesInputs.dinnerSales, productivity: savedData.productivity.dinner, pic: savedData.picNames?.dinner }
+                                    ]
+                                    
+                                    daypartData.forEach((item, index) => {
+                                        if (item.sales && item.productivity && parseFloat(item.productivity) > 0) {
+                                            const sales = parseInt(item.sales.replace(/[^0-9]/g, '')) || 0
+                                            const actualProd = parseFloat(item.productivity) || 0
+                                            
+                                            // Calculate proper target based on sales (approximate calculation)
+                                            // This should match the DaypartDashboard calculation logic
+                                            const getTargetForDaypart = (daypart, sales) => {
+                                                const daypartWeights = {
+                                                    breakfast: 0.85,
+                                                    lunch: 1.15, 
+                                                    afternoon: 0.95,
+                                                    dinner: 1.05
+                                                }
+                                                // Approximate tier 2 base calculation
+                                                let baseTarget = 85
+                                                if (sales < 15000) baseTarget = 75
+                                                else if (sales < 25000) baseTarget = 85
+                                                else if (sales < 35000) baseTarget = 95
+                                                else baseTarget = 105
+                                                
+                                                return Math.round(baseTarget * daypartWeights[item.daypart.toLowerCase()])
+                                            }
+                                            
+                                            const targetProd = getTargetForDaypart(item.daypart.toLowerCase(), sales)
+                                            
+                                            allData.push({
+                                                id: allData.length + 1,
+                                                picName: item.pic || 'Unknown',
+                                                daypart: item.daypart.charAt(0).toUpperCase() + item.daypart.slice(1),
+                                                date: dateStr,
+                                                actualSales: sales,
+                                                actualProductivity: actualProd,
+                                                targetProductivity: targetProd,
+                                                performanceScore: (actualProd / targetProd) * 100,
+                                                tier: actualProd >= targetProd ? "Top 20%" : "Top 50%",
+                                                improvement: 0 // Will be calculated based on historical data
+                                            })
+                                        }
+                                    })
+                                }
+                            } catch (parseError) {
+                                console.warn('Error parsing localStorage data for key:', key, parseError)
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return allData
+        } catch (error) {
+            console.error('Error loading from localStorage:', error)
+            return []
+        }
+    }
+
+    // Load real data from database with localStorage fallback for offline
     const loadReportData = async (startDate, endDate) => {
         if (isDemo) return; // Skip loading for demo mode
         
         setIsLoading(true);
         try {
             const storeName = getStoreNameFromPath();
-            const data = await apiService.loadProductivityRange(startDate, endDate, storeName);
             
-            // Transform API data to match reports format
-            const transformedData = data.map((record, index) => ({
-                id: index + 1,
-                picName: record.pic_name || 'Unknown',
-                daypart: record.daypart.charAt(0).toUpperCase() + record.daypart.slice(1),
-                date: record.record_date,
-                actualSales: record.sales_amount || 0,
-                actualProductivity: record.actual_productivity || 0,
-                targetProductivity: record.target_productivity || 0,
-                performanceScore: record.target_productivity ? 
-                    (record.actual_productivity / record.target_productivity * 100) : 0,
-                tier: record.target_productivity ? 
-                    (record.actual_productivity >= record.target_productivity ? "Top 20%" : "Top 50%") : "No Data",
-                improvement: Math.random() * 20 // TODO: Calculate actual improvement over time
-            })).filter(item => item.actualProductivity > 0); // Filter out empty records
-            
-            setReportData(transformedData);
+            try {
+                // Primary: Try database first for real-time updates (silently)
+                const data = await apiService.loadProductivityRange(startDate, endDate, storeName);
+                
+                // Transform API data to match reports format with proper calculations
+                const transformedData = data.map((record, index) => ({
+                    id: index + 1,
+                    picName: record.pic_name || 'Unknown',
+                    daypart: record.daypart.charAt(0).toUpperCase() + record.daypart.slice(1),
+                    date: record.record_date,
+                    actualSales: record.sales_amount || 0,
+                    actualProductivity: record.actual_productivity || 0,
+                    targetProductivity: record.target_productivity || 0,
+                    performanceScore: record.target_productivity ? 
+                        (record.actual_productivity / record.target_productivity * 100) : 0,
+                    tier: record.target_productivity ? 
+                        (record.actual_productivity >= (record.target_productivity - 2) ? "Top 20%" : "Top 50%") : "No Data",
+                    improvement: calculateImprovementTrend(record.pic_name, record.daypart, data)
+                })).filter(item => item.actualProductivity > 0);
+                
+                setReportData(transformedData);
+                console.log(`📊 Loaded ${transformedData.length} records from database`);
+                return;
+            } catch (apiError) {
+                // Silently fallback to localStorage if database fails
+                const localData = loadLocalStorageData(startDate, endDate, storeName);
+                
+                if (localData.length > 0) {
+                    setReportData(localData);
+                    console.log(`📊 Loaded ${localData.length} records from localStorage (offline mode)`);
+                } else {
+                    setReportData([]);
+                    console.log('📊 No data available for the selected date range');
+                }
+            }
         } catch (error) {
             console.error('Error loading report data:', error);
             setReportData([]);
@@ -116,8 +215,34 @@ export default function ReportsPage({ isDemo = false }) {
             setIsLoading(false);
         }
     };
-
-    // Load data when filter period changes
+    
+    // Calculate improvement trend from recent daypart performance
+    const calculateImprovementTrend = (picName, daypart, allData) => {
+        const picDaypartData = allData
+            .filter(record => record.pic_name === picName && record.daypart === daypart)
+            .sort((a, b) => new Date(b.record_date) - new Date(a.record_date))
+            .slice(0, 5); // Last 5 entries for trend
+            
+        if (picDaypartData.length < 3) return 0; // Need at least 3 data points
+        
+        // Calculate trend: compare first half vs second half performance
+        const recent = picDaypartData.slice(0, Math.ceil(picDaypartData.length / 2));
+        const older = picDaypartData.slice(Math.ceil(picDaypartData.length / 2));
+        
+        const recentAvg = recent.reduce((sum, record) => {
+            const percent = record.target_productivity ? 
+                ((record.actual_productivity - record.target_productivity) / record.target_productivity * 100) : 0;
+            return sum + percent;
+        }, 0) / recent.length;
+        
+        const olderAvg = older.reduce((sum, record) => {
+            const percent = record.target_productivity ? 
+                ((record.actual_productivity - record.target_productivity) / record.target_productivity * 100) : 0;
+            return sum + percent;
+        }, 0) / older.length;
+        
+        return recentAvg - olderAvg; // Positive = improving, Negative = declining
+    };
     useEffect(() => {
         if (filterPeriod === 'example-data' || isDemo) {
             return; // Skip loading for demo mode
@@ -177,7 +302,7 @@ export default function ReportsPage({ isDemo = false }) {
             }
         }
 
-        // Group by PIC name and calculate target achievement metrics
+        // Group by PIC name and calculate comprehensive metrics
         const picAverages = {}
         filteredData.forEach(item => {
             if (!picAverages[item.picName]) {
@@ -186,8 +311,11 @@ export default function ReportsPage({ isDemo = false }) {
                     totalPercentAboveTarget: 0,
                     totalSales: 0,
                     totalImprovement: 0,
+                    targetsHit: 0,
+                    highestPercentAbove: -Infinity,
                     count: 0,
-                    tier: item.tier
+                    tier: item.tier,
+                    recentImprovements: [] // Track last few improvements
                 }
             }
             // Calculate percent above target for this record
@@ -198,32 +326,118 @@ export default function ReportsPage({ isDemo = false }) {
             picAverages[item.picName].totalSales += item.actualSales
             picAverages[item.picName].totalImprovement += (item.improvement || 0)
             picAverages[item.picName].count++
+            
+            // Track targets hit (when within tolerance zone - 2 points below target or above)
+            const isTargetHit = item.actualProductivity >= (item.targetProductivity - 2)
+            
+            if (isTargetHit) {
+                picAverages[item.picName].targetsHit++
+            }
+            
+            // Track highest individual performance
+            if (percentAboveTarget > picAverages[item.picName].highestPercentAbove) {
+                picAverages[item.picName].highestPercentAbove = percentAboveTarget
+            }
+            
+            // Track recent improvements (last 3 most recent)
+            if (item.improvement && item.improvement > 0) {
+                picAverages[item.picName].recentImprovements.push(item.improvement)
+                if (picAverages[item.picName].recentImprovements.length > 3) {
+                    picAverages[item.picName].recentImprovements.shift()
+                }
+            }
         })
 
-        // Convert to array with target achievement focus
-        const averagedData = Object.values(picAverages).map((pic, index) => ({
-            id: index + 1,
-            picName: pic.picName,
-            avgPercentAboveTarget: pic.totalPercentAboveTarget / pic.count,
-            actualSales: Math.round(pic.totalSales / pic.count),
-            improvement: pic.totalImprovement / pic.count,
-            targetAchievementScore: 100 + (pic.totalPercentAboveTarget / pic.count), // 100% + avg percent above target
-            tier: pic.tier
-        }))
+        // Convert to array with enhanced metrics
+        const averagedData = Object.values(picAverages).map((pic, index) => {
+            const avgPercentAboveTarget = pic.totalPercentAboveTarget / pic.count
+            
+            // Calculate recent trend from actual improvement data (not random)
+            const sortedImprovements = pic.recentImprovements.sort((a, b) => b - a) // Most recent first
+            const recentTrend = sortedImprovements.length >= 3 ? 
+                sortedImprovements.slice(0, 3).reduce((sum, val) => sum + val, 0) / 3 : null
+            
+            return {
+                id: index + 1,
+                picName: pic.picName,
+                avgPercentAboveTarget,
+                actualSales: Math.round(pic.totalSales / pic.count),
+                improvement: pic.totalImprovement / pic.count,
+                targetsHit: pic.targetsHit,
+                targetHitPercentage: (pic.targetsHit / pic.count) * 100,
+                highestPercentAbove: pic.highestPercentAbove === -Infinity ? 0 : pic.highestPercentAbove,
+                recentTrend: recentTrend !== null ? recentTrend : 0,
+                targetAchievementScore: 100 + avgPercentAboveTarget,
+                tier: pic.tier
+            }
+        })
 
         // Enhanced sorting: focus on target achievement and improvement
         return [...averagedData].sort((a, b) => {
             if (sortBy === 'performance') {
                 // Sort by target achievement score (higher % above target wins)
                 return b.targetAchievementScore - a.targetAchievementScore
+            } else if (sortBy === 'targets-hit') {
+                return (b.targetsHit || 0) - (a.targetsHit || 0)
+            } else if (sortBy === 'peak-performance') {
+                return (b.highestPercentAbove || 0) - (a.highestPercentAbove || 0)
             } else if (sortBy === 'improvement') {
-                return (b.improvement || 0) - (a.improvement || 0) // Best improvement first
+                return (b.recentTrend || 0) - (a.recentTrend || 0)
             } else if (sortBy === 'name') {
                 return a.picName.localeCompare(b.picName)
             }
             return 0
         })
     }
+
+    // Dynamic column configuration based on sort selection
+    const getColumnConfig = () => {
+        const configs = {
+            'performance': {
+                primary: { key: 'avgPercentAboveTarget', label: 'Avg % vs Target', emoji: '✅' },
+                secondary: [
+                    { key: 'targetsHit', label: 'Targets Hit' },
+                    { key: 'highestPercentAbove', label: 'Peak % Above' },
+                    { key: 'recentTrend', label: 'Recent Trend' }
+                ]
+            },
+            'targets-hit': {
+                primary: { key: 'targetsHit', label: 'Targets Hit', emoji: '🎯' },
+                secondary: [
+                    { key: 'avgPercentAboveTarget', label: 'Avg % vs Target' },
+                    { key: 'highestPercentAbove', label: 'Peak % Above' },
+                    { key: 'recentTrend', label: 'Recent Trend' }
+                ]
+            },
+            'peak-performance': {
+                primary: { key: 'highestPercentAbove', label: 'Peak % Above', emoji: '⭐' },
+                secondary: [
+                    { key: 'avgPercentAboveTarget', label: 'Avg % vs Target' },
+                    { key: 'targetsHit', label: 'Targets Hit' },
+                    { key: 'recentTrend', label: 'Recent Trend' }
+                ]
+            },
+            'improvement': {
+                primary: { key: 'recentTrend', label: 'Recent Trend', emoji: '📈' },
+                secondary: [
+                    { key: 'avgPercentAboveTarget', label: 'Avg % vs Target' },
+                    { key: 'targetsHit', label: 'Targets Hit' },
+                    { key: 'highestPercentAbove', label: 'Peak % Above' }
+                ]
+            },
+            'name': {
+                primary: { key: 'avgPercentAboveTarget', label: 'Avg % vs Target', emoji: '✅' },
+                secondary: [
+                    { key: 'targetsHit', label: 'Targets Hit' },
+                    { key: 'highestPercentAbove', label: 'Peak % Above' },
+                    { key: 'recentTrend', label: 'Recent Trend' }
+                ]
+            }
+        }
+        return configs[sortBy] || configs['performance']
+    }
+
+    const columnConfig = getColumnConfig()
 
     const getTargetAchievementColor = (score) => {
         if (score >= 105) return '#22c55e' // green - exceeding target
@@ -246,7 +460,10 @@ export default function ReportsPage({ isDemo = false }) {
             {/* Brief Instruction Section */}
             <div style={styles.instructionSection}>
                 <p style={styles.instruction}>
-                    Track performance across all dayparts and celebrate progress toward realistic, tier-based targets.
+                    {isDemo ? 
+                        "This demo report tracks team achievement and individual growth using key performance metrics. Use sorting options to view % above target (main success metric), targets hit (consistency), peak performance (individual excellence), and recent trends (growth momentum)." :
+                        "This report tracks team achievement and individual growth using key performance metrics. Use timeframe filters and sorting options to track % above target (main success metric), targets hit (consistency), peak performance (individual excellence), and recent trends (growth momentum)."
+                    }
                 </p>
             </div>
 
@@ -296,9 +513,11 @@ export default function ReportsPage({ isDemo = false }) {
                         onChange={(e) => setSortBy(e.target.value)}
                         style={styles.select}
                     >
-                        <option value="performance">Target Achievement</option>
-                        <option value="improvement">Best Improvement Lately</option>
-                        <option value="name">PIC Name</option>
+                        <option value="performance">% Above Target</option>
+                        <option value="targets-hit">Targets Hit</option>
+                        <option value="peak-performance">Peak Performance</option>
+                        <option value="improvement">Recent Improvement</option>
+                        <option value="name">Name</option>
                     </select>
                 </div>
             </div>
@@ -314,7 +533,7 @@ export default function ReportsPage({ isDemo = false }) {
             <div style={styles.mainContentGrid}>
                 {/* Team Summary - Left Side */}
                 <div style={styles.teamSummarySection}>
-                    <h3 style={styles.sectionTitle}>Team Summary</h3>
+                    <h2 style={{...styles.sectionTitle, textAlign: 'center', fontSize: '2rem'}}>Team Summary</h2>
                     <p style={styles.sectionDescription}>
                         Performance insights across all dayparts, measuring consistent target achievement and team growth.
                     </p>
@@ -322,9 +541,9 @@ export default function ReportsPage({ isDemo = false }) {
                     <div style={styles.summaryMetrics}>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {sortedData.filter(item => item.targetAchievementScore >= 100).length}
+                                {sortedData.filter(item => item.avgPercentAboveTarget >= 0).length}
                             </div>
-                            <div style={styles.summaryLabel}>Targets Met</div>
+                            <div style={styles.summaryLabel}>Above Target</div>
                             <div style={styles.summarySubtext}>
                                 of {sortedData.length} total shifts
                             </div>
@@ -332,12 +551,12 @@ export default function ReportsPage({ isDemo = false }) {
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
                                 {sortedData.length > 0 ? (
-                                    sortedData.reduce((sum, item) => sum + item.targetAchievementScore, 0) / sortedData.length
+                                    sortedData.reduce((sum, item) => sum + item.avgPercentAboveTarget, 0) / sortedData.length
                                 ).toFixed(1) : 0}%
                             </div>
-                            <div style={styles.summaryLabel}>Avg Achievement</div>
+                            <div style={styles.summaryLabel}>Avg % Above Target</div>
                             <div style={styles.summarySubtext}>
-                                vs tier-based targets
+                                performance vs targets
                             </div>
                         </div>
                         <div style={styles.summaryCard}>
@@ -354,11 +573,11 @@ export default function ReportsPage({ isDemo = false }) {
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
                                 {sortedData.length > 0 ? 
-                                    Math.max(...sortedData.map(item => item.targetAchievementScore)).toFixed(1) : 0}%
+                                    Math.max(...sortedData.map(item => item.avgPercentAboveTarget)).toFixed(1) : 0}%
                             </div>
-                            <div style={styles.summaryLabel}>Top Score</div>
+                            <div style={styles.summaryLabel}>Top Performance</div>
                             <div style={styles.summarySubtext}>
-                                best achievement
+                                best % above target
                             </div>
                         </div>
                     </div>
@@ -382,19 +601,25 @@ export default function ReportsPage({ isDemo = false }) {
                         <div style={styles.noData}>
                             {filterPeriod === 'example-data' ? 
                                 "No example data available" : 
-                                "No performance data saved yet. Use the dashboard to record daily metrics, then view reports here."
+                                isDemo ? 
+                                    "No demo data available for this time period" :
+                                    "No performance data found for this date range. Use the store dashboard to record daily sales and productivity data, then view team reports here."
                             }
                         </div>
                     ) : (
                         <div>
-                            {/* Headers */}
+                            {/* Dynamic Headers */}
                             <div style={styles.leaderboardHeaders}>
                                 <div style={styles.rankHeader}>Rank</div>
-                                <div style={styles.picHeader}>PIC Name</div>
-                                <div style={styles.productivityHeader}>Achievement Score</div>
-                                <div style={styles.targetHeader}>% Above Target</div>
-                                <div style={styles.salesHeader}>Avg Sales</div>
-                                <div style={styles.improvementHeader}>Improvement</div>
+                                <div style={styles.picHeader}>Name</div>
+                                <div style={styles.primaryHeader}>
+                                    {columnConfig.primary.emoji} {columnConfig.primary.label}
+                                </div>
+                                {columnConfig.secondary.map((col, index) => (
+                                    <div key={col.key} style={index === columnConfig.secondary.length - 1 ? styles.lastSecondaryHeader : styles.secondaryHeader}>
+                                        {col.label}
+                                    </div>
+                                ))}
                             </div>
                             
                             <div style={styles.scoreboardList}>
@@ -421,51 +646,71 @@ export default function ReportsPage({ isDemo = false }) {
                                     }}>
                                         {/* Rank */}
                                         <div style={styles.rankColumn}>
-                                            <div style={styles.rankNumber}>#{index + 1}</div>
+                                            <div style={{...styles.rankNumber, color: '#ffffff'}}>#{index + 1}</div>
                                         </div>
                                         
                                         {/* PIC Name */}
                                         <div style={styles.picColumn}>
-                                            <div style={styles.picNameLarge}>{item.picName}</div>
+                                            <div style={{...styles.picNameLarge, color: '#ffffff'}}>{item.picName}</div>
                                         </div>
                                         
-                                        {/* Target Achievement Score */}
-                                        <div style={styles.productivityColumn}>
+                                        {/* Primary Metric (Dynamic) */}
+                                        <div style={styles.primaryColumn}>
                                             <div style={{
-                                                ...styles.productivityValue,
-                                                color: getTargetAchievementColor(item.targetAchievementScore)
+                                                ...styles.primaryValue,
+                                                color: '#ffffff', 
+                                                fontWeight: 'bold',
+                                                fontSize: '18px'
                                             }}>
-                                                {getTargetAchievementIcon(item.targetAchievementScore)} {item.targetAchievementScore.toFixed(1)}%
+                                                {columnConfig.primary.key === 'avgPercentAboveTarget' && (
+                                                    <>{item.avgPercentAboveTarget >= 0 ? (item.avgPercentAboveTarget > 0 ? '🟢+' : '⚫') : '🔴'}{item.avgPercentAboveTarget.toFixed(1)}%</>
+                                                )}
+                                                {columnConfig.primary.key === 'targetsHit' && (
+                                                    <>{item.targetsHit}/{item.count || 0} {item.targetHitPercentage >= 75 ? '🟢' : item.targetHitPercentage >= 50 ? '🟡' : '🔴'}
+                                                    <div style={{ fontSize: '11px', opacity: 0.8 }}>({item.targetHitPercentage ? item.targetHitPercentage.toFixed(0) : 0}%)</div></>
+                                                )}
+                                                {columnConfig.primary.key === 'highestPercentAbove' && (
+                                                    <>{item.highestPercentAbove > 10 ? '🟢' : item.highestPercentAbove > 0 ? '🟡' : '🔴'}+{item.highestPercentAbove.toFixed(1)}%</>
+                                                )}
+                                                {columnConfig.primary.key === 'recentTrend' && (
+                                                    <>{item.recentTrend && item.recentTrend > 0 ? (
+                                                        <>{item.recentTrend > 2 ? '🟢' : '🟡'}+{item.recentTrend.toFixed(1)}%
+                                                        <div style={{ fontSize: '10px', opacity: 0.8 }}>trending</div></>
+                                                    ) : (
+                                                        <>🔴--</>
+                                                    )}</>
+                                                )}
                                             </div>
                                         </div>
                                         
-                                        {/* Percent Above Target */}
-                                        <div style={styles.targetColumn}>
-                                            <div style={{
-                                                ...styles.targetValue,
-                                                color: item.avgPercentAboveTarget >= 0 ? '#34d399' : '#f87171'
-                                            }}>
-                                                {item.avgPercentAboveTarget >= 0 ? '+' : ''}{item.avgPercentAboveTarget.toFixed(1)}%
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Sales */}
-                                        <div style={styles.salesColumn}>
-                                            <div style={styles.salesValue}>
-                                                ${item.actualSales.toLocaleString()}
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Improvement */}
-                                        <div style={styles.improvementColumn}>
-                                            {item.improvement ? (
-                                                <div style={styles.improvementValue}>
-                                                    +{item.improvement.toFixed(1)}%
+                                        {/* Secondary Metrics (Dynamic) */}
+                                        {columnConfig.secondary.map((col) => (
+                                            <div key={col.key} style={styles.secondaryColumn}>
+                                                <div style={{
+                                                    ...styles.secondaryValue,
+                                                    color: '#ffffff'
+                                                }}>
+                                                    {col.key === 'avgPercentAboveTarget' && (
+                                                        <>{item.avgPercentAboveTarget >= 0 ? '+' : ''}{item.avgPercentAboveTarget.toFixed(1)}%</>
+                                                    )}
+                                                    {col.key === 'targetsHit' && (
+                                                        <>{item.targetsHit}/{item.count || 0}
+                                                        <div style={{ fontSize: '11px', opacity: 0.8 }}>({item.targetHitPercentage ? item.targetHitPercentage.toFixed(0) : 0}%)</div></>
+                                                    )}
+                                                    {col.key === 'highestPercentAbove' && (
+                                                        <>+{item.highestPercentAbove.toFixed(1)}%</>
+                                                    )}
+                                                    {col.key === 'recentTrend' && (
+                                                        <>{item.recentTrend && item.recentTrend > 0 ? (
+                                                            <>+{item.recentTrend.toFixed(1)}%
+                                                            <div style={{ fontSize: '10px', opacity: 0.8 }}>trending</div></>
+                                                        ) : (
+                                                            '--'
+                                                        )}</>
+                                                    )}
                                                 </div>
-                                            ) : (
-                                                <div style={styles.improvementValue}>--</div>
-                                            )}
-                                        </div>
+                                            </div>
+                                        ))}
                                     </div>
                                     )
                                 })}
@@ -746,13 +991,11 @@ const styles = {
         color: '#94a3b8',
         textTransform: 'uppercase'
     },
-    rankHeader: { minWidth: '50px', textAlign: 'center' },
-    picHeader: { flex: '2', marginRight: '12px' },
-    daypartHeader: { minWidth: '80px', marginRight: '12px' },
-    productivityHeader: { minWidth: '80px', marginRight: '12px', textAlign: 'center' },
-    targetHeader: { minWidth: '70px', marginRight: '12px', textAlign: 'center' },
-    salesHeader: { minWidth: '80px', marginRight: '12px', textAlign: 'center' },
-    improvementHeader: { minWidth: '80px', textAlign: 'center' },
+    rankHeader: { minWidth: '50px', marginRight: '10px', textAlign: 'center', fontWeight: 'bold', fontSize: '12px' },
+    picHeader: { minWidth: '120px', marginRight: '15px', textAlign: 'left', fontWeight: 'bold', fontSize: '12px' },
+    primaryHeader: { minWidth: '120px', marginRight: '15px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#1d4ed8' },
+    secondaryHeader: { minWidth: '85px', marginRight: '12px', textAlign: 'center', fontWeight: 'normal', fontSize: '11px' },
+    lastSecondaryHeader: { minWidth: '85px', textAlign: 'center', fontWeight: 'normal', fontSize: '11px' },
     
     // Column styles
     rankColumn: {
@@ -790,44 +1033,11 @@ const styles = {
         fontWeight: '500',
         display: 'inline-block'
     },
-    productivityColumn: {
-        minWidth: '80px',
-        marginRight: '12px',
-        textAlign: 'center'
-    },
-    productivityValue: {
-        fontSize: '14px',
-        fontWeight: '600',
-        color: '#e2e8f0' // Better contrast
-    },
-    targetColumn: {
-        minWidth: '70px',
-        marginRight: '12px',
-        textAlign: 'center'
-    },
-    targetValue: {
-        fontSize: '13px',
-        fontWeight: '600'
-    },
-    salesColumn: {
-        minWidth: '80px',
-        marginRight: '12px',
-        textAlign: 'center'
-    },
-    salesValue: {
-        fontSize: '13px',
-        fontWeight: '600',
-        color: '#60a5fa' // Light blue instead of green
-    },
-    improvementColumn: {
-        minWidth: '80px',
-        textAlign: 'center'
-    },
-    improvementValue: {
-        fontSize: '12px',
-        fontWeight: '600',
-        color: '#34d399' // Light green
-    },
+    primaryColumn: { minWidth: '120px', marginRight: '15px', textAlign: 'center' },
+    secondaryColumn: { minWidth: '85px', marginRight: '12px', textAlign: 'center' },
+    
+    primaryValue: { fontSize: '16px', fontWeight: 'bold' },
+    secondaryValue: { fontSize: '14px' },
     achievedIndicator: {
         fontSize: '16px',
         marginLeft: '8px',

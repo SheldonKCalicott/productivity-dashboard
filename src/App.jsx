@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom'
 import DashboardSelector from './DashboardSelector'
 import SimplifiedDashboard from './SimplifiedDashboard'
+import DaypartDashboard from './DaypartDashboard'
 import ReportsPage from './ReportsPage'
 import StoreAccess from './StoreAccess'
 
@@ -99,14 +100,14 @@ function TemplateWrapper() {
     
     if (isReportsPage) {
         return (
-            <DashboardWrapper title="Demo Template" isTemplate={true}>
+            <DashboardWrapper title="Template" isTemplate={true}>
                 <ReportsPage isDemo={true} />
             </DashboardWrapper>
         )
     }
     
     return (
-        <DashboardWrapper title="Demo Template" isTemplate={true}>
+        <DashboardWrapper title="Template" isTemplate={true}>
             <SimplifiedDashboard onNavigateToReports={null} />
         </DashboardWrapper>
     )
@@ -135,7 +136,11 @@ function StoreWrapper({ storeNumber }) {
     
     return (
         <DashboardWrapper title={storeName}>
-            <SimplifiedDashboard onNavigateToReports={null} />
+            <DaypartDashboard 
+                onNavigateToReports={() => navigate(`/store/${storeNumber}/reports`)}
+                storeNumber={storeNumber}
+                storeName={storeName}
+            />
         </DashboardWrapper>
     )
 }

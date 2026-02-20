@@ -26,39 +26,29 @@ class ApiService {
             ...options,
         };
 
-        console.log('Making API request to:', url);
-        console.log('Request config:', config);
-
         try {
             const response = await fetch(url, config);
             
-            console.log('Response status:', response.status);
-            console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-            
             if (!response.ok) {
                 let errorMessage = `HTTP error! status: ${response.status}`;
-                let errorDetails = null;
                 try {
-                    errorDetails = await response.text();
-                    console.log('Error response body:', errorDetails);
+                    const errorDetails = await response.text();
                     const errorData = JSON.parse(errorDetails);
                     errorMessage = errorData.message || errorData.error || errorMessage;
                 } catch (e) {
                     // If response isn't JSON, use status text
-                    console.log('Could not parse error response as JSON:', e.message);
                     errorMessage = response.statusText || errorMessage;
                 }
-                console.error('API request failed with:', errorMessage);
                 throw new Error(errorMessage);
             }
             
             const result = await response.json();
-            console.log('API request successful:', result);
             return result;
         } catch (error) {
-            console.error('API request failed:', error);
-            console.error('Request URL:', url);
-            console.error('Request config:', config);
+            // Only log if it's not a connection refused error (which is expected during development)
+            if (!error.message.includes('ERR_CONNECTION_REFUSED') && !error.message.includes('Failed to fetch')) {
+                console.error('API request failed:', error);
+            }
             throw error;
         }
     }

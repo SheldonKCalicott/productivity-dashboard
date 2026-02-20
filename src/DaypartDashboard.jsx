@@ -1,746 +1,1438 @@
 import React, { useState, useEffect } from "react"
 
-// Simplified Productivity Dial component
-function SimplifiedProductivityDial({ title, salesInput, productivityInput, picInput, handleSalesChange, handleProductivityChange, handlePicChange, daypartTargets, daypartWeights }) {
-    const formatCurrency = (value) => {
-        if (!value) return ''
-        const numValue = parseFloat(value)
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD'
-        }).format(numValue)
+// Simplified Productivity Dial - focused on ONE job: actual vs target
+function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, noDataMessage = "Enter sales and actual productivity below" }) {
+    // Sales-driven dial configuration - focused range for granular measurement
+    const DIAL_RANGE = 20  // +/- 10 points from target for precise measurement
+    const MIN_PRODUCTIVITY = Math.max(1, targetProductivity - DIAL_RANGE/2)
+    const MAX_PRODUCTIVITY = targetProductivity + DIAL_RANGE/2
+    
+    // Dynamic dial size based on type
+    const dialSize = isDayNight ? 160 : 240  // EDIT HERE: Reduced daypart dial size (was 240)
+    const centerX = dialSize / 2
+    const centerY = dialSize / 2
+    const radius = (dialSize / 2) - 30      // EDIT HERE: Outer circle radius (was -30)
+    
+    // Dial angles: 300° span from 120° to 60° (utilizing more of the gauge)
+    const START_ANGLE = 120
+    const END_ANGLE = 60
+
+    // Convert productivity to angle (centered on target)
+    const productivityToAngle = (productivity) => {
+        if (!productivity) return null
+        
+        // Clamp productivity values to min/max range
+        let clampedProductivity = productivity
+        if (productivity <= MIN_PRODUCTIVITY) {
+            clampedProductivity = MIN_PRODUCTIVITY
+        } else if (productivity >= MAX_PRODUCTIVITY) {
+            clampedProductivity = MAX_PRODUCTIVITY
+        }
+        
+        const ratio = (clampedProductivity - MIN_PRODUCTIVITY) / (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY)
+        let angle = START_ANGLE + ratio * 300  // 300° span
+        // Handle angle wrapping properly
+        while (angle >= 360) angle -= 360
+        while (angle < 0) angle += 360
+        return angle
     }
+
+    // Calculate target angle (should be center of dial)
+    const targetAngle = productivityToAngle(targetProductivity)
+    const actualAngle = productivityToAngle(actualProductivity)
+    
+    // Calculate labor hours delta
+    const calculateLaborDelta = () => {
+        if (!salesInput || !actualProductivity || !targetProductivity) return null
+        const sales = parseFloat(salesInput.replace(/[^0-9.]/g, ''))
+        if (!sales) return null
+        
+        const actualHours = sales / actualProductivity
+        const targetHours = sales / targetProductivity
+        return actualHours - targetHours
+    }
+
+    const laborDelta = calculateLaborDelta()
+
+    // Generate strategic tick marks - min, target, max, and key intervals
+    const generateTicks = () => {
+        const ticks = []
+        
+        // Key productivity values to show as ticks
+        const tickValues = [
+            MIN_PRODUCTIVITY,                    // Min
+            Math.round(MIN_PRODUCTIVITY + (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY) * 0.25),  // 25%
+            targetProductivity,                  // Target (true north)
+            Math.round(MIN_PRODUCTIVITY + (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY) * 0.75),  // 75%
+            MAX_PRODUCTIVITY                     // Max
+        ]
+        
+        tickValues.forEach((productivity, i) => {
+            const angle = productivityToAngle(productivity)
+            if (angle === null) return
+            
+            const radians = (angle * Math.PI) / 180
+            const isTarget = productivity === targetProductivity
+            const isMinMax = i === 0 || i === tickValues.length - 1
+            
+            // Different tick lengths for emphasis
+            const outerRadius = radius - (isTarget ? 1 : 1)        // EDIT HERE: Tick outer position (closer to edge for day/night)
+            const innerRadius = radius - (isTarget ? 18 : isMinMax ? 15 : 15)  
+            const labelRadius = isDayNight ? radius + 20 : radius + 20
+            
+            const outerX = centerX + outerRadius * Math.cos(radians)
+            const outerY = centerY + outerRadius * Math.sin(radians)
+            const innerX = centerX + innerRadius * Math.cos(radians)
+            const innerY = centerY + innerRadius * Math.sin(radians)
+            const labelX = centerX + labelRadius * Math.cos(radians)
+            const labelY = centerY + labelRadius * Math.sin(radians)
+            
+            ticks.push(
+                <g key={i}>
+                    <line
+                        x1={outerX}
+                        y1={outerY}
+                        x2={innerX}
+                        y2={innerY}
+                        stroke={isTarget ? "#fff" : "#666"}
+                        strokeWidth={isTarget ? "3" : "2"}
+                    />
+                    <text
+                        x={labelX}
+                        y={labelY}
+                        fill={isTarget ? "#fff" : "#aaa"}
+                        fontSize={isDayNight ? (isTarget ? "12" : "10") : (isTarget ? "16" : "14")}
+                        fontWeight={isTarget ? "bold" : "normal"}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                    >
+                        {Math.round(productivity)}
+                    </text>
+                </g>
+            )
+        })
+        return ticks
+    }
+
+    // Generate behavior-based zones (3-zone system)
+    const generateZones = () => {
+        if (!targetAngle || !targetProductivity) return null
+
+        const createArc = (startAngle, endAngle, color, opacity = 0.15) => {
+            const arcRadius = isDayNight ? radius - 20 : radius - 22   // EDIT HERE: Zone thickness (bigger zones for Day/Night)
+            
+            let actualEndAngle = endAngle
+            if (endAngle < startAngle) {
+                actualEndAngle = endAngle + 360
+            }
+            
+            const startRadian = (startAngle * Math.PI) / 180
+            const endRadian = (actualEndAngle * Math.PI) / 180
+            
+            const x1 = centerX + arcRadius * Math.cos(startRadian)
+            const y1 = centerY + arcRadius * Math.sin(startRadian)
+            const x2 = centerX + arcRadius * Math.cos((endAngle * Math.PI) / 180)
+            const y2 = centerY + arcRadius * Math.sin((endAngle * Math.PI) / 180)
+            
+            const largeArc = (actualEndAngle - startAngle) > 180 ? 1 : 0
+            
+            if (Math.abs(actualEndAngle - startAngle) < 1) return null
+            
+            return (
+                <path
+                    d={`M ${centerX} ${centerY} L ${x1} ${y1} A ${arcRadius} ${arcRadius} 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                    fill={color}
+                    opacity={opacity}
+                />
+            )
+        }
+
+        // Calculate zone boundaries based on target with reduced tolerance
+        const tolerance = 2 // +/- 2 points around target for tight green zone
+        const belowTargetThreshold = productivityToAngle(targetProductivity - tolerance)
+        const aboveTargetThreshold = productivityToAngle(targetProductivity + tolerance)
+
+        return (
+            <g>
+                {/* Below Target Zone (Red) - From start to below target threshold */}
+                {createArc(START_ANGLE, belowTargetThreshold, "#ff4444", 0.2)}
+                
+                {/* On Target Zone (Green) - Around target with tolerance */}
+                {createArc(belowTargetThreshold, aboveTargetThreshold, "#44ff44", 0.2)}
+                
+                {/* Above Target Zone (Blue) - From above target threshold to end */}
+                {createArc(aboveTargetThreshold, START_ANGLE + 300, "#4488ff", 0.2)}
+            </g>
+        )
+    }
+
+    // Determine current zone and action (3-zone system centered on target)
+    const getCurrentZone = () => {
+        if (!actualProductivity || !targetProductivity || actualProductivity === 0) {
+            return {
+                zone: "No Data",
+                action: enhancedActionMessage || noDataMessage,
+                color: "#888888"
+            }
+        }
+        
+        const tolerance = 2 // +/- 2 points around target for tight green zone
+        const diff = actualProductivity - targetProductivity
+        
+        if (diff < -tolerance) {
+            return { 
+                zone: "Below Target", 
+                action: enhancedActionMessage || "Reduce labor - extra breaks or early leave", 
+                color: "#ff4444" 
+            }
+        } else if (diff > tolerance) {
+            return { 
+                zone: "Above Target", 
+                action: enhancedActionMessage || "Deep clean, retrain, and create connections", 
+                color: "#4488ff" 
+            }
+        } else {
+            return { 
+                zone: "On Target", 
+                action: enhancedActionMessage || "Stay the course and monitor", 
+                color: "#44ff44" 
+            }
+        }
+    }
+
+    const currentZone = getCurrentZone()
+
+    const formatCurrency = (value) => {
+        if (!value || value === '' || value === '0') return '$0'
+        const numValue = typeof value === 'string' ? parseInt(value.replace(/[^0-9]/g, '')) : value
+        if (isNaN(numValue)) return '$0'
+        return `$${numValue.toLocaleString()}`
+    }
+
+    return (
+        <div style={dialStyles.container}>
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                height: '100%',
+                minHeight: '240px'
+            }}>
+                <svg width={dialSize} height={dialSize} style={dialStyles.svg}>
+                    {/* Background circle */}
+                    <circle
+                        cx={centerX}
+                        cy={centerY}
+                        r={isDayNight ? radius + 5 : radius + 5}  // EDIT HERE: Background circle size
+                        fill="#15161A"
+                        stroke="#444"
+                        strokeWidth="2"
+                    />
+                    
+                    {/* Behavior zones */}
+                    {generateZones()}
+                    
+                    {/* Tick marks and labels */}
+                    {generateTicks()}
+                    
+                    {/* TARGET label positioned at bottom center of dial */}
+                    <text
+                        x={centerX}
+                        y={centerY + (radius * 0.7)}
+                        fill="#fff"
+                        fontSize={isDayNight ? "7" : "14"}
+                        fontWeight="bold"
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                    >
+                        TARGET
+                    </text>
+                    
+                    {/* Actual productivity needle - conditionally rendered */}
+                    {showNeedle && actualAngle !== null && (
+                        <line
+                            x1={centerX}
+                            y1={centerY}
+                            x2={centerX + (radius - 30) * Math.cos((actualAngle * Math.PI) / 180)}
+                            y2={centerY + (radius - 30) * Math.sin((actualAngle * Math.PI) / 180)}
+                            stroke={currentZone?.color || "#fff"}
+                            strokeWidth={isDayNight ? "3" : "5"}
+                            strokeLinecap="round"
+                            style={{ transition: 'all 0.3s ease-in-out' }}
+                        />
+                    )}
+                    
+                    {/* Center dot */}
+                    <circle
+                        cx={centerX}
+                        cy={centerY}
+                        r={isDayNight ? "4" : "6"}
+                        fill="#fff"
+                    />
+                </svg>
+
+                <div style={dialStyles.dataSection}>
+                    {/* Current Status - Always visible */}
+                    <div style={{
+                        ...dialStyles.statusBadge,
+                        backgroundColor: currentZone.color + '22',
+                        borderColor: currentZone.color
+                    }}>
+                        <div style={{
+                            ...dialStyles.zoneName,
+                            color: currentZone.color,
+                            whiteSpace: 'pre-line',
+                            lineHeight: '1.4'
+                        }}>
+                            {currentZone.zone} {laborDelta !== null && currentZone.zone !== "No Data" && `(${laborDelta > 0 ? '+' : ''}${laborDelta.toFixed(1)} hrs)`}
+                        </div>
+                        <div style={{
+                            ...dialStyles.zoneAction,
+                            whiteSpace: 'pre-line',
+                            lineHeight: '1.4'
+                        }}>
+                            {currentZone.action}
+                        </div>
+                        {/* Action message displayed directly below dial, no sales */}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// Day/Night Combined Productivity Dial
+function CombinedProductivityDial({ title, combinedSales, combinedActual, targetProductivity, daypart1Prod, daypart2Prod, isDayNight = false, showNeedle = true, noDataMessage = "Enter productivity data" }) {
+    const salesValue = combinedSales || 0
+    
+    // Only show actual productivity if both dayparts have data
+    const shouldShowProductivity = daypart1Prod && daypart2Prod && parseFloat(daypart1Prod) > 0 && parseFloat(daypart2Prod) > 0
+    const displayActualProductivity = shouldShowProductivity ? combinedActual : 0
+    
+    // Enhanced sales display function
+    const formatSalesDisplay = () => {
+        if (!salesValue || salesValue <= 0) return '$0'
+        return `$${salesValue.toLocaleString()}`
+    }
+    
+    // Create enhanced action message with sales and productivity info
+    const getEnhancedActionMessage = () => {
+        if (!shouldShowProductivity) {
+            return noDataMessage
+        }
+        
+        const avgProductivity = ((parseFloat(daypart1Prod) + parseFloat(daypart2Prod)) / 2).toFixed(1)
+        const salesDisplay = formatSalesDisplay()
+        
+        // Calculate labor hours delta
+        const calculateLaborDelta = () => {
+            if (!salesValue || !displayActualProductivity || !targetProductivity) return null
+            const actualHours = salesValue / displayActualProductivity
+            const targetHours = salesValue / targetProductivity
+            return actualHours - targetHours
+        }
+        
+        const laborDelta = calculateLaborDelta()
+        
+        // Base action message from zone determination
+        const tolerance = 2
+        const diff = displayActualProductivity - targetProductivity
+        let baseAction = ""
+        let zone = ""
+        
+        if (diff < -tolerance) {
+            baseAction = "Reduce labor - extra breaks or early leave"
+            zone = "Below Target"
+        } else if (diff > tolerance) {
+            baseAction = "Deep clean, retrain, and create connections"
+            zone = "Above Target"
+        } else {
+            baseAction = "Stay the course and monitor"
+            zone = "On Target"
+        }
+        
+        // Multi-line enhanced message
+        const line1 = `${zone}${laborDelta !== null ? ` (${laborDelta > 0 ? '+' : ''}${laborDelta.toFixed(1)} hrs)` : ''}`
+        const line2 = baseAction
+        const line3 = `Sales: ${salesDisplay} • Avg Productivity: ${avgProductivity}`
+        
+        return `${line1}\n${line2}\n${line3}`
+    }
+    
+    return (
+        <div>
+            <SimplifiedProductivityDial
+                title={title}
+                salesInput={salesValue.toString()}
+                actualProductivity={displayActualProductivity}
+                targetProductivity={targetProductivity}
+                salesContext="Combined"
+                isDayNight={true}
+                showNeedle={showNeedle}
+                enhancedActionMessage={getEnhancedActionMessage()}
+                noDataMessage={noDataMessage}
+            />
+        </div>
+    )
+}
+
+// Main Dashboard Component
+export default function DaypartDashboard({ onNavigateToReports, storeNumber = null, storeName = null }) {
+    // Store-specific configuration  
+    const isDemo = !storeNumber || storeNumber === 'demo'
+    const displayStoreName = storeName || (storeNumber === '04680' ? 'Tuskawilla' : storeNumber === '00661' ? 'Forsyth' : 'Demo')
+    
+    // Tier selection state
+    const [selectedTier, setSelectedTier] = useState('Top 50%')
+    
+    // Adjustable daypart weights
+    const [daypartWeights, setDaypartWeights] = useState({
+        'breakfast': 0.76,   // Low ticket, high prep, stock for lunch
+        'lunch': 1.24,       // Peak volume, high throughput
+        'afternoon': 1.06,   // Post-lunch cleanup + dinner prep
+        'dinner': 0.94       // Peak volume + close-down inefficiency
+    });
+    
+    // Sales inputs
+    const [breakfastSales, setBreakfastSales] = useState('')
+    const [lunchSales, setLunchSales] = useState('')
+    const [afternoonSales, setAfternoonSales] = useState('')
+    const [dinnerSales, setDinnerSales] = useState('')
+
+    // Actual productivity inputs
+    const [actualProductivity, setActualProductivity] = useState({
+        breakfast: '',
+        lunch: '',
+        afternoon: '',
+        dinner: ''
+    })
+    
+    // Person In Charge (PIC) names for each daypart
+    const [picNames, setPicNames] = useState({
+        breakfast: '',
+        lunch: '',
+        afternoon: '',
+        dinner: ''
+    })
+    
+    // Export date range selection
+    const [exportDateRange, setExportDateRange] = useState('this-week')
+    
+    // Data date management
+    const [dataDate, setDataDate] = useState(new Date().toISOString().split('T')[0])
+    
+    // Demo banner state (no saving for demo)
+    const [showDemoBanner, setShowDemoBanner] = useState(false)
+
+    // Tier-based productivity calculation system
+    const tierTables = {
+        'Top 50%': {
+            2000: 75, 4000: 77, 6000: 79, 8000: 80.5, 10000: 82, 12000: 83, 15000: 84, 20000: 84.5, 26000: 85, 28000: 86, 30000: 86.5, 32000: 87, 34000: 88, 36000: 89, 38000: 89.5, 40000: 90
+        },
+        'Top 33%': {
+            2000: 78, 4000: 80, 6000: 82, 8000: 83.5, 10000: 85, 12000: 86, 15000: 87, 20000: 87.5, 26000: 88, 28000: 89, 30000: 89.5, 32000: 90, 34000: 90.5, 36000: 91, 38000: 92, 40000: 92.5
+        },
+        'Top 20%': {
+            2000: 81, 4000: 83, 6000: 85, 8000: 86.5, 10000: 88, 12000: 89, 15000: 89.5, 20000: 90, 26000: 90, 28000: 91, 30000: 92, 32000: 93, 34000: 93.5, 36000: 94, 38000: 95, 40000: 95.5
+        },
+        'Top 10%': {
+            2000: 84, 4000: 86, 6000: 88, 8000: 89.5, 10000: 91, 12000: 92, 15000: 92.5, 20000: 93, 26000: 93, 28000: 94, 30000: 95, 32000: 96, 34000: 97, 36000: 98, 38000: 99, 40000: 99.5
+        }
+    };
+
+    const getTotalSales = () => {
+        const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+        const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+        const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+        const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+        return bf + ln + af + dn
+    }
+
+    const calculateTargetProductivity = (daypartKey, totalDailySales) => {
+        const tierTable = tierTables[selectedTier];
+        if (!tierTable) return 85; // fallback
+        
+        // Find closest sales points for interpolation
+        const salesPoints = Object.keys(tierTable).map(Number).sort((a, b) => a - b);
+        
+        if (totalDailySales <= salesPoints[0]) {
+            const baseTarget = tierTable[salesPoints[0]];
+            return Math.round(baseTarget * daypartWeights[daypartKey]);
+        }
+        
+        if (totalDailySales >= salesPoints[salesPoints.length - 1]) {
+            const baseTarget = tierTable[salesPoints[salesPoints.length - 1]];
+            return Math.round(baseTarget * daypartWeights[daypartKey]);
+        }
+        
+        // Linear interpolation between two closest points
+        for (let i = 0; i < salesPoints.length - 1; i++) {
+            if (totalDailySales >= salesPoints[i] && totalDailySales <= salesPoints[i + 1]) {
+                const lower = salesPoints[i];
+                const upper = salesPoints[i + 1];
+                const ratio = (totalDailySales - lower) / (upper - lower);
+                const baseTarget = tierTable[lower] + (ratio * (tierTable[upper] - tierTable[lower]));
+                return Math.round(baseTarget * daypartWeights[daypartKey]);
+            }
+        }
+        
+        // Fallback
+        const baseTarget = tierTable[salesPoints[0]];
+        return Math.round(baseTarget * daypartWeights[daypartKey]);
+    };
+
+    // Helper function to get sales value for a daypart
+    const getDaypartSales = (daypartKey) => {
+        const salesInputs = {
+            breakfast: breakfastSales,
+            lunch: lunchSales,
+            afternoon: afternoonSales,
+            dinner: dinnerSales
+        }
+        const salesInput = salesInputs[daypartKey]
+        return salesInput ? parseInt(salesInput.replace(/[^0-9]/g, '')) : 0
+    }
+
+    // Store-aware data management functions
+    const [showDataBanner, setShowDataBanner] = useState(false)
+    
+    const showMessage = (type) => {
+        if (type === 'demo') {
+            setShowDemoBanner(true)
+            setTimeout(() => setShowDemoBanner(false), 3000)
+        } else {
+            setShowDataBanner(true)
+            setTimeout(() => setShowDataBanner(false), 3000)
+        }
+    }
+    
+    const handleDataAction = () => {
+        if (isDemo) {
+            showMessage('demo')
+        } else {
+            // Real data management for stores
+            const storeData = {
+                storeNumber,
+                storeName,
+                salesInputs: { breakfastSales, lunchSales, afternoonSales, dinnerSales },
+                productivity: actualProductivity,
+                picNames,
+                selectedTier,
+                daypartWeights,
+                timestamp: new Date().toISOString(),
+                manualSave: true
+            }
+            
+            // Store in localStorage
+            const storageKey = `store_${storeNumber}_${dataDate}`
+            localStorage.setItem(storageKey, JSON.stringify(storeData))
+            
+            // Save to database for real-time reporting
+            saveToDatabase(storeData)
+            
+            showMessage('data')
+            
+            // Note: Manual save does NOT clear input fields
+        }
+    }
+    
+    // Save productivity data to database
+    const saveToDatabase = async (data) => {
+        try {
+            const productivity = [
+                { daypart: 'breakfast', sales: data.salesInputs.breakfastSales, productivity: data.productivity.breakfast, pic: data.picNames.breakfast },
+                { daypart: 'lunch', sales: data.salesInputs.lunchSales, productivity: data.productivity.lunch, pic: data.picNames.lunch },
+                { daypart: 'afternoon', sales: data.salesInputs.afternoonSales, productivity: data.productivity.afternoon, pic: data.picNames.afternoon },
+                { daypart: 'dinner', sales: data.salesInputs.dinnerSales, productivity: data.productivity.dinner, pic: data.picNames.dinner }
+            ]
+            
+            for (const daypartData of productivity) {
+                if (daypartData.sales && daypartData.productivity && parseFloat(daypartData.productivity) > 0) {
+                    const payload = {
+                        store_number: storeNumber,
+                        daypart: daypartData.daypart,
+                        sales_amount: parseInt(daypartData.sales.replace(/[^0-9]/g, '')) || 0,
+                        actual_productivity: parseFloat(daypartData.productivity) || 0,
+                        target_productivity: calculateTargetProductivity(daypartData.daypart, getTotalSales()),
+                        pic_name: daypartData.pic || 'Unknown',
+                        record_date: dataDate
+                    }
+                    
+                    // Save each daypart to database
+                    await fetch('/api/productivity', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    })
+                }
+            }
+            
+            console.log(`✅ Data saved to database for ${dataDate}`)
+        } catch (error) {
+            console.warn('Database save failed (offline mode):', error.message)
+            // Data is still saved in localStorage for offline operation
+        }
+    }
+    
+    const handleExportAction = () => {
+        if (isDemo) {
+            showMessage('demo')
+        } else {
+            // Real CSV export for stores
+            const data = [
+                ['Store', 'Daypart', 'Sales', 'Productivity', 'PIC', 'Target', 'Date'],
+                [storeName, 'Breakfast', breakfastSales, actualProductivity.breakfast, picNames.breakfast, calculateTargetProductivity('breakfast', getTotalSales()), new Date().toISOString().split('T')[0]],
+                [storeName, 'Lunch', lunchSales, actualProductivity.lunch, picNames.lunch, calculateTargetProductivity('lunch', getTotalSales()), new Date().toISOString().split('T')[0]],
+                [storeName, 'Afternoon', afternoonSales, actualProductivity.afternoon, picNames.afternoon, calculateTargetProductivity('afternoon', getTotalSales()), new Date().toISOString().split('T')[0]],
+                [storeName, 'Dinner', dinnerSales, actualProductivity.dinner, picNames.dinner, calculateTargetProductivity('dinner', getTotalSales()), new Date().toISOString().split('T')[0]]
+            ]
+
+            const csvContent = data.map(row => row.join(',')).join('\n')
+            const blob = new Blob([csvContent], { type: 'text/csv' })
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            link.download = `${storeName || 'store'}-productivity-${new Date().toISOString().split('T')[0]}.csv`
+            link.click()
+            window.URL.revokeObjectURL(url)
+            
+            // No message shown for export
+        }
+    }
+    
+    // Backward compatibility with demo functions
+    const showDemoMessage = () => showMessage('demo')
+    const handleDemoAction = () => handleDataAction()
+    const handleDemoExport = () => handleExportAction()
+    
+    // Load data from localStorage for selected date
+    const loadDataForDate = (selectedDate) => {
+        if (isDemo) return;
+        
+        const storageKey = `store_${storeNumber}_${selectedDate}`
+        const savedData = localStorage.getItem(storageKey)
+        
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData)
+                // Load sales data
+                setBreakfastSales(data.salesInputs?.breakfastSales || '')
+                setLunchSales(data.salesInputs?.lunchSales || '')
+                setAfternoonSales(data.salesInputs?.afternoonSales || '')
+                setDinnerSales(data.salesInputs?.dinnerSales || '')
+                
+                // Load productivity data
+                setActualProductivity(data.productivity || {
+                    breakfast: '',
+                    lunch: '',
+                    afternoon: '',
+                    dinner: ''
+                })
+                
+                // Load PIC names
+                setPicNames(data.picNames || {
+                    breakfast: '',
+                    lunch: '',
+                    afternoon: '',
+                    dinner: ''
+                })
+                
+                // Load other settings
+                if (data.selectedTier) setSelectedTier(data.selectedTier)
+                if (data.daypartWeights) setDaypartWeights(data.daypartWeights)
+            } catch (error) {
+                console.error('Error loading saved data:', error)
+                // Clear fields if data is corrupted
+                clearAllFields()
+            }
+        } else {
+            // No data for this date, clear all fields
+            clearAllFields()
+        }
+    }
+    
+    // Clear all input fields
+    const clearAllFields = () => {
+        setBreakfastSales('')
+        setLunchSales('')
+        setAfternoonSales('')
+        setDinnerSales('')
+        setActualProductivity({
+            breakfast: '',
+            lunch: '',
+            afternoon: '',
+            dinner: ''
+        })
+        setPicNames({
+            breakfast: '',
+            lunch: '',
+            afternoon: '',
+            dinner: ''
+        })
+    }
+    
+    // Handle date change and load corresponding data
+    const handleDateChange = (newDate) => {
+        setDataDate(newDate)
+        loadDataForDate(newDate)
+    }
+    
+    // Auto-save at midnight and advance to next day
+    const handleMidnightAutoSave = () => {
+        if (isDemo) return;
+        
+        // Check if there's any data to save
+        const hasData = breakfastSales || lunchSales || afternoonSales || dinnerSales ||
+                       actualProductivity.breakfast || actualProductivity.lunch ||
+                       actualProductivity.afternoon || actualProductivity.dinner
+        
+        if (hasData) {
+            // Save current data
+            const storeData = {
+                storeNumber,
+                storeName,
+                salesInputs: { breakfastSales, lunchSales, afternoonSales, dinnerSales },
+                productivity: actualProductivity,
+                picNames,
+                selectedTier,
+                daypartWeights,
+                timestamp: new Date().toISOString(),
+                autoSaved: true
+            }
+            
+            const storageKey = `store_${storeNumber}_${dataDate}`
+            localStorage.setItem(storageKey, JSON.stringify(storeData))
+            
+            // Also save to database for real-time reporting
+            saveToDatabase(storeData)
+        }
+        
+        // Clear all fields and advance to next day
+        clearAllFields()
+        const nextDay = new Date(dataDate)
+        nextDay.setDate(nextDay.getDate() + 1)
+        setDataDate(nextDay.toISOString().split('T')[0])
+        
+        showMessage('data')
+    }
+        
+    const getDayCombinedSales = () => {
+        const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+        const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+        return bf + ln
+    }
+
+    const getNightCombinedSales = () => {
+        const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+        const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+        return af + dn
+    }
+
+    const getDayCombinedActual = () => {
+        const bfSales = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+        const lnSales = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+        const bfProd = parseFloat(actualProductivity.breakfast) || 0
+        const lnProd = parseFloat(actualProductivity.lunch) || 0
+        
+        if (bfSales + lnSales === 0) return 0
+        return ((bfSales * bfProd) + (lnSales * lnProd)) / (bfSales + lnSales)
+    }
+
+    const getNightCombinedActual = () => {
+        const afSales = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+        const dnSales = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+        const afProd = parseFloat(actualProductivity.afternoon) || 0
+        const dnProd = parseFloat(actualProductivity.dinner) || 0
+        
+        if (afSales + dnSales === 0) return 0
+        return ((afSales * afProd) + (dnSales * dnProd)) / (afSales + dnSales)
+    }
+
+    const getDayCombinedTarget = () => {
+        const bfSales = getDaypartSales('breakfast') || 6000  // Default breakfast sales
+        const lnSales = getDaypartSales('lunch') || 10000     // Default lunch sales
+        const dayCombinedSales = bfSales + lnSales
+        
+        const bfTarget = calculateTargetProductivity('breakfast', bfSales)
+        const lnTarget = calculateTargetProductivity('lunch', lnSales)
+        
+        return ((bfSales * bfTarget) + (lnSales * lnTarget)) / dayCombinedSales
+    }
+
+    const getNightCombinedTarget = () => {
+        const afSales = getDaypartSales('afternoon') || 7000  // Default afternoon sales
+        const dnSales = getDaypartSales('dinner') || 8000    // Default dinner sales
+        const nightCombinedSales = afSales + dnSales
+        
+        const afTarget = calculateTargetProductivity('afternoon', afSales)
+        const dnTarget = calculateTargetProductivity('dinner', dnSales)
+        
+        return ((afSales * afTarget) + (dnSales * dnTarget)) / nightCombinedSales
+    }
+
+
+    const formatCurrency = (value) => {
+        if (!value || value === '') return ''
+        const numValue = typeof value === 'string' ? parseInt(value.replace(/[^0-9]/g, '')) : value
+        if (isNaN(numValue)) return ''
+        return `$${numValue.toLocaleString()}`
+    }
+    
+    // Set up midnight auto-save timer
+    useEffect(() => {
+        if (isDemo) return;
+        
+        const now = new Date()
+        const midnight = new Date(now)
+        midnight.setHours(23, 59, 0, 0) // 11:59 PM
+        
+        const timeUntilMidnight = midnight.getTime() - now.getTime()
+        
+        // If it's already past 11:59 PM today, set for tomorrow
+        if (timeUntilMidnight <= 0) {
+            midnight.setDate(midnight.getDate() + 1)
+        }
+        
+        const timer = setTimeout(() => {
+            handleMidnightAutoSave()
+            
+            // Set up daily recurring timer
+            const dailyTimer = setInterval(handleMidnightAutoSave, 24 * 60 * 60 * 1000)
+            return () => clearInterval(dailyTimer)
+        }, timeUntilMidnight > 0 ? timeUntilMidnight : midnight.getTime() - now.getTime())
+        
+        return () => clearTimeout(timer)
+    }, [dataDate, isDemo])
+    
+    // Load data for current date on component mount
+    useEffect(() => {
+        loadDataForDate(dataDate)
+    }, [storeNumber, isDemo])
 
     const parseCurrency = (value) => {
         if (!value) return ''
-        return value.replace(/[\$,]/g, '')
+        const numValue = parseInt(value.replace(/[^0-9]/g, ''))
+        return isNaN(numValue) ? '' : numValue.toString()
     }
-
-    const getDaypartName = () => {
-        if (title === 'Breakfast') return 'breakfast'
-        if (title === 'Lunch') return 'lunch'
-        if (title === 'Afternoon') return 'afternoon'
-        if (title === 'Dinner') return 'dinner'
-        return title.toLowerCase()
-    }
-
-    const calculateTargetProductivity = () => {
-        const daypart = getDaypartName()
-        const sales = parseFloat(salesInput) || 0
-
-        if (sales === 0) return { target: null, tier: null }
-
-        const targets = daypartTargets[daypart]
-        if (!targets) return { target: null, tier: null }
-
-        let selectedTier = null
-        let targetProductivity = null
-
-        if (sales < 5000) {
-            selectedTier = 'Under 5K'
-            targetProductivity = targets.under5k
-        } else if (sales < 8000) {
-            selectedTier = '5K-8K'
-            targetProductivity = targets.fiveToEight
-        } else if (sales < 12000) {
-            selectedTier = '8K-12K'
-            targetProductivity = targets.eightToTwelve
-        } else {
-            selectedTier = '12K+'
-            targetProductivity = targets.over12k
-        }
-
-        const daypartWeight = daypartWeights[daypart] || 1
-        targetProductivity = targetProductivity * daypartWeight
-
-        return {
-            target: targetProductivity,
-            tier: selectedTier
-        }
-    }
-
-    const { target, tier } = calculateTargetProductivity()
-    const actualProductivity = parseFloat(productivityInput) || 0
-
-    // Chart configuration
-    const chartSize = 200
-    const strokeWidth = 15
-    const radius = (chartSize - strokeWidth) / 2
-    const circumference = radius * 2 * Math.PI
-
-    // Calculate angles and paths
-    const maxValue = Math.max(target || 100, actualProductivity, 100)
-
-    // Performance status
-    const getPerformanceColor = () => {
-        if (!actualProductivity || !target) return '#666'
-        if (actualProductivity >= target) return '#10b981'
-        if (actualProductivity >= target * 0.8) return '#f59e0b'
-        return '#ef4444'
-    }
-
-    const getPerformanceStatus = () => {
-        if (!actualProductivity || !target) return 'No Data'
-        if (actualProductivity >= target) return 'Target Met'
-        if (actualProductivity >= target * 0.8) return 'Close'
-        return 'Below Target'
-    }
-
-    return (
-        <div style={dialStyles.dialContainer}>
-            <h3 style={dialStyles.title}>{title}</h3>
-            
-            {/* Gauge Chart */}
-            <div style={dialStyles.gaugeContainer}>
-                <svg width={chartSize} height={chartSize} style={dialStyles.gauge}>
-                    {/* Background arc */}
-                    <circle
-                        cx={chartSize / 2}
-                        cy={chartSize / 2}
-                        r={radius}
-                        fill="none"
-                        stroke="#333"
-                        strokeWidth={strokeWidth}
-                        strokeLinecap="round"
-                        strokeDasharray={`${circumference * 0.75} ${circumference * 0.25}`}
-                        strokeDashoffset={circumference * 0.125}
-                    />
-                    
-                    {/* Target arc (background) */}
-                    {target && (
-                        <circle
-                            cx={chartSize / 2}
-                            cy={chartSize / 2}
-                            r={radius}
-                            fill="none"
-                            stroke="#666"
-                            strokeWidth={strokeWidth}
-                            strokeLinecap="round"
-                            strokeDasharray={`${(circumference * 0.75) * (target / maxValue)} ${circumference}`}
-                            strokeDashoffset={circumference * 0.125}
-                            opacity={0.5}
-                        />
-                    )}
-                    
-                    {/* Actual arc */}
-                    {actualProductivity > 0 && (
-                        <circle
-                            cx={chartSize / 2}
-                            cy={chartSize / 2}
-                            r={radius}
-                            fill="none"
-                            stroke={getPerformanceColor()}
-                            strokeWidth={strokeWidth}
-                            strokeLinecap="round"
-                            strokeDasharray={`${(circumference * 0.75) * (actualProductivity / maxValue)} ${circumference}`}
-                            strokeDashoffset={circumference * 0.125}
-                            style={{
-                                transition: 'stroke-dasharray 0.5s ease-in-out, stroke 0.3s ease'
-                            }}
-                        />
-                    )}
-                </svg>
-                
-                {/* Center text */}
-                <div style={dialStyles.gaugeText}>
-                    <div style={dialStyles.primaryValue}>
-                        {actualProductivity ? Math.round(actualProductivity) : '--'}%
-                    </div>
-                    <div style={dialStyles.secondaryValue}>
-                        {getPerformanceStatus()}
-                    </div>
-                </div>
-            </div>
-
-            {/* Input fields */}
-            <div style={dialStyles.inputContainer}>
-                <div style={dialStyles.inputField}>
-                    <label style={dialStyles.inputLabel}>Sales</label>
-                    <input
-                        type="text"
-                        value={formatCurrency(salesInput)}
-                        onChange={(e) => handleSalesChange(parseCurrency(e.target.value))}
-                        style={dialStyles.input}
-                        placeholder="$0"
-                    />
-                </div>
-                <div style={dialStyles.inputField}>
-                    <label style={dialStyles.inputLabel}>Productivity</label>
-                    <input
-                        type="text"
-                        value={productivityInput}
-                        onChange={(e) => handleProductivityChange(e.target.value.replace(/[^0-9.]/g, ''))}
-                        style={dialStyles.input}
-                        placeholder="0%"
-                    />
-                </div>
-            </div>
-
-            {/* PIC input */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '10px', width: '100%', maxWidth: '280px' }}>
-                <input
-                    type="text"
-                    value={picInput}
-                    onChange={(e) => handlePicChange(e.target.value)}
-                    style={{ ...dialStyles.input, fontSize: '16px' }}
-                    placeholder="PIC Name"
-                />
-            </div>
-
-            {/* Target info */}
-            {target && (
-                <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '0.8rem', color: '#888' }}>
-                    Target: {Math.round(target)}% ({tier})
-                </div>
-            )}
-
-            {/* Legend */}
-            <div style={dialStyles.legend}>
-                {target && (
-                    <div style={dialStyles.legendItem}>
-                        <div style={{ ...dialStyles.legendColor, backgroundColor: '#666' }}></div>
-                        <span>Target</span>
-                    </div>
-                )}
-                <div style={dialStyles.legendItem}>
-                    <div style={{ ...dialStyles.legendColor, backgroundColor: getPerformanceColor() }}></div>
-                    <span>Actual</span>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-function CombinedProductivityDial({ title, averageSales, averageProductivity, targetProductivity }) {
-    // Chart configuration
-    const chartSize = 160
-    const strokeWidth = 12
-    const radius = (chartSize - strokeWidth) / 2
-    const circumference = radius * 2 * Math.PI
-
-    // Calculate performance
-    const actualProductivity = averageProductivity || 0
-    const target = targetProductivity || 100
-
-    // Calculate angles for arcs
-    const maxValue = Math.max(target, actualProductivity, 100)
-
-    // Performance color
-    const getPerformanceColor = () => {
-        if (!actualProductivity || !target) return '#666'
-        if (actualProductivity >= target) return '#10b981'
-        if (actualProductivity >= target * 0.8) return '#f59e0b'
-        return '#ef4444'
-    }
-
-    const getPerformanceStatus = () => {
-        if (!actualProductivity || !target) return 'No Data'
-        if (actualProductivity >= target) return 'Excellent'
-        if (actualProductivity >= target * 0.8) return 'Good'
-        return 'Needs Improvement'
-    }
-
-    return (
-        <div style={{
-            backgroundColor: '#1a1a1a',
-            border: '2px solid #333', 
-            borderRadius: '12px',
-            padding: '16px',
-            minHeight: '200px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center'
-        }}>
-            <h4 style={{
-                fontSize: '1.1rem',
-                color: '#fff',
-                fontWeight: 'bold',
-                textAlign: 'center',
-                margin: '0 0 15px 0'
-            }}>
-                {title}
-            </h4>
-
-            {/* Gauge */}
-            <div style={{ position: 'relative', marginBottom: '10px' }}>
-                <svg width={chartSize} height={chartSize} style={{ transform: 'rotate(-90deg)' }}>
-                    {/* Background */}
-                    <circle
-                        cx={chartSize / 2}
-                        cy={chartSize / 2}
-                        r={radius}
-                        fill="none"
-                        stroke="#333"
-                        strokeWidth={strokeWidth}
-                        strokeLinecap="round"
-                        strokeDasharray={`${circumference * 0.75} ${circumference * 0.25}`}
-                        strokeDashoffset={circumference * 0.125}
-                    />
-                    
-                    {/* Target (background) */}
-                    {target && (
-                        <circle
-                            cx={chartSize / 2}
-                            cy={chartSize / 2}
-                            r={radius}
-                            fill="none"
-                            stroke="#666"
-                            strokeWidth={strokeWidth}
-                            strokeLinecap="round"
-                            strokeDasharray={`${(circumference * 0.75) * (target / maxValue)} ${circumference}`}
-                            strokeDashoffset={circumference * 0.125}
-                            opacity={0.5}
-                        />
-                    )}
-                    
-                    {/* Actual */}
-                    {actualProductivity > 0 && (
-                        <circle
-                            cx={chartSize / 2}
-                            cy={chartSize / 2}
-                            r={radius}
-                            fill="none"
-                            stroke={getPerformanceColor()}
-                            strokeWidth={strokeWidth}
-                            strokeLinecap="round"
-                            strokeDasharray={`${(circumference * 0.75) * (actualProductivity / maxValue)} ${circumference}`}
-                            strokeDashoffset={circumference * 0.125}
-                        />
-                    )}
-                </svg>
-                
-                {/* Center text */}
-                <div style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    transform: 'translate(-50%, -50%)',
-                    textAlign: 'center',
-                    color: '#fff',
-                    fontWeight: 'bold'
-                }}>
-                    <div style={{ fontSize: '1.5rem', color: '#fff' }}>
-                        {actualProductivity ? Math.round(actualProductivity) : '--'}%
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '2px' }}>
-                        {getPerformanceStatus()}
-                    </div>
-                </div>
-            </div>
-
-            {/* Stats */}
-            <div style={{ textAlign: 'center', fontSize: '0.8rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span style={{ color: '#888' }}>Avg Sales:</span>
-                    <span style={{ color: '#fff', fontWeight: 'bold' }}>
-                        {averageSales ? `$${averageSales.toLocaleString()}` : '$0'}
-                    </span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#888' }}>Target:</span>
-                    <span style={{ color: '#fff', fontWeight: 'bold' }}>
-                        {target ? `${Math.round(target)}%` : '--'}
-                    </span>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-export default function DaypartDashboard({ onNavigateToReports }) {
-    const [salesInputs, setSalesInputs] = useState({
-        breakfast: '',
-        lunch: '',
-        afternoon: '',
-        dinner: ''
-    })
-
-    const [productivityInputs, setProductivityInputs] = useState({
-        breakfast: '',
-        lunch: '',
-        afternoon: '',
-        dinner: ''
-    })
-
-    const [picInputs, setPicInputs] = useState({
-        breakfast: '',
-        lunch: '',
-        afternoon: '',
-        dinner: ''
-    })
-
-    const [daypartWeights, setDaypartWeights] = useState({
-        breakfast: 0.76,
-        lunch: 1.24,
-        afternoon: 1.06,
-        dinner: 0.94
-    })
-
-    const [daypartTargets, setDaypartTargets] = useState({
-        breakfast: {
-            under5k: 35,
-            fiveToEight: 40,
-            eightToTwelve: 45,
-            over12k: 50
-        },
-        lunch: {
-            under5k: 45,
-            fiveToEight: 50,
-            eightToTwelve: 55,
-            over12k: 60
-        },
-        afternoon: {
-            under5k: 40,
-            fiveToEight: 45,
-            eightToTwelve: 50,
-            over12k: 55
-        },
-        dinner: {
-            under5k: 35,
-            fiveToEight: 40,
-            eightToTwelve: 45,
-            over12k: 50
-        }
-    })
-
-    const [showSaveBanner, setShowSaveBanner] = useState(false)
-
-    // Load/clear data when save date changes
-    useEffect(() => {
-        const savedData = localStorage.getItem(`daypartDashboard_${saveDate}`)
-        if (savedData) {
-            try {
-                const parsedData = JSON.parse(savedData)
-                if (parsedData.salesInputs) setSalesInputs(parsedData.salesInputs)
-                if (parsedData.productivityInputs) setProductivityInputs(parsedData.productivityInputs)
-                if (parsedData.picInputs) setPicInputs(parsedData.picInputs)
-                if (parsedData.daypartWeights) setDaypartWeights(parsedData.daypartWeights)
-                if (parsedData.daypartTargets) setDaypartTargets(parsedData.daypartTargets)
-            } catch (error) {
-                console.error('Failed to load saved data:', error)
-                clearAllInputs()
-            }
-        } else {
-            clearAllInputs()
-        }
-    }, [saveDate])
-
-    // Auto-save at 11:59 PM daily
-    useEffect(() => {
-        const checkAutoSave = () => {
-            const now = new Date()
-            const hours = now.getHours()
-            const minutes = now.getMinutes()
-            const currentDateStr = now.toISOString().split('T')[0]
-            
-            if (hours === 23 && minutes === 59 && !hasAutoSaved && saveDate === currentDateStr) {
-                console.log('Auto-saving at 11:59 PM...')
-                handleSaveData(true)
-                setHasAutoSaved(true)
-                
-                // Update to next day and clear inputs
-                setTimeout(() => {
-                    const nextDay = new Date()
-                    nextDay.setDate(nextDay.getDate() + 1)
-                    setSaveDate(nextDay.toISOString().split('T')[0])
-                    setHasAutoSaved(false)
-                }, 60000)
-            }
-            
-            if (hours === 0 && minutes === 0 && hasAutoSaved) {
-                setHasAutoSaved(false)
-            }
-        }
-        
-        const interval = setInterval(checkAutoSave, 60000)
-        checkAutoSave()
-        
-        return () => clearInterval(interval)
-    }, [hasAutoSaved, saveDate])
-
-    const clearAllInputs = () => {
-        setSalesInputs({})
-        setProductivityInputs({})
-        setPicInputs({})
-    }
-
-    const handleSaveData = (isAutoSave = false) => {
-        const dataToSave = {
-            salesInputs,
-            productivityInputs,
-            picInputs,
-            daypartWeights,
-            daypartTargets,
-            timestamp: new Date().toISOString()
-        }
-        localStorage.setItem(`daypartDashboard_${saveDate}`, JSON.stringify(dataToSave))
-        setShowSaveBanner(true)
-        setTimeout(() => setShowSaveBanner(false), 3000)
-        
-        // Clear inputs only for auto-save
-        if (isAutoSave) {
-            clearAllInputs()
-        }
-    }
-
-    const handleExportCSV = () => {
-        const data = [
-            ['Daypart', 'Sales', 'Productivity', 'PIC'],
-            ['Breakfast', salesInputs.breakfast, productivityInputs.breakfast, picInputs.breakfast],
-            ['Lunch', salesInputs.lunch, productivityInputs.lunch, picInputs.lunch],
-            ['Afternoon', salesInputs.afternoon, productivityInputs.afternoon, picInputs.afternoon],
-            ['Dinner', salesInputs.dinner, productivityInputs.dinner, picInputs.dinner]
-        ]
-
-        const csvContent = data.map(row => row.join(',')).join('\n')
-        const blob = new Blob([csvContent], { type: 'text/csv' })
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `tuskawilla-dashboard-${new Date().toISOString().split('T')[0]}.csv`
-        link.click()
-        window.URL.revokeObjectURL(url)
-    }
-
-    // Helper functions
-    const calculateIndividualTarget = (daypart, sales) => {
-        const targets = daypartTargets[daypart]
-        if (!targets || sales === 0) return 0
-
-        let baseTarget = 0
-        if (sales < 5000) {
-            baseTarget = targets.under5k
-        } else if (sales < 8000) {
-            baseTarget = targets.fiveToEight
-        } else if (sales < 12000) {
-            baseTarget = targets.eightToTwelve
-        } else {
-            baseTarget = targets.over12k
-        }
-
-        const weight = daypartWeights[daypart] || 1
-        return baseTarget * weight
-    }
-
-    const getDayStats = () => {
-        const breakfastSales = parseFloat(salesInputs.breakfast) || 0
-        const lunchSales = parseFloat(salesInputs.lunch) || 0
-        const breakfastProd = parseFloat(productivityInputs.breakfast) || 0
-        const lunchProd = parseFloat(productivityInputs.lunch) || 0
-
-        const totalSales = breakfastSales + lunchSales
-        const averageProd = totalSales > 0 ? 
-            ((breakfastSales * breakfastProd) + (lunchSales * lunchProd)) / totalSales : 0
-
-        const breakfastTarget = calculateIndividualTarget('breakfast', breakfastSales)
-        const lunchTarget = calculateIndividualTarget('lunch', lunchSales)
-        const averageTarget = totalSales > 0 ?
-            ((breakfastSales * breakfastTarget) + (lunchSales * lunchTarget)) / totalSales : 0
-
-        return {
-            averageSales: totalSales / 2,
-            averageProductivity: averageProd,
-            targetProductivity: averageTarget
-        }
-    }
-
-    const getNightStats = () => {
-        const afternoonSales = parseFloat(salesInputs.afternoon) || 0
-        const dinnerSales = parseFloat(salesInputs.dinner) || 0
-        const afternoonProd = parseFloat(productivityInputs.afternoon) || 0
-        const dinnerProd = parseFloat(productivityInputs.dinner) || 0
-
-        const totalSales = afternoonSales + dinnerSales
-        const averageProd = totalSales > 0 ? 
-            ((afternoonSales * afternoonProd) + (dinnerSales * dinnerProd)) / totalSales : 0
-
-        const afternoonTarget = calculateIndividualTarget('afternoon', afternoonSales)
-        const dinnerTarget = calculateIndividualTarget('dinner', dinnerSales)
-        const averageTarget = totalSales > 0 ?
-            ((afternoonSales * afternoonTarget) + (dinnerSales * dinnerTarget)) / totalSales : 0
-
-        return {
-            averageSales: totalSales / 2,
-            averageProductivity: averageProd,
-            targetProductivity: averageTarget
-        }
-    }
-
-    const dayStats = getDayStats()
-    const nightStats = getNightStats()
 
     return (
         <div style={dashboardStyles.container}>
-            <h1 style={dashboardStyles.title}>
-                Tuskawilla Productivity Dashboard
-            </h1>
-
             <div style={dashboardStyles.mainContent}>
-                {/* Daypart Dials Row */}
-                <div style={dashboardStyles.daypartGrid}>
-                    <SimplifiedProductivityDial
-                        title="Breakfast"
-                        salesInput={salesInputs.breakfast}
-                        productivityInput={productivityInputs.breakfast}
-                        picInput={picInputs.breakfast}
-                        handleSalesChange={(value) => setSalesInputs(prev => ({ ...prev, breakfast: value }))}
-                        handleProductivityChange={(value) => setProductivityInputs(prev => ({ ...prev, breakfast: value }))}
-                        handlePicChange={(value) => setPicInputs(prev => ({ ...prev, breakfast: value }))}
-                        daypartTargets={daypartTargets}
-                        daypartWeights={daypartWeights}
-                    />
-                    <SimplifiedProductivityDial
-                        title="Lunch"
-                        salesInput={salesInputs.lunch}
-                        productivityInput={productivityInputs.lunch}
-                        picInput={picInputs.lunch}
-                        handleSalesChange={(value) => setSalesInputs(prev => ({ ...prev, lunch: value }))}
-                        handleProductivityChange={(value) => setProductivityInputs(prev => ({ ...prev, lunch: value }))}
-                        handlePicChange={(value) => setPicInputs(prev => ({ ...prev, lunch: value }))}
-                        daypartTargets={daypartTargets}
-                        daypartWeights={daypartWeights}
-                    />
-                    <SimplifiedProductivityDial
-                        title="Afternoon"
-                        salesInput={salesInputs.afternoon}
-                        productivityInput={productivityInputs.afternoon}
-                        picInput={picInputs.afternoon}
-                        handleSalesChange={(value) => setSalesInputs(prev => ({ ...prev, afternoon: value }))}
-                        handleProductivityChange={(value) => setProductivityInputs(prev => ({ ...prev, afternoon: value }))}
-                        handlePicChange={(value) => setPicInputs(prev => ({ ...prev, afternoon: value }))}
-                        daypartTargets={daypartTargets}
-                        daypartWeights={daypartWeights}
-                    />
-                    <SimplifiedProductivityDial
-                        title="Dinner"
-                        salesInput={salesInputs.dinner}
-                        productivityInput={productivityInputs.dinner}
-                        picInput={picInputs.dinner}
-                        handleSalesChange={(value) => setSalesInputs(prev => ({ ...prev, dinner: value }))}
-                        handleProductivityChange={(value) => setProductivityInputs(prev => ({ ...prev, dinner: value }))}
-                        handlePicChange={(value) => setPicInputs(prev => ({ ...prev, dinner: value }))}
-                        daypartTargets={daypartTargets}
-                        daypartWeights={daypartWeights}
-                    />
-                </div>
-
-                {/* Combined Day/Night Dials Row */}
-                <div style={dashboardStyles.combinedDialsRow}>
-                    <div></div> {/* Empty spacer */}
-                    <CombinedProductivityDial
-                        title="Day (B+L)"
-                        averageSales={dayStats.averageSales}
-                        averageProductivity={dayStats.averageProductivity}
-                        targetProductivity={dayStats.targetProductivity}
-                    />
-                    <CombinedProductivityDial
-                        title="Night (A+D)"
-                        averageSales={nightStats.averageSales}
-                        averageProductivity={nightStats.averageProductivity}
-                        targetProductivity={nightStats.targetProductivity}
-                    />
-                    <div></div> {/* Empty spacer */}
-                </div>
-
-                {/* Action Buttons Row */}
-                <div style={dashboardStyles.bottomRow}>
-                    {/* Date Selector */}
+                {/* Demo Banner - Only show in demo mode */}
+                {isDemo && showDemoBanner && (
                     <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        marginBottom: '12px',
-                        justifyContent: 'center'
+                        position: 'fixed',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        backgroundColor: '#f59e0b',
+                        color: '#000',
+                        padding: '16px 24px',
+                        borderRadius: '8px',
+                        zIndex: 1000,
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
                     }}>
-                        <label style={{
-                            marginRight: '8px',
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            color: '#fff'
-                        }}>
-                            Save Date:
-                        </label>
-                        <input
-                            type="date"
-                            value={saveDate}
-                            onChange={(e) => setSaveDate(e.target.value)}
-                            style={{
-                                padding: '6px 10px',
-                                fontSize: '14px',
-                                backgroundColor: '#1a1a1a',
-                                color: '#fff',
-                                border: '1px solid #4a4a4a',
-                                borderRadius: '4px'
-                            }}
-                        />
+                        This is demo mode - data isn't saved!
                     </div>
-                    <div style={dashboardStyles.buttonRow}>
-                        {showSaveBanner && (
-                            <div style={{
-                                backgroundColor: '#10b981',
-                                color: '#fff',
-                                padding: '8px 16px',
-                                borderRadius: '6px',
-                                marginRight: '12px',
-                                fontSize: '0.9rem',
-                                fontWeight: '600'
-                            }}>
-                                Data Saved Successfully!
+                )}
+                
+                {/* Data Saved Banner - Only show for real stores */}
+                {!isDemo && showDataBanner && (
+                    <div style={{
+                        position: 'fixed',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        backgroundColor: '#10b981',
+                        color: '#fff',
+                        padding: '16px 24px',
+                        borderRadius: '8px',
+                        zIndex: 1000,
+                        fontSize: '16px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+                    }}>
+                        Data saved successfully!
+                    </div>
+                )}
+                
+                {/* Four Main Daypart Dials */}
+                <div style={dashboardStyles.dialGrid}>
+                    <div style={dialStyles.inputSection}>
+                        <h4 style={dialStyles.daypartTitle}>Breakfast</h4>
+                        <div style={dialStyles.dialContainer}>
+                            <SimplifiedProductivityDial
+                                title="Breakfast"
+                                salesInput={breakfastSales}
+                                actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
+                                targetProductivity={calculateTargetProductivity('breakfast', getDaypartSales('breakfast') || 6000)}
+                                salesContext="Tier-Based"
+                            />
+                        </div>
+                        <div style={dialStyles.inputGroup}>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="$6,000"
+                                        value={formatCurrency(breakfastSales)}
+                                        onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))}
+                                        style={dialStyles.input}
+                                    />
+                                </div>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="Productivity"
+                                        value={actualProductivity.breakfast}
+                                        onChange={(e) => setActualProductivity(prev => ({
+                                            ...prev,
+                                            breakfast: e.target.value.replace(/[^0-9.]/g, '')
+                                        }))}
+                                        style={dialStyles.input}
+                                    />
+                                </div>
                             </div>
-                        )}
-                        <button 
-                            onClick={handleSaveData}
-                            style={{
-                                padding: '8px 16px',
-                                fontSize: '0.9rem',
-                                backgroundColor: '#059669',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontWeight: '600',
-                                marginRight: '12px',
-                                transition: 'background-color 0.3s ease',
-                            }}>
-                            Save Data
-                        </button>
-                        <button
-                            onClick={onNavigateToReports}
-                            style={dashboardStyles.reportsButton}
-                            onMouseEnter={(e) => {
-                                e.target.style.backgroundColor = '#2563eb'
-                                e.target.style.transform = 'translateY(-2px)'
-                                e.target.style.boxShadow = '0 6px 16px rgba(59, 130, 246, 0.4)'
-                            }}
-                            onMouseLeave={(e) => {
-                                e.target.style.backgroundColor = '#3b82f6'
-                                e.target.style.transform = 'translateY(0)'
-                                e.target.style.boxShadow = '0 4px 12px rgba(59, 130, 246, 0.3)'
-                            }}
-                        >
-                            View Reports
-                        </button>
-                        <button 
-                            onClick={handleExportCSV}
-                            style={{
-                                padding: '8px 16px',
-                                fontSize: '0.9rem',
-                                backgroundColor: '#6366f1',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: 'pointer',
-                                fontWeight: '600',
-                                marginLeft: '12px',
-                                transition: 'background-color 0.3s ease',
-                            }}>
-                            Export CSV
-                        </button>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="PIC Name"
+                                    value={picNames.breakfast}
+                                    onChange={(e) => setPicNames(prev => ({
+                                        ...prev,
+                                        breakfast: e.target.value
+                                    }))}
+                                    style={{ ...dialStyles.input, width: '70%' }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={dialStyles.inputSection}>
+                        <h4 style={dialStyles.daypartTitle}>Lunch</h4>
+                        <div style={dialStyles.dialContainer}>
+                            <SimplifiedProductivityDial
+                                title="Lunch"
+                                salesInput={lunchSales}
+                                actualProductivity={parseFloat(actualProductivity.lunch) || 0}
+                                targetProductivity={calculateTargetProductivity('lunch', getDaypartSales('lunch') || 10000)}
+                                salesContext="Tier-Based"
+                            />
+                        </div>
+                        <div style={dialStyles.inputGroup}>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="$10,000"
+                                        value={formatCurrency(lunchSales)}
+                                        onChange={(e) => setLunchSales(parseCurrency(e.target.value))}
+                                        style={{...dialStyles.input, fontSize: '16px'}}
+                                    />
+                                </div>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="Productivity"
+                                        value={actualProductivity.lunch}
+                                        onChange={(e) => setActualProductivity(prev => ({
+                                            ...prev,
+                                            lunch: e.target.value.replace(/[^0-9.]/g, '')
+                                        }))}
+                                        style={{...dialStyles.input, fontSize: '16px'}}
+                                    />
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="PIC Name"
+                                    value={picNames.lunch}
+                                    onChange={(e) => setPicNames(prev => ({
+                                        ...prev,
+                                        lunch: e.target.value
+                                    }))}
+                                    style={{ ...dialStyles.input, width: '70%', fontSize: '16px' }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={dialStyles.inputSection}>
+                        <h4 style={dialStyles.daypartTitle}>Afternoon</h4>
+                        <div style={dialStyles.dialContainer}>
+                            <SimplifiedProductivityDial
+                                title="Afternoon"
+                                salesInput={afternoonSales}
+                                actualProductivity={parseFloat(actualProductivity.afternoon) || 0}
+                                targetProductivity={calculateTargetProductivity('afternoon', getDaypartSales('afternoon') || 7000)}
+                                salesContext="Tier-Based"
+                            />
+                        </div>
+                        <div style={dialStyles.inputGroup}>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="$7,000"
+                                        value={formatCurrency(afternoonSales)}
+                                        onChange={(e) => setAfternoonSales(parseCurrency(e.target.value))}
+                                        style={{...dialStyles.input, fontSize: '16px'}}
+                                    />
+                                </div>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="Productivity"
+                                        value={actualProductivity.afternoon}
+                                        onChange={(e) => setActualProductivity(prev => ({
+                                            ...prev,
+                                            afternoon: e.target.value.replace(/[^0-9.]/g, '')
+                                        }))}
+                                        style={{...dialStyles.input, fontSize: '16px'}}
+                                    />
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="PIC Name"
+                                    value={picNames.afternoon}
+                                    onChange={(e) => setPicNames(prev => ({
+                                        ...prev,
+                                        afternoon: e.target.value
+                                    }))}
+                                    style={{ ...dialStyles.input, width: '70%', fontSize: '16px' }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style={dialStyles.inputSection}>
+                        <h4 style={dialStyles.daypartTitle}>Dinner</h4>
+                        <div style={dialStyles.dialContainer}>
+                            <SimplifiedProductivityDial
+                                title="Dinner"
+                                salesInput={dinnerSales}
+                                actualProductivity={parseFloat(actualProductivity.dinner) || 0}
+                                targetProductivity={calculateTargetProductivity('dinner', getDaypartSales('dinner') || 9000)}
+                                salesContext="Tier-Based"
+                            />
+                        </div>
+                        <div style={dialStyles.inputGroup}>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="$9,000"
+                                        value={formatCurrency(dinnerSales)}
+                                        onChange={(e) => setDinnerSales(parseCurrency(e.target.value))}
+                                        style={{...dialStyles.input, fontSize: '16px'}}
+                                    />
+                                </div>
+                                <div style={dialStyles.inputField}>
+                                    <input
+                                        type="text"
+                                        placeholder="Productivity"
+                                        value={actualProductivity.dinner}
+                                        onChange={(e) => setActualProductivity(prev => ({
+                                            ...prev,
+                                            dinner: e.target.value.replace(/[^0-9.]/g, '')
+                                        }))}
+                                        style={{...dialStyles.input, fontSize: '16px'}}
+                                    />
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="PIC Name"
+                                    value={picNames.dinner}
+                                    onChange={(e) => setPicNames(prev => ({
+                                        ...prev,
+                                        dinner: e.target.value
+                                    }))}
+                                    style={{ ...dialStyles.input, width: '70%', fontSize: '16px' }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Bottom Row: Day/Night Dials and Controls */}
+                <div style={dashboardStyles.bottomRow}>
+                    {/* Day and Night Combined Dials */}
+                    {/* Combined Dials - Day and Night - Always visible */}
+                    <div style={dashboardStyles.combinedSection}>
+                        {/* Day Dial - Always show container */}
+                        <div style={dashboardStyles.combinedDial}>
+                            <h4 style={dashboardStyles.combinedTitle}>Day</h4>
+                            <div style={dialStyles.dialContainer}>
+                                <CombinedProductivityDial
+                                    title="Breakfast + Lunch"
+                                    combinedSales={getDayCombinedSales()}
+                                    combinedActual={getDayCombinedActual()}
+                                    targetProductivity={getDayCombinedTarget()}
+                                    daypart1Prod={actualProductivity.breakfast}
+                                    daypart2Prod={actualProductivity.lunch}
+                                    isDayNight={true}
+                                    showNeedle={breakfastSales && lunchSales && 
+                                             actualProductivity.breakfast && actualProductivity.lunch &&
+                                             parseFloat(breakfastSales.replace(/[^0-9]/g, '')) > 0 &&
+                                             parseFloat(lunchSales.replace(/[^0-9]/g, '')) > 0 &&
+                                             parseFloat(actualProductivity.breakfast) > 0 &&
+                                             parseFloat(actualProductivity.lunch) > 0}
+                                    noDataMessage="Complete breakfast & lunch data to view combined performance"
+                                />
+                            </div>
+                        </div>
+                        
+                        {/* Night Dial - Always show container */}
+                        <div style={dashboardStyles.combinedDial}>
+                            <h4 style={dashboardStyles.combinedTitle}>Night</h4>
+                            <div style={dialStyles.dialContainer}>
+                                <CombinedProductivityDial
+                                    title="Afternoon + Dinner"
+                                    combinedSales={getNightCombinedSales()}
+                                    combinedActual={getNightCombinedActual()}
+                                    targetProductivity={getNightCombinedTarget()}
+                                    daypart1Prod={actualProductivity.afternoon}
+                                    daypart2Prod={actualProductivity.dinner}
+                                    isDayNight={true}
+                                    showNeedle={afternoonSales && dinnerSales && 
+                                             actualProductivity.afternoon && actualProductivity.dinner &&
+                                             parseFloat(afternoonSales.replace(/[^0-9]/g, '')) > 0 &&
+                                             parseFloat(dinnerSales.replace(/[^0-9]/g, '')) > 0 &&
+                                             parseFloat(actualProductivity.afternoon) > 0 &&
+                                             parseFloat(actualProductivity.dinner) > 0}
+                                    noDataMessage="Complete afternoon & dinner data to view combined performance"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Controls Panel */}
+                    <div style={dashboardStyles.controlsPanel}>
+                        <h4 style={{
+                            fontSize: '1.2rem',
+                            color: '#fff',
+                            fontWeight: 'bold',
+                            textAlign: 'center',
+                            margin: '0 -10px 22px -10px',
+                            padding: '12px',
+                            backgroundColor: '#2a2a2a',
+                            borderRadius: '8px 8px 0 0',
+                            width: 'calc(100% + 20px)',
+                            boxSizing: 'border-box'
+                        }}>
+                            Performance Settings
+                        </h4>
+                        
+                        <div style={{
+                            textAlign: 'center',
+                            marginBottom: '30px'
+                        }}>
+                            <p style={{ margin: '0', color: '#cccccc', fontSize: '12px', lineHeight: '1.1' }}>
+                                Tier-based targets calculated from daily sales, weighted by operational complexity
+                            </p>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0px', margin: '0', padding: '0', width: '100%' }}>
+                            <div style={{ margin: '0', padding: '0', borderRight: '1px solid #333', boxSizing: 'border-box' }}>
+                                <h5 style={{ 
+                                    margin: '0 0 6px 0', 
+                                    color: '#ffffff', 
+                                    fontSize: '14px', 
+                                    fontWeight: '600',
+                                    textAlign: 'center',
+                                    padding: '0 0px'
+                                }}>
+                                    Operational Weights
+                                </h5>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', padding: '0 4px' }}>
+                                    {[
+                                        { key: 'breakfast', name: 'Breakfast', desc: 'Low ticket, high prep, stock for lunch', weight: 76 },
+                                        { key: 'lunch', name: 'Lunch', desc: 'Peak volume, high throughput', weight: 124 },
+                                        { key: 'afternoon', name: 'Afternoon', desc: 'Post-lunch cleanup + dinner prep', weight: 106 },
+                                        { key: 'dinner', name: 'Dinner', desc: 'Peak volume + close-down inefficiency', weight: 94 }
+                                    ].map(({ key, name, desc, weight }) => (
+                                        <div key={key} style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            padding: '0',
+                                            width: '100%'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', minWidth: '70px' }}>
+                                                <input
+                                                    type="number"
+                                                    value={(daypartWeights[key] * 100).toFixed(0)}
+                                                    placeholder={weight.toString()}
+                                                    onChange={(e) => {
+                                                        const newWeight = parseFloat(e.target.value) / 100;
+                                                        setDaypartWeights(prev => ({
+                                                            ...prev,
+                                                            [key]: newWeight
+                                                        }));
+                                                    }}
+                                                    min="50"
+                                                    max="150"
+                                                    step="1"
+                                                    style={{
+                                                        width: '40px',
+                                                        padding: '2px 3px',
+                                                        fontSize: '13px',
+                                                        backgroundColor: '#1a1a1a',
+                                                        color: '#ffffff',
+                                                        border: '1px solid #4a4a4a',
+                                                        borderRadius: '3px',
+                                                        textAlign: 'center'
+                                                    }}
+                                                />
+                                                <span style={{ color: '#888', fontSize: '13px' }}>%</span>
+                                            </div>
+                                            <div style={{ marginLeft: '2px', flex: 1 }}>
+                                                <div style={{
+                                                    color: '#ffffff',
+                                                    fontSize: '13px',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {name}
+                                                </div>
+                                                <div style={{
+                                                    color: '#888',
+                                                    fontSize: '11px'
+                                                }}>
+                                                    {desc}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    
+                                    {/* Partition line and average */}
+                                    <div style={{
+                                        borderTop: '1px solid #444',
+                                        marginTop: '8px',
+                                        paddingTop: '6px',
+                                        padding: '6px 0px 0 4px'
+                                    }}>
+                                        <div style={{
+                                            textAlign: 'center',
+                                            color: '#ffffff',
+                                            fontSize: '13px',
+                                            fontWeight: '600'
+                                        }}>
+                                            Total Average: {(
+                                                (daypartWeights.breakfast + daypartWeights.lunch + daypartWeights.afternoon + daypartWeights.dinner) 
+                                                / 4 * 100
+                                            ).toFixed(0)}%
+                                        </div>
+                                        <div style={{
+                                            textAlign: 'center',
+                                            color: '#888',
+                                            fontSize: '11px',
+                                            marginTop: '2px'
+                                        }}>
+                                            Weighted operational complexity
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style={{ textAlign: 'center', margin: '0', padding: '0', borderRight: '1px solid #333', boxSizing: 'border-box' }}>
+                                <h5 style={{ margin: '0 0 6px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600', padding: '0 0px' }}>
+                                    Ambition Tier
+                                </h5>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '0 0px', alignItems: 'center' }}>
+                                    {[
+                                        { value: 'Top 50%', label: 'Top 50%' },
+                                        { value: 'Top 33%', label: 'Top 33%' },
+                                        { value: 'Top 20%', label: 'Top 20%' },
+                                        { value: 'Top 10%', label: 'Top 10%' }
+                                    ].map(tier => (
+                                        <label key={tier.value} style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            color: '#cccccc',
+                                            fontSize: '13px',
+                                            cursor: 'pointer'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name="tier"
+                                                value={tier.value}
+                                                checked={selectedTier === tier.value}
+                                                onChange={(e) => setSelectedTier(e.target.value)}
+                                                style={{ margin: 0 }}
+                                            />
+                                            {tier.label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Data Management - Right Column */}
+                            <div style={{ textAlign: 'center', margin: '0', padding: '0', boxSizing: 'border-box' }}>
+                                <h5 style={{ margin: '0 0 6px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600', padding: '0 4px' }}>
+                                    Data Management
+                                </h5>
+                                
+                                {/* Save Banner */}
+                                {!isDemo && showDataBanner && (
+                                    <div style={{
+                                        backgroundColor: '#10b981',
+                                        color: '#fff',
+                                        padding: '4px 8px',
+                                        borderRadius: '3px',
+                                        marginBottom: '6px',
+                                        textAlign: 'center',
+                                        fontSize: '11px',
+                                        fontWeight: '600'
+                                    }}>
+                                        Data Saved!
+                                    </div>
+                                )}
+                                
+                                {/* Save Data Section */}
+                                <div style={{ marginBottom: '10px', padding: '0 4px' }}>
+                                    <h6 style={{ margin: '0 0 4px 0', color: '#ffffff', fontSize: '12px', fontWeight: '600' }}>
+                                        Save Data
+                                    </h6>
+                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', marginBottom: '6px' }}>
+                                        <div style={{ flex: 1 }}>
+                                            {isDemo ? (
+                                                <span style={{
+                                                    fontSize: '11px',
+                                                    color: '#94a3b8',
+                                                    fontStyle: 'italic'
+                                                }}>
+                                                    Demo Mode - No Dates
+                                                </span>
+                                            ) : (
+                                                <input 
+                                                    type="date" 
+                                                    value={dataDate}
+                                                    onChange={(e) => handleDateChange(e.target.value)}
+                                                    style={{
+                                                        width: '80%',
+                                                        padding: '4px 6px',
+                                                        fontSize: '11px',
+                                                        backgroundColor: '#1a1a1a',
+                                                        color: '#ffffff',
+                                                        border: '1px solid #4a4a4a',
+                                                        borderRadius: '3px'
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
+                                        <button 
+                                            onClick={handleDataAction}
+                                            style={{
+                                                padding: '4px 8px',
+                                                backgroundColor: '#3b82f6',
+                                                color: '#ffffff',
+                                                border: 'none',
+                                                borderRadius: '3px',
+                                                fontSize: '11px',
+                                                cursor: 'pointer',
+                                                fontWeight: '600',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            {isDemo ? 'Demo Save' : 'Save'}
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                {/* Export Data Section */}
+                                <div style={{ padding: '8px 4px' }}>
+                                    <h6 style={{ margin: '0 0 4px 0', color: '#ffffff', fontSize: '12px', fontWeight: '600' }}>
+                                        Export Data
+                                    </h6>
+                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', marginBottom: '6px' }}>
+                                        <div style={{ flex: 1 }}>
+                                            <select 
+                                                value={exportDateRange}
+                                                onChange={(e) => setExportDateRange(e.target.value)}
+                                                style={{
+                                                    width: '80%',
+                                                    padding: '4px 6px',
+                                                    fontSize: '11px',
+                                                    backgroundColor: '#1a1a1a',
+                                                    color: '#ffffff',
+                                                    border: '1px solid #4a4a4a',
+                                                    borderRadius: '3px'
+                                                }}>
+                                                <option value="this-week">This Week</option>
+                                                <option value="last-week">Last Week</option>
+                                                <option value="last-month">Last Month</option>
+                                                <option value="last-quarter">Last Quarter</option>
+                                                <option value="custom-start-date">Custom Date</option>
+                                            </select>
+                                        </div>
+                                        <button 
+                                            onClick={handleExportAction}
+                                            style={{
+                                                padding: '4px 8px',
+                                                backgroundColor: '#059669',
+                                                color: '#ffffff',
+                                                border: 'none',
+                                                borderRadius: '3px',
+                                                fontSize: '11px',
+                                                cursor: 'pointer',
+                                                fontWeight: '600',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            Export
+                                        </button>
+                                    </div>
+                                    
+                                    {/* Custom Date Range - Below export section */}
+                                    {exportDateRange === 'custom-start-date' && (
+                                        <div style={{ marginTop: '12px' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '4px' }}>
+                                                <input 
+                                                    type="date" 
+                                                    placeholder="Start"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '4px 6px',
+                                                        fontSize: '11px',
+                                                        backgroundColor: '#1a1a1a',
+                                                        color: '#ffffff',
+                                                        border: '1px solid #4a4a4a',
+                                                        borderRadius: '3px',
+                                                        boxSizing: 'border-box'
+                                                    }}
+                                                />
+                                                <input 
+                                                    type="date" 
+                                                    placeholder="End"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '4px 6px',
+                                                        fontSize: '11px',
+                                                        backgroundColor: '#1a1a1a',
+                                                        color: '#ffffff',
+                                                        border: '1px solid #4a4a4a',
+                                                        borderRadius: '3px',
+                                                        boxSizing: 'border-box'
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    )
+    );
 }
 
 const dashboardStyles = {
@@ -749,176 +1441,181 @@ const dashboardStyles = {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        minHeight: '100vh',
+        minHeight: 'calc(100vh - 66px)',
         background: '#0E0E11',
         color: 'white',
         fontFamily: 'system-ui',
-        padding: '20px',
+        padding: '12px',
         boxSizing: 'border-box',
-    },
-    title: {
-        fontSize: '2.2rem',
-        marginBottom: '2rem',
-        color: '#fff',
-        textAlign: 'center',
-        fontWeight: 'bold',
-        textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
     },
     mainContent: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '2rem',
-        maxWidth: '1600px',
+        gap: '14px',
+        maxWidth: '1350px',
         width: '100%',
         alignItems: 'center',
     },
-    daypartGrid: {
+    dialGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '1.5rem',
+        gap: '16px',
         width: '100%',
-    },  
-    combinedDialsRow: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '1.5rem',
-        width: '100%',
-        alignItems: 'start',
-        justifyContent: 'start',
+        marginBottom: '14px',
     },
     bottomRow: {
         display: 'flex',
-        justifyContent: 'center',
+        justifyContent: 'space-between',
         width: '100%',
+        gap: '18px',
+        alignItems: 'flex-start',
     },
-    buttonRow: {
+    combinedSection: {
         display: 'flex',
-        alignItems: 'center',
-        gap: '0.5rem',
-        fontSize: '0.9rem',
+        gap: '18px',
+        flex: 1,
     },
-    reportsButton: {
-        padding: '12px 30px',
-        fontSize: '1.1rem',
-        backgroundColor: '#3b82f6',
+    combinedDial: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        background: '#1a1a1a',
+        borderRadius: '6px',
+        border: '1px solid #333',
+        padding: '0',
+        minWidth: '270px',
+        maxWidth: '315px',
+        minHeight: '350px',
+    },
+    combinedTitle: {
+        fontSize: '1.2rem',
         color: '#fff',
-        border: 'none',
+        fontWeight: 'bold',
+        textAlign: 'center',
+        margin: '0',
+        padding: '12px',
+        backgroundColor: '#2a2a2a',
+        borderRadius: '6px 6px 0 0',
+        width: '100%',
+        boxSizing: 'border-box',
+    },
+    controlsPanel: {
+        background: '#1a1a1a',
+        padding: '0 10px 16px 10px',
         borderRadius: '8px',
-        cursor: 'pointer',
-        fontWeight: '600',
-        transition: 'all 0.3s ease',
-        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-    }
+        border: '1px solid #333',
+        minWidth: '740px',
+        maxWidth: '800px',
+        minHeight: '365px',
+        height: 'fit-content',
+    },
+    controlsTitle: {
+        fontSize: '1.2rem',
+        color: '#fff',
+        marginBottom: '14px',
+        marginTop: '0',
+        fontWeight: 'bold',
+        textAlign: 'center',
+    },
 }
 
 const dialStyles = {
-    dialContainer: {
+    container: {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        width: '100%',
+        height: '100%',
+    },
+    svg: {
+        display: 'block',
+    },
+    inputSection: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        background: '#1a1a1a',
+        borderRadius: '8px',
+        border: '1px solid #333',
+        minWidth: '320px',
+        minHeight: '350px',
+        padding: '0',
         position: 'relative',
-        backgroundColor: '#1a1a1a',
-        border: '2px solid #333',
-        borderRadius: '12px',
-        padding: '20px',
-        minHeight: '450px',
+    },
+    daypartTitle: {
+        fontSize: '1.2rem',
+        color: '#fff',
+        fontWeight: 'bold',
+        textAlign: 'center',
+        margin: '0',
+        padding: '12px',
+        backgroundColor: '#2a2a2a',
+        borderRadius: '8px 8px 0 0',
+        width: '100%',
         boxSizing: 'border-box',
     },
-    title: {
-        fontSize: '1.4rem',
-        color: '#fff',
-        fontWeight: 'bold',
-        textAlign: 'center',
-        margin: '0 0 20px 0',
-        textShadow: '1px 1px 2px rgba(0,0,0,0.5)',
-    },
-    gaugeContainer: {
-        position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        width: '100%',
-        maxWidth: '280px',
-    },
-    gauge: {
-        transform: 'rotate(-90deg)',
-        overflow: 'visible',
-    },
-    gaugeText: {
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        textAlign: 'center',
-        color: '#fff',
-        fontSize: '1rem',
-        fontWeight: 'bold',
-        pointerEvents: 'none',
-        zIndex: 10,
-    },
-    primaryValue: {
-        fontSize: '1.8rem',
-        color: '#fff',
-        fontWeight: 'bold',
-        textShadow: '1px 1px 2px rgba(0,0,0,0.7)',
-    },
-    secondaryValue: {
-        fontSize: '0.8rem',
-        color: '#ccc',
-        marginTop: '2px',
-    },
-    inputContainer: {
-        display: 'flex',
-        gap: '15px',
-        width: '100%',
-        maxWidth: '280px',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginTop: '10px',
-    },
-    inputField: {
+    dialContainer: {
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
+        justifyContent: 'flex-start',
+        padding: '12px',
+        minHeight: '280px',
     },
-    inputLabel: {
-        fontSize: '0.75rem',
-        color: '#888',
-        marginBottom: '4px',
-        textAlign: 'center',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px',
+    dataSection: {
+        width: '100%',
+        minHeight: '80px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
+        alignItems: 'center',
+    },
+    inputGroup: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        padding: '12px',
+        backgroundColor: '#222',
+        borderRadius: '0 0 8px 8px',
+        width: '100%',
+        boxSizing: 'border-box',
+        justifyContent: 'center',
+    },
+    inputField: {
+        flex: 1,
     },
     input: {
-        width: '100%',
-        padding: '8px',
-        fontSize: '14px',
-        backgroundColor: '#2a2a2a',
-        color: '#fff',
-        border: '1px solid #4a4a4a',
-        borderRadius: '6px',
+        padding: '10px 12px',
+        fontSize: '16px',
+        borderRadius: '4px',
+        border: '1px solid #444',
         textAlign: 'center',
-        outline: 'none',
-        transition: 'border-color 0.3s ease',
+        background: '#2a2a2a',
+        color: '#fff',
+        width: '100%',
+        boxSizing: 'border-box',
     },
-    legend: {
+    statusBadge: {
         display: 'flex',
-        justifyContent: 'center',
-        gap: '20px',
-        marginTop: '10px',
-        flexWrap: 'wrap',
-    },
-    legendItem: {
-        display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        gap: '6px',
-        fontSize: '0.75rem',
-        color: '#888',
+        padding: '12px',
+        borderRadius: '6px',
+        border: '2px solid',
+        margin: '8px 0',
+        textAlign: 'center',
     },
-    legendColor: {
-        width: '12px',
-        height: '12px',
-        borderRadius: '2px',
+    zoneName: {
+        fontSize: '14px',
+        fontWeight: 'bold',
+        marginBottom: '4px',
+        textAlign: 'center',
+    },
+    zoneAction: {
+        fontSize: '12px',
+        opacity: 0.9,
+        textAlign: 'center',
+        lineHeight: '1.3',
     },
 }

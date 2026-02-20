@@ -8,10 +8,10 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     const MAX_PRODUCTIVITY = targetProductivity + DIAL_RANGE/2
     
     // Dynamic dial size based on type
-    const dialSize = isDayNight ? 220 : 240
+    const dialSize = isDayNight ? 160 : 240  // EDIT HERE: Reduced daypart dial size (was 240)
     const centerX = dialSize / 2
     const centerY = dialSize / 2
-    const radius = (dialSize / 2) - 30
+    const radius = (dialSize / 2) - 30      // EDIT HERE: Outer circle radius (was -30)
     
     // Dial angles: 300° span from 120° to 60° (utilizing more of the gauge)
     const START_ANGLE = 120
@@ -54,20 +54,31 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
 
     const laborDelta = calculateLaborDelta()
 
-    // Generate evenly spaced tick marks
+    // Generate strategic tick marks - min, target, max, and key intervals
     const generateTicks = () => {
         const ticks = []
-        const tickCount = 10  // 10 evenly spaced ticks
         
-        for (let i = 0; i < tickCount; i++) {
-            const productivity = MIN_PRODUCTIVITY + (i / (tickCount - 1)) * (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY)
-            let angle = START_ANGLE + (i / (tickCount - 1)) * 300  // Updated for 300° span
-            if (angle >= 360) angle -= 360
-
+        // Key productivity values to show as ticks
+        const tickValues = [
+            MIN_PRODUCTIVITY,                    // Min
+            Math.round(MIN_PRODUCTIVITY + (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY) * 0.25),  // 25%
+            targetProductivity,                  // Target (true north)
+            Math.round(MIN_PRODUCTIVITY + (MAX_PRODUCTIVITY - MIN_PRODUCTIVITY) * 0.75),  // 75%
+            MAX_PRODUCTIVITY                     // Max
+        ]
+        
+        tickValues.forEach((productivity, i) => {
+            const angle = productivityToAngle(productivity)
+            if (angle === null) return
+            
             const radians = (angle * Math.PI) / 180
-            const outerRadius = radius - 10
-            const innerRadius = radius - 23
-            const labelRadius = isDayNight ? radius + 35 : radius + 25  // Much further spacing for all dials
+            const isTarget = productivity === targetProductivity
+            const isMinMax = i === 0 || i === tickValues.length - 1
+            
+            // Different tick lengths for emphasis
+            const outerRadius = radius - (isTarget ? 1 : 1)        // EDIT HERE: Tick outer position (closer to edge for day/night)
+            const innerRadius = radius - (isTarget ? 18 : isMinMax ? 15 : 15)  
+            const labelRadius = isDayNight ? radius + 20 : radius + 20
             
             const outerX = centerX + outerRadius * Math.cos(radians)
             const outerY = centerY + outerRadius * Math.sin(radians)
@@ -83,25 +94,23 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                         y1={outerY}
                         x2={innerX}
                         y2={innerY}
-                        stroke="#666"
-                        strokeWidth="1.5"
+                        stroke={isTarget ? "#fff" : "#666"}
+                        strokeWidth={isTarget ? "3" : "2"}
                     />
-                    {(i % 3 === 0 || i === 9) && (
-                        <text
-                            x={labelX}
-                            y={labelY}
-                            fill="#aaa"
-                            fontSize={isDayNight ? "14" : "18"}
-                            fontWeight="normal"
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                        >
-                            {Math.round(productivity)}
-                        </text>
-                    )}
+                    <text
+                        x={labelX}
+                        y={labelY}
+                        fill={isTarget ? "#fff" : "#aaa"}
+                        fontSize={isDayNight ? (isTarget ? "12" : "10") : (isTarget ? "16" : "14")}
+                        fontWeight={isTarget ? "bold" : "normal"}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                    >
+                        {Math.round(productivity)}
+                    </text>
                 </g>
             )
-        }
+        })
         return ticks
     }
 
@@ -110,7 +119,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
         if (!targetAngle || !targetProductivity) return null
 
         const createArc = (startAngle, endAngle, color, opacity = 0.15) => {
-            const arcRadius = radius - 32
+            const arcRadius = isDayNight ? radius - 20 : radius - 22   // EDIT HERE: Zone thickness (bigger zones for Day/Night)
             
             let actualEndAngle = endAngle
             if (endAngle < startAngle) {
@@ -214,7 +223,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     <circle
                         cx={centerX}
                         cy={centerY}
-                        r={isDayNight ? radius + 15 : radius + 5}
+                        r={isDayNight ? radius + 5 : radius + 5}  // EDIT HERE: Background circle size
                         fill="#15161A"
                         stroke="#444"
                         strokeWidth="2"
@@ -226,25 +235,12 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     {/* Tick marks and labels */}
                     {generateTicks()}
                     
-                    {/* Target productivity number above TARGET label */}
-                    <text
-                        x={centerX}
-                        y={centerY + (radius * 0.5)}
-                        fill="#fff"
-                        fontSize={isDayNight ? "16" : "20"}
-                        fontWeight="bold"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                    >
-                        {Math.round(targetProductivity)}
-                    </text>
-                    
                     {/* TARGET label positioned at bottom center of dial */}
                     <text
                         x={centerX}
                         y={centerY + (radius * 0.7)}
                         fill="#fff"
-                        fontSize={isDayNight ? "11" : "14"}
+                        fontSize={isDayNight ? "7" : "14"}
                         fontWeight="bold"
                         textAnchor="middle"
                         dominantBaseline="middle"
@@ -291,6 +287,17 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                         <div style={dialStyles.zoneAction}>
                             {currentZone.action}
                         </div>
+                        {/* Sales Display Below Action */}
+                        {salesInput && parseFloat(salesInput) > 0 && (
+                            <div style={{
+                                fontSize: '0.75rem',
+                                color: '#aaa',
+                                marginTop: '4px',
+                                textAlign: 'center'
+                            }}>
+                                Sales: {formatCurrency(salesInput)}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -306,16 +313,24 @@ function CombinedProductivityDial({ title, combinedSales, combinedActual, target
     const shouldShowProductivity = daypart1Prod && daypart2Prod && parseFloat(daypart1Prod) > 0 && parseFloat(daypart2Prod) > 0
     const displayActualProductivity = shouldShowProductivity ? combinedActual : 0
     
+    // Enhanced sales display function
+    const formatSalesDisplay = () => {
+        if (!salesValue || salesValue <= 0) return '$0'
+        return `$${salesValue.toLocaleString()}`
+    }
+    
     return (
-        <SimplifiedProductivityDial
-            title={title}
-            salesInput={salesValue.toString()}
-            actualProductivity={displayActualProductivity}
-            targetProductivity={targetProductivity}
-            salesContext="Combined"
-            isDayNight={true}
-            noDataMessage={noDataMessage}
-        />
+        <div>
+            <SimplifiedProductivityDial
+                title={title}
+                salesInput={salesValue.toString()}
+                actualProductivity={displayActualProductivity}
+                targetProductivity={targetProductivity}
+                salesContext="Combined"
+                isDayNight={true}
+                noDataMessage={noDataMessage}
+            />
+        </div>
     )
 }
 
@@ -363,16 +378,16 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
     // Tier-based productivity calculation system
     const tierTables = {
         'Top 50%': {
-            1000: 75, 2000: 80, 3000: 82, 4000: 84.75, 5000: 86.25, 6000: 87.75, 7000: 89.25, 8000: 90, 9000: 91.5, 10000: 93, 12000: 96, 15000: 100, 20000: 105, 25000: 110, 30000: 115
+            2000: 75, 4000: 77, 6000: 79, 8000: 80.5, 10000: 82, 12000: 83, 15000: 84, 20000: 84.5, 26000: 85, 28000: 86, 30000: 86.5, 32000: 87, 34000: 88, 36000: 89, 38000: 89.5, 40000: 90
         },
         'Top 33%': {
-            1000: 78, 2000: 82, 3000: 85, 4000: 87.5, 5000: 89, 6000: 90.5, 7000: 92, 8000: 93.5, 9000: 95, 10000: 96.5, 12000: 99, 15000: 103
+            2000: 78, 4000: 80, 6000: 82, 8000: 83.5, 10000: 85, 12000: 86, 15000: 87, 20000: 87.5, 26000: 88, 28000: 89, 30000: 89.5, 32000: 90, 34000: 90.5, 36000: 91, 38000: 92, 40000: 92.5
         },
         'Top 20%': {
-            1000: 80, 2000: 85, 3000: 88, 4000: 90, 5000: 92, 6000: 94, 7000: 96, 8000: 98, 9000: 100, 10000: 102, 12000: 106, 15000: 110
+            2000: 81, 4000: 83, 6000: 85, 8000: 86.5, 10000: 88, 12000: 89, 15000: 89.5, 20000: 90, 26000: 90, 28000: 91, 30000: 92, 32000: 93, 34000: 93.5, 36000: 94, 38000: 95, 40000: 95.5
         },
         'Top 10%': {
-            1000: 83, 2000: 88, 3000: 92, 4000: 95, 5000: 98, 6000: 101, 7000: 104, 8000: 107, 9000: 110, 10000: 113, 12000: 118, 15000: 125
+            2000: 84, 4000: 86, 6000: 88, 8000: 89.5, 10000: 91, 12000: 92, 15000: 92.5, 20000: 93, 26000: 93, 28000: 94, 30000: 95, 32000: 96, 34000: 97, 36000: 98, 38000: 99, 40000: 99.5
         }
     };
 
