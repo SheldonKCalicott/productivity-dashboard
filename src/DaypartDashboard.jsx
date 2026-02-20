@@ -578,6 +578,29 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         if (isDemo) {
             showMessage('demo')
         } else {
+            // Calculate date range based on selection
+            const today = new Date()
+            let startDate, endDate
+            
+            if (exportDateRange === 'this-week') {
+                const startOfWeek = new Date(today)
+                startOfWeek.setDate(today.getDate() - today.getDay())
+                const endOfWeek = new Date(startOfWeek)
+                endOfWeek.setDate(startOfWeek.getDate() + 6)
+                startDate = startOfWeek.toISOString().split('T')[0]
+                endDate = endOfWeek.toISOString().split('T')[0]
+            } else if (exportDateRange === 'this-month') {
+                startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
+                endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+            } else if (exportDateRange === 'this-quarter') {
+                const quarter = Math.floor(today.getMonth() / 3)
+                startDate = new Date(today.getFullYear(), quarter * 3, 1).toISOString().split('T')[0]
+                endDate = new Date(today.getFullYear(), quarter * 3 + 3, 0).toISOString().split('T')[0]
+            } else {
+                // Custom dates or fallback to current date
+                startDate = endDate = new Date().toISOString().split('T')[0]
+            }
+            
             // Real CSV export for stores
             const data = [
                 ['Store', 'Daypart', 'Sales', 'Productivity', 'PIC', 'Target', 'Date'],
@@ -592,7 +615,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             const url = window.URL.createObjectURL(blob)
             const link = document.createElement('a')
             link.href = url
-            link.download = `${storeName || 'store'}-productivity-${new Date().toISOString().split('T')[0]}.csv`
+            link.download = `${storeName || 'store'}-productivity-${startDate}-to-${endDate}.csv`
             link.click()
             window.URL.revokeObjectURL(url)
             
@@ -1366,10 +1389,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     borderRadius: '3px'
                                                 }}>
                                                 <option value="this-week">This Week</option>
-                                                <option value="last-week">Last Week</option>
-                                                <option value="last-month">Last Month</option>
-                                                <option value="last-quarter">Last Quarter</option>
-                                                <option value="custom-start-date">Custom Date</option>
+                                                <option value="this-month">This Month</option>
+                                                <option value="this-quarter">This Quarter</option>
+                                                <option value="custom-start-date">Custom Dates</option>
                                             </select>
                                         </div>
                                         <button 
