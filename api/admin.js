@@ -60,6 +60,28 @@ module.exports = async function handler(req, res) {
             });
         }
         
+        if (action === 'cleanup') {
+            // Cleanup test data patterns
+            const deleteResult = await pool.query(`
+                DELETE FROM productivity_records 
+                WHERE 
+                (pic_name LIKE '%test%' OR pic_name LIKE '%Test%' OR pic_name LIKE '%TEST%')
+                OR (pic_name LIKE '%demo%' OR pic_name LIKE '%Demo%' OR pic_name LIKE '%DEMO%')
+                OR (sales_amount = 0 AND actual_productivity IS NULL)
+                OR (pic_name = '' AND sales_amount IS NULL AND actual_productivity IS NULL)
+            `);
+
+            const countResult = await pool.query('SELECT COUNT(*) FROM productivity_records');
+            const remainingRecords = parseInt(countResult.rows[0].count);
+
+            return res.json({ 
+                action: 'cleanup',
+                message: 'Test data cleanup completed',
+                deletedRecords: deleteResult.rowCount,
+                remainingRecords: remainingRecords
+            });
+        }
+        
         if (action === 'reset') {
             if (confirm !== 'yes') {
                 return res.json({
@@ -90,6 +112,7 @@ module.exports = async function handler(req, res) {
             message: 'Admin endpoint - available actions:',
             actions: {
                 view: '/api/admin?action=view (see all data)',
+                cleanup: '/api/admin?action=cleanup (remove test data)',
                 reset: '/api/admin?action=reset&confirm=yes (delete all data)'
             }
         });
