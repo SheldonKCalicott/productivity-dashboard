@@ -364,6 +364,7 @@ export default function ReportsPage({ isDemo = false }) {
                 actualSales: Math.round(pic.totalSales / pic.count),
                 improvement: pic.totalImprovement / pic.count,
                 targetsHit: pic.targetsHit,
+                count: pic.count, // Total dayparts entered
                 targetHitPercentage: (pic.targetsHit / pic.count) * 100,
                 highestPercentAbove: pic.highestPercentAbove === -Infinity ? 0 : pic.highestPercentAbove,
                 recentTrend: recentTrend !== null ? recentTrend : 0,
