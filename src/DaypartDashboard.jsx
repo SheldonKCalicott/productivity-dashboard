@@ -630,36 +630,20 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 // Create CSV data with Date column first
                 const data = [
                     ['Date', 'Store', 'Daypart', 'Sales', 'Productivity', 'PIC', 'Target']
-                ]
-                
-                const dayparts = ['breakfast', 'lunch', 'afternoon', 'dinner']
-                const daypartDisplayNames = ['Breakfast', 'Lunch', 'Afternoon', 'Dinner']
-                
-                // For each date in range, add rows for all dayparts
-                dates.forEach(date => {
-                    dayparts.forEach((daypart, index) => {
-                        // Find matching record from database
-                        const record = databaseRecords.find(r => 
-                            r.record_date === date && r.daypart === daypart
-                        )
-                        
-                        // Get values from database record (or empty if no data)
-                        const sales = record?.sales_amount || ''
-                        const productivity = record?.actual_productivity || ''
-                        const pic = record?.pic_name || ''
-                        const target = record?.target_productivity || ''
-                        
-                        data.push([
-                            date,
-                            storeName || 'Store',
-                            daypartDisplayNames[index],
-                            sales,
-                            productivity,
-                            pic,
-                            target
-                        ])
-                    })
-                })
+                ];
+
+                // Only export actual database records
+                databaseRecords.forEach(record => {
+                    data.push([
+                        record.record_date,
+                        storeName || 'Store',
+                        record.daypart.charAt(0).toUpperCase() + record.daypart.slice(1),
+                        record.sales_amount || '',
+                        record.actual_productivity || '',
+                        record.pic_name || '',
+                        record.target_productivity || ''
+                    ]);
+                });
 
                 const csvContent = data.map(row => row.join(',')).join('\n')
                 const blob = new Blob([csvContent], { type: 'text/csv' })
