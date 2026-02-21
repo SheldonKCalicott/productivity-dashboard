@@ -100,93 +100,59 @@ module.exports = async function handler(req, res) {
     }
 
     try {
+        // Accept frontend payload structure
         const {
-            storeName = 'simplified',
-            date,
-            daypartsData,
-            operationalWeights,
-            ambitionTier
+            store_number,
+            daypart,
+            sales_amount,
+            actual_productivity,
+            target_productivity,
+            pic_name,
+            record_date
         } = req.body;
 
-        console.log(`Parsed request for store: ${storeName}, date: ${date}`);
-
-        const storeId = await getStoreId(storeName);
-        console.log('Store ID:', storeId);
+        // Rename store_number to storeName for backend
+        const storeName = store_number || 'simplified';
+        const date = record_date;
 
         // Validate required fields
         if (!date) {
             throw new Error('Missing required field: date');
         }
-        if (!daypartsData || typeof daypartsData !== 'object') {
-            throw new Error('Missing or invalid daypartsData');
+        if (!daypart) {
+            throw new Error('Missing required field: daypart');
         }
 
-        // Update/Insert productivity records for each daypart
-        for (const [daypart, data] of Object.entries(daypartsData)) {
-            if (data.sales || data.actualProductivity || data.picName) {
-                try {
-                    await pool.query(`
-                        INSERT INTO productivity_records 
-                        (store_id, record_date, daypart, sales_amount, actual_productivity, target_productivity, pic_name)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7)
-                        ON CONFLICT (store_id, record_date, daypart)
-                        DO UPDATE SET
-                            sales_amount = EXCLUDED.sales_amount,
-                            actual_productivity = EXCLUDED.actual_productivity,
-                            target_productivity = EXCLUDED.target_productivity,
-                            pic_name = EXCLUDED.pic_name,
-                            updated_at = CURRENT_TIMESTAMP
-                    `, [
-                        storeId,
-                        date,
-                        daypart,
-                        data.sales ? parseInt(data.sales.toString().replace(/[^0-9]/g, '')) : null,
-                        data.actualProductivity ? parseFloat(data.actualProductivity) : null,
-                        data.targetProductivity ? parseFloat(data.targetProductivity) : null,
-                        data.picName || null
-                    ]);
-                } catch (recordError) {
-                    console.error(`Error saving daypart record (${daypart}):`, recordError);
-                    throw recordError;
-                }
-            }
+        const storeId = await getStoreId(storeName);
+        console.log('Store ID:', storeId);
+
+        try {
+            await pool.query(`
+                INSERT INTO productivity_records 
+                (store_id, record_date, daypart, sales_amount, actual_productivity, target_productivity, pic_name)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (store_id, record_date, daypart)
+                DO UPDATE SET
+                    sales_amount = EXCLUDED.sales_amount,
+                    actual_productivity = EXCLUDED.actual_productivity,
+                    target_productivity = EXCLUDED.target_productivity,
+                    pic_name = EXCLUDED.pic_name,
+                    updated_at = CURRENT_TIMESTAMP
+            `, [
+                storeId,
+                date,
+                daypart,
+                sales_amount != null ? parseInt(sales_amount) : null,
+                actual_productivity != null ? parseFloat(actual_productivity) : null,
+                target_productivity != null ? parseFloat(target_productivity) : null,
+                pic_name || null
+            ]);
+        } catch (recordError) {
+            console.error(`Error saving daypart record (${daypart}):`, recordError);
+            throw recordError;
         }
 
-        // Update operational weights
-        if (operationalWeights) {
-            try {
-                await pool.query(`
-                    UPDATE operational_weights 
-                    SET breakfast = $2, lunch = $3, afternoon = $4, dinner = $5, updated_at = CURRENT_TIMESTAMP
-                    WHERE store_id = $1
-                `, [
-                    storeId,
-                    operationalWeights.breakfast,
-                    operationalWeights.lunch,
-                    operationalWeights.afternoon,
-                    operationalWeights.dinner
-                ]);
-            } catch (weightsError) {
-                console.error('Error updating operational weights:', weightsError);
-                throw weightsError;
-            }
-        }
-
-        // Update store settings
-        if (ambitionTier) {
-            try {
-                await pool.query(`
-                    UPDATE store_settings 
-                    SET ambition_tier = $2, updated_at = CURRENT_TIMESTAMP
-                    WHERE store_id = $1
-                `, [storeId, ambitionTier]);
-            } catch (settingsError) {
-                console.error('Error updating store settings:', settingsError);
-                throw settingsError;
-            }
-        }
-
-        console.log('✅ Data saved successfully for', storeName, date);
+        console.log('✅ Data saved successfully for', storeName, date, daypart);
         res.json({ success: true, message: 'Data saved successfully' });
 
     } catch (error) {
