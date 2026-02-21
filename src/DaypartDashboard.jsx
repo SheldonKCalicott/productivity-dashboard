@@ -576,7 +576,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         }
     }
     
-    const handleExportAction = () => {
+    const handleExportAction = async () => {
         if (isDemo) {
             showMessage('demo')
         } else {
@@ -606,70 +606,78 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 startDate = endDate = new Date().toISOString().split('T')[0]
             }
             
-            // Generate all dates in range
-            const dates = []
-            const currentDate = new Date(startDate)
-            const finalDate = new Date(endDate)
-            
-            while (currentDate <= finalDate) {
-                dates.push(currentDate.toISOString().split('T')[0])
-                currentDate.setDate(currentDate.getDate() + 1)
-            }
-            
-            // Create CSV data with Date column first
-            const data = [
-                ['Date', 'Store', 'Daypart', 'Sales', 'Productivity', 'PIC', 'Target']
-            ]
-            
-            const dayparts = ['breakfast', 'lunch', 'afternoon', 'dinner']
-            const daypartDisplayNames = ['Breakfast', 'Lunch', 'Afternoon', 'Dinner']
-            
-            // For each date in range, add rows for all dayparts
-            dates.forEach(date => {
-                dayparts.forEach((daypart, index) => {
-                    // Try to load data from localStorage for this date
-                    let dayData = null
-                    try {
-                        const savedData = localStorage.getItem(`productivity-${storeName}-${date}`)
-                        if (savedData) {
-                            dayData = JSON.parse(savedData)
-                        }
-                    } catch (error) {
-                        console.warn('Error loading saved data for', date)
-                    }
-                    
-                    // Get values for this daypart and date (or empty if no data)
-                    const sales = dayData?.dayparts?.[daypart]?.sales || ''
-                    const productivity = dayData?.dayparts?.[daypart]?.actualProductivity || ''
-                    const pic = dayData?.dayparts?.[daypart]?.picName || ''
-                    
-                    // Calculate target for this daypart (always calculated)
-                    const totalSalesForDay = dayData ? 
-                        Object.values(dayData.dayparts || {}).reduce((sum, dp) => sum + (parseInt(dp.sales) || 0), 0) : 0
-                    const target = totalSalesForDay > 0 ? calculateTargetProductivity(daypart, totalSalesForDay) : ''
-                    
-                    data.push([
-                        date,
-                        storeName || 'Store',
-                        daypartDisplayNames[index],
-                        sales,
-                        productivity,
-                        pic,
-                        target
-                    ])
+            try {
+                // Fetch data from database for the date range
+                console.log(`📊 Exporting data from ${startDate} to ${endDate}`)
+                const response = await fetch(`/api/productivity/${storeName || 'simplified'}/range/${startDate}/${endDate}`)
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch data: ${response.status}`)
+                }
+                
+                const databaseRecords = await response.json()
+                console.log(`📊 Retrieved ${databaseRecords.length} records from database`)
+                
+                // Generate all dates in range
+                const dates = []
+                const currentDate = new Date(startDate)
+                const finalDate = new Date(endDate)
+                
+                while (currentDate <= finalDate) {
+                    dates.push(currentDate.toISOString().split('T')[0])
+                    currentDate.setDate(currentDate.getDate() + 1)
+                }
+                
+                // Create CSV data with Date column first
+                const data = [
+                    ['Date', 'Store', 'Daypart', 'Sales', 'Productivity', 'PIC', 'Target']
+                ]
+                
+                const dayparts = ['breakfast', 'lunch', 'afternoon', 'dinner']
+                const daypartDisplayNames = ['Breakfast', 'Lunch', 'Afternoon', 'Dinner']
+                
+                // For each date in range, add rows for all dayparts
+                dates.forEach(date => {
+                    dayparts.forEach((daypart, index) => {
+                        // Find matching record from database
+                        const record = databaseRecords.find(r => 
+                            r.record_date === date && r.daypart === daypart
+                        )
+                        
+                        // Get values from database record (or empty if no data)
+                        const sales = record?.sales_amount || ''
+                        const productivity = record?.actual_productivity || ''
+                        const pic = record?.pic_name || ''
+                        const target = record?.target_productivity || ''
+                        
+                        data.push([
+                            date,
+                            storeName || 'Store',
+                            daypartDisplayNames[index],
+                            sales,
+                            productivity,
+                            pic,
+                            target
+                        ])
+                    })
                 })
-            })
 
-            const csvContent = data.map(row => row.join(',')).join('\n')
-            const blob = new Blob([csvContent], { type: 'text/csv' })
-            const url = window.URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = url
-            link.download = `${storeName || 'store'}-productivity-${startDate}-to-${endDate}.csv`
-            link.click()
-            window.URL.revokeObjectURL(url)
-            
-            // No message shown for export
+                const csvContent = data.map(row => row.join(',')).join('\n')
+                const blob = new Blob([csvContent], { type: 'text/csv' })
+                const url = window.URL.createObjectURL(blob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = `${storeName || 'store'}-productivity-${startDate}-to-${endDate}.csv`
+                link.click()
+                window.URL.revokeObjectURL(url)
+                
+                console.log(`✅ Exported ${data.length - 1} rows of data`)
+                
+            } catch (error) {
+                console.error('Export failed:', error)
+                // Fallback message or could show an error notification
+                showMessage('export-error')
+            }
         }
     }
     
