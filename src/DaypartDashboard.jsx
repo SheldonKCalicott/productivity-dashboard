@@ -379,8 +379,9 @@ function CombinedProductivityDial({ title, combinedSales, combinedActual, target
 // Main Dashboard Component
 export default function DaypartDashboard({ onNavigateToReports, storeNumber = null, storeName = null }) {
     // Store-specific configuration  
-    const isDemo = !storeNumber || storeNumber === 'demo'
-    const displayStoreName = storeName || (storeNumber === '04680' ? 'Tuskawilla' : storeNumber === '00661' ? 'Forsyth' : 'Demo')
+    const effectiveStoreName = storeName || storeNumber || 'simplified';
+    const isDemo = !effectiveStoreName || effectiveStoreName === 'demo';
+    const displayStoreName = effectiveStoreName;
     
     // Tier selection state
     const [selectedTier, setSelectedTier] = useState('Top 50%')
@@ -551,7 +552,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 // Only save if sales and productivity are present
                 if (sales && actualProductivity && parseFloat(actualProductivity) > 0) {
                     const payload = {
-                        store_number: storeNumber,
+                        store_number: effectiveStoreName,
                         daypart,
                         sales_amount: parseInt(sales.replace(/[^0-9]/g, '')) || 0,
                         actual_productivity: parseFloat(actualProductivity) || 0,
@@ -607,7 +608,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             try {
                 // Fetch data from database for the date range
                 console.log(`📊 Exporting data from ${startDate} to ${endDate}`)
-                const response = await fetch(`/api/productivity/${storeName || 'simplified'}/range/${startDate}/${endDate}`)
+                const response = await fetch(`/api/productivity/${effectiveStoreName}/range/${startDate}/${endDate}`)
                 
                 if (!response.ok) {
                     throw new Error(`Failed to fetch data: ${response.status}`)
