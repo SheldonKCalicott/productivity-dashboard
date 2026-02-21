@@ -82,19 +82,23 @@ module.exports = async function handler(req, res) {
     }
 
     const pool = getPool();
-    
+
+    // Log incoming request body for debugging
+    console.log('Incoming request body:', JSON.stringify(req.body, null, 2));
+
     // Test database connectivity
     try {
         const testResult = await pool.query('SELECT NOW() as test_time');
         console.log('Database test successful:', testResult.rows[0].test_time);
     } catch (dbError) {
-        console.error('Database connectivity test failed:', dbError.message);
+        console.error('Database connectivity test failed:', dbError);
         return res.status(500).json({ 
             error: 'Database connection failed',
-            message: dbError.message
+            message: dbError.message,
+            stack: dbError.stack
         });
     }
-    
+
     try {
         const {
             storeName = 'simplified',
@@ -109,64 +113,89 @@ module.exports = async function handler(req, res) {
         const storeId = await getStoreId(storeName);
         console.log('Store ID:', storeId);
 
+        // Validate required fields
+        if (!date) {
+            throw new Error('Missing required field: date');
+        }
+        if (!daypartsData || typeof daypartsData !== 'object') {
+            throw new Error('Missing or invalid daypartsData');
+        }
+
         // Update/Insert productivity records for each daypart
         for (const [daypart, data] of Object.entries(daypartsData)) {
             if (data.sales || data.actualProductivity || data.picName) {
-                await pool.query(`
-                    INSERT INTO productivity_records 
-                    (store_id, record_date, daypart, sales_amount, actual_productivity, target_productivity, pic_name)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    ON CONFLICT (store_id, record_date, daypart)
-                    DO UPDATE SET
-                        sales_amount = EXCLUDED.sales_amount,
-                        actual_productivity = EXCLUDED.actual_productivity,
-                        target_productivity = EXCLUDED.target_productivity,
-                        pic_name = EXCLUDED.pic_name,
-                        updated_at = CURRENT_TIMESTAMP
-                `, [
-                    storeId,
-                    date,
-                    daypart,
-                    data.sales ? parseInt(data.sales.toString().replace(/[^0-9]/g, '')) : null,
-                    data.actualProductivity ? parseFloat(data.actualProductivity) : null,
-                    data.targetProductivity ? parseFloat(data.targetProductivity) : null,
-                    data.picName || null
-                ]);
+                try {
+                    await pool.query(`
+                        INSERT INTO productivity_records 
+                        (store_id, record_date, daypart, sales_amount, actual_productivity, target_productivity, pic_name)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        ON CONFLICT (store_id, record_date, daypart)
+                        DO UPDATE SET
+                            sales_amount = EXCLUDED.sales_amount,
+                            actual_productivity = EXCLUDED.actual_productivity,
+                            target_productivity = EXCLUDED.target_productivity,
+                            pic_name = EXCLUDED.pic_name,
+                            updated_at = CURRENT_TIMESTAMP
+                    `, [
+                        storeId,
+                        date,
+                        daypart,
+                        data.sales ? parseInt(data.sales.toString().replace(/[^0-9]/g, '')) : null,
+                        data.actualProductivity ? parseFloat(data.actualProductivity) : null,
+                        data.targetProductivity ? parseFloat(data.targetProductivity) : null,
+                        data.picName || null
+                    ]);
+                } catch (recordError) {
+                    console.error(`Error saving daypart record (${daypart}):`, recordError);
+                    throw recordError;
+                }
             }
         }
 
         // Update operational weights
         if (operationalWeights) {
-            await pool.query(`
-                UPDATE operational_weights 
-                SET breakfast = $2, lunch = $3, afternoon = $4, dinner = $5, updated_at = CURRENT_TIMESTAMP
-                WHERE store_id = $1
-            `, [
-                storeId,
-                operationalWeights.breakfast,
-                operationalWeights.lunch,
-                operationalWeights.afternoon,
-                operationalWeights.dinner
-            ]);
+            try {
+                await pool.query(`
+                    UPDATE operational_weights 
+                    SET breakfast = $2, lunch = $3, afternoon = $4, dinner = $5, updated_at = CURRENT_TIMESTAMP
+                    WHERE store_id = $1
+                `, [
+                    storeId,
+                    operationalWeights.breakfast,
+                    operationalWeights.lunch,
+                    operationalWeights.afternoon,
+                    operationalWeights.dinner
+                ]);
+            } catch (weightsError) {
+                console.error('Error updating operational weights:', weightsError);
+                throw weightsError;
+            }
         }
 
         // Update store settings
         if (ambitionTier) {
-            await pool.query(`
-                UPDATE store_settings 
-                SET ambition_tier = $2, updated_at = CURRENT_TIMESTAMP
-                WHERE store_id = $1
-            `, [storeId, ambitionTier]);
+            try {
+                await pool.query(`
+                    UPDATE store_settings 
+                    SET ambition_tier = $2, updated_at = CURRENT_TIMESTAMP
+                    WHERE store_id = $1
+                `, [storeId, ambitionTier]);
+            } catch (settingsError) {
+                console.error('Error updating store settings:', settingsError);
+                throw settingsError;
+            }
         }
 
         console.log('✅ Data saved successfully for', storeName, date);
         res.json({ success: true, message: 'Data saved successfully' });
-        
+
     } catch (error) {
-        console.error('Error saving productivity data:', error.message);
+        console.error('Error saving productivity data:', error);
         res.status(500).json({ 
             error: 'Failed to save data',
-            message: error.message
+            message: error.message,
+            stack: error.stack,
+            details: error
         });
     }
 }
