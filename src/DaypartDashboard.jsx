@@ -541,37 +541,51 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     // Save productivity data to database
     const saveToDatabase = async (data) => {
         try {
-            const productivity = [
-                { daypart: 'breakfast', sales: data.salesInputs.breakfastSales, productivity: data.productivity.breakfast, pic: data.picNames.breakfast },
-                { daypart: 'lunch', sales: data.salesInputs.lunchSales, productivity: data.productivity.lunch, pic: data.picNames.lunch },
-                { daypart: 'afternoon', sales: data.salesInputs.afternoonSales, productivity: data.productivity.afternoon, pic: data.picNames.afternoon },
-                { daypart: 'dinner', sales: data.salesInputs.dinnerSales, productivity: data.productivity.dinner, pic: data.picNames.dinner }
-            ]
-            
-            for (const daypartData of productivity) {
-                if (daypartData.sales && daypartData.productivity && parseFloat(daypartData.productivity) > 0) {
-                    const payload = {
-                        store_number: storeNumber,
-                        daypart: daypartData.daypart,
-                        sales_amount: parseInt(daypartData.sales.replace(/[^0-9]/g, '')) || 0,
-                        actual_productivity: parseFloat(daypartData.productivity) || 0,
-                        target_productivity: calculateTargetProductivity(daypartData.daypart, getTotalSales()),
-                        pic_name: daypartData.pic || 'Unknown',
-                        record_date: dataDate
-                    }
-                    
-                    // Save each daypart to database
-                    await fetch('/api/productivity', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    })
+            // Build daypartsData object
+            const daypartsData = {
+                breakfast: {
+                    sales: data.salesInputs.breakfastSales ? parseInt(data.salesInputs.breakfastSales.replace(/[^0-9]/g, '')) : null,
+                    actualProductivity: data.productivity.breakfast ? parseFloat(data.productivity.breakfast) : null,
+                    targetProductivity: calculateTargetProductivity('breakfast', getTotalSales()),
+                    picName: data.picNames.breakfast || 'Unknown'
+                },
+                lunch: {
+                    sales: data.salesInputs.lunchSales ? parseInt(data.salesInputs.lunchSales.replace(/[^0-9]/g, '')) : null,
+                    actualProductivity: data.productivity.lunch ? parseFloat(data.productivity.lunch) : null,
+                    targetProductivity: calculateTargetProductivity('lunch', getTotalSales()),
+                    picName: data.picNames.lunch || 'Unknown'
+                },
+                afternoon: {
+                    sales: data.salesInputs.afternoonSales ? parseInt(data.salesInputs.afternoonSales.replace(/[^0-9]/g, '')) : null,
+                    actualProductivity: data.productivity.afternoon ? parseFloat(data.productivity.afternoon) : null,
+                    targetProductivity: calculateTargetProductivity('afternoon', getTotalSales()),
+                    picName: data.picNames.afternoon || 'Unknown'
+                },
+                dinner: {
+                    sales: data.salesInputs.dinnerSales ? parseInt(data.salesInputs.dinnerSales.replace(/[^0-9]/g, '')) : null,
+                    actualProductivity: data.productivity.dinner ? parseFloat(data.productivity.dinner) : null,
+                    targetProductivity: calculateTargetProductivity('dinner', getTotalSales()),
+                    picName: data.picNames.dinner || 'Unknown'
                 }
-            }
-            
-            console.log(`✅ Data saved to database for ${dataDate}`)
+            };
+
+            const payload = {
+                storeName: storeNumber,
+                date: dataDate,
+                daypartsData,
+                operationalWeights: data.daypartWeights || null,
+                ambitionTier: data.selectedTier || null
+            };
+
+            await fetch('/api/productivity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            console.log(`✅ Data saved to database for ${dataDate}`);
         } catch (error) {
-            console.warn('Database save failed (offline mode):', error.message)
+            console.warn('Database save failed (offline mode):', error.message);
             // Data is still saved in localStorage for offline operation
         }
     }
