@@ -19,36 +19,52 @@ function getPool() {
 
 async function getStoreId(storeName = 'simplified') {
     const pool = getPool();
-    let result = await pool.query('SELECT id FROM stores WHERE name = $1', [storeName]);
     
-    if (result.rows.length === 0) {
-        const storeLocation = storeName === '04680' ? 'Tuskawilla' : 
-                             storeName === '00661' ? 'Forsyth' : 
-                             storeName === 'simplified' ? 'Demo Location' : 
-                             `Store ${storeName}`;
+    try {
+        let result = await pool.query('SELECT id FROM stores WHERE name = $1', [storeName]);
         
-        const newStoreResult = await pool.query(
-            'INSERT INTO stores (name, location) VALUES ($1, $2) RETURNING id',
-            [storeName, storeLocation]
-        );
+        if (result.rows.length === 0) {
+            const storeLocation = storeName === '04680' ? 'Tuskawilla' : 
+                                 storeName === '00661' ? 'Forsyth' : 
+                                 storeName === 'simplified' ? 'Demo Location' : 
+                                 `Store ${storeName}`;
+            
+            const newStoreResult = await pool.query(
+                'INSERT INTO stores (name, location) VALUES ($1, $2) RETURNING id',
+                [storeName, storeLocation]
+            );
+            
+            const storeId = newStoreResult.rows[0].id;
+            
+            // Try to insert operational weights, but don't fail if table doesn't exist or constraint fails
+            try {
+                await pool.query(
+                    'INSERT INTO operational_weights (store_id, breakfast, lunch, afternoon, dinner) VALUES ($1, $2, $3, $4, $5)',
+                    [storeId, 0.76, 1.24, 1.06, 0.94]
+                );
+            } catch (weightError) {
+                console.log('Warning: Could not insert operational weights:', weightError.message);
+            }
+            
+            // Try to insert store settings, but don't fail if table doesn't exist or constraint fails
+            try {
+                await pool.query(
+                    'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
+                    [storeId, 'Top 50%']
+                );
+            } catch (settingsError) {
+                console.log('Warning: Could not insert store settings:', settingsError.message);
+            }
+            
+            console.log(`Created new store: ${storeName} (${storeLocation}) with ID: ${storeId}`);
+            return storeId;
+        }
         
-        const storeId = newStoreResult.rows[0].id;
-        
-        await pool.query(
-            'INSERT INTO operational_weights (store_id, breakfast, lunch, afternoon, dinner) VALUES ($1, $2, $3, $4, $5)',
-            [storeId, 0.76, 1.24, 1.06, 0.94]
-        );
-        
-        await pool.query(
-            'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
-            [storeId, 'Top 50%']
-        );
-        
-        console.error(`Created new store: ${storeName} (${storeLocation}) with ID: ${storeId}`);
-        return storeId;
+        return result.rows[0].id;
+    } catch (error) {
+        console.error('Error in getStoreId:', error.message);
+        throw error;
     }
-    
-    return result.rows[0].id;
 }
 
 module.exports = async function handler(req, res) {
