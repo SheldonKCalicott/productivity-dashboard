@@ -417,6 +417,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     
     // Export date range selection
     const [exportDateRange, setExportDateRange] = useState('this-week')
+    const [customExportStartDate, setCustomExportStartDate] = useState('')
+    const [customExportEndDate, setCustomExportEndDate] = useState('')
     
     // Data date management
     const [dataDate, setDataDate] = useState(new Date().toISOString().split('T')[0])
@@ -596,19 +598,67 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 const quarter = Math.floor(today.getMonth() / 3)
                 startDate = new Date(today.getFullYear(), quarter * 3, 1).toISOString().split('T')[0]
                 endDate = new Date(today.getFullYear(), quarter * 3 + 3, 0).toISOString().split('T')[0]
+            } else if (exportDateRange === 'custom-start-date' && customExportStartDate && customExportEndDate) {
+                startDate = customExportStartDate
+                endDate = customExportEndDate
             } else {
-                // Custom dates or fallback to current date
+                // Fallback to current date
                 startDate = endDate = new Date().toISOString().split('T')[0]
             }
             
-            // Real CSV export for stores
+            // Generate all dates in range
+            const dates = []
+            const currentDate = new Date(startDate)
+            const finalDate = new Date(endDate)
+            
+            while (currentDate <= finalDate) {
+                dates.push(currentDate.toISOString().split('T')[0])
+                currentDate.setDate(currentDate.getDate() + 1)
+            }
+            
+            // Create CSV data with Date column first
             const data = [
-                ['Store', 'Daypart', 'Sales', 'Productivity', 'PIC', 'Target', 'Date'],
-                [storeName, 'Breakfast', breakfastSales, actualProductivity.breakfast, picNames.breakfast, calculateTargetProductivity('breakfast', getTotalSales()), new Date().toISOString().split('T')[0]],
-                [storeName, 'Lunch', lunchSales, actualProductivity.lunch, picNames.lunch, calculateTargetProductivity('lunch', getTotalSales()), new Date().toISOString().split('T')[0]],
-                [storeName, 'Afternoon', afternoonSales, actualProductivity.afternoon, picNames.afternoon, calculateTargetProductivity('afternoon', getTotalSales()), new Date().toISOString().split('T')[0]],
-                [storeName, 'Dinner', dinnerSales, actualProductivity.dinner, picNames.dinner, calculateTargetProductivity('dinner', getTotalSales()), new Date().toISOString().split('T')[0]]
+                ['Date', 'Store', 'Daypart', 'Sales', 'Productivity', 'PIC', 'Target']
             ]
+            
+            const dayparts = ['breakfast', 'lunch', 'afternoon', 'dinner']
+            const daypartDisplayNames = ['Breakfast', 'Lunch', 'Afternoon', 'Dinner']
+            
+            // For each date in range, add rows for all dayparts
+            dates.forEach(date => {
+                dayparts.forEach((daypart, index) => {
+                    // Try to load data from localStorage for this date
+                    let dayData = null
+                    try {
+                        const savedData = localStorage.getItem(`productivity-${storeName}-${date}`)
+                        if (savedData) {
+                            dayData = JSON.parse(savedData)
+                        }
+                    } catch (error) {
+                        console.warn('Error loading saved data for', date)
+                    }
+                    
+                    // Get values for this daypart and date (or empty if no data)
+                    const sales = dayData?.dayparts?.[daypart]?.sales || ''
+                    const productivity = dayData?.dayparts?.[daypart]?.actualProductivity || ''
+                    const pic = dayData?.dayparts?.[daypart]?.picName || ''
+                    
+                    // Calculate target for this daypart (always calculated)
+                    const totalSalesForDay = dayData ? 
+                        Object.values(dayData.dayparts || {}).reduce((sum, dp) => sum + (parseInt(dp.sales) || 0), 0) : 0
+                    const target = totalSalesForDay > 0 ? calculateTargetProductivity(daypart, totalSalesForDay) : ''
+                    
+                    data.push([
+                        date,
+                        storeName || 'Store',
+                        daypartDisplayNames[index],
+                        sales,
+                        productivity,
+                        pic,
+                        target
+                    ])
+                })
+            })
 
             const csvContent = data.map(row => row.join(',')).join('\n')
             const blob = new Blob([csvContent], { type: 'text/csv' })
@@ -1419,6 +1469,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 <input 
                                                     type="date" 
                                                     placeholder="Start"
+                                                    value={customExportStartDate}
+                                                    onChange={(e) => setCustomExportStartDate(e.target.value)}
                                                     style={{
                                                         width: '100%',
                                                         padding: '4px 6px',
@@ -1433,6 +1485,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 <input 
                                                     type="date" 
                                                     placeholder="End"
+                                                    value={customExportEndDate}
+                                                    onChange={(e) => setCustomExportEndDate(e.target.value)}
                                                     style={{
                                                         width: '100%',
                                                         padding: '4px 6px',
