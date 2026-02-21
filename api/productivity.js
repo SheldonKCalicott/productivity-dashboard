@@ -51,15 +51,7 @@ async function getStoreId(storeName = 'simplified') {
     return result.rows[0].id;
 }
 
-export default async function handler(req, res) {
-    console.error('=== PRODUCTIVITY SAVE API CALLED ===');
-    console.error('Method:', req.method);
-    console.error('URL:', req.url);
-    console.error('Headers:', JSON.stringify(req.headers, null, 2));
-    console.error('Query:', JSON.stringify(req.query, null, 2));
-    console.error('Body type:', typeof req.body);
-    console.error('Request body:', JSON.stringify(req.body, null, 2));
-    
+module.exports = async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -70,23 +62,20 @@ export default async function handler(req, res) {
     }
 
     if (req.method !== 'POST') {
-        console.error('Method not allowed:', req.method);
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     const pool = getPool();
-    console.error('Database pool created successfully');
     
     // Test database connectivity
     try {
         const testResult = await pool.query('SELECT NOW() as test_time');
-        console.error('Database test successful:', testResult.rows[0]);
+        console.log('Database test successful:', testResult.rows[0].test_time);
     } catch (dbError) {
-        console.error('Database connectivity test failed:', dbError);
+        console.error('Database connectivity test failed:', dbError.message);
         return res.status(500).json({ 
             error: 'Database connection failed',
-            message: dbError.message,
-            details: process.env.NODE_ENV === 'development' ? dbError.stack : 'Check server logs'
+            message: dbError.message
         });
     }
     
@@ -99,23 +88,14 @@ export default async function handler(req, res) {
             ambitionTier
         } = req.body;
 
-        console.error('Parsed request data:', {
-            storeName,
-            date,
-            daypartsData: Object.keys(daypartsData),
-            operationalWeights: operationalWeights ? 'present' : 'missing',
-            ambitionTier
-        });
+        console.log(`Parsed request for store: ${storeName}, date: ${date}`);
 
-        console.error('Getting store ID for:', storeName);
         const storeId = await getStoreId(storeName);
-        console.error('Store ID:', storeId);
+        console.log('Store ID:', storeId);
 
-        console.error('Processing dayparts data...');
         // Update/Insert productivity records for each daypart
         for (const [daypart, data] of Object.entries(daypartsData)) {
             if (data.sales || data.actualProductivity || data.picName) {
-                console.error(`Processing ${daypart}:`, data);
                 await pool.query(`
                     INSERT INTO productivity_records 
                     (store_id, record_date, daypart, sales_amount, actual_productivity, target_productivity, pic_name)
@@ -138,11 +118,9 @@ export default async function handler(req, res) {
                 ]);
             }
         }
-        console.error('Dayparts processing completed');
 
         // Update operational weights
         if (operationalWeights) {
-            console.error('Updating operational weights:', operationalWeights);
             await pool.query(`
                 UPDATE operational_weights 
                 SET breakfast = $2, lunch = $3, afternoon = $4, dinner = $5, updated_at = CURRENT_TIMESTAMP
@@ -158,7 +136,6 @@ export default async function handler(req, res) {
 
         // Update store settings
         if (ambitionTier) {
-            console.error('Updating store settings with ambition tier:', ambitionTier);
             await pool.query(`
                 UPDATE store_settings 
                 SET ambition_tier = $2, updated_at = CURRENT_TIMESTAMP
@@ -166,16 +143,14 @@ export default async function handler(req, res) {
             `, [storeId, ambitionTier]);
         }
 
-        console.error('All updates completed successfully');
+        console.log('✅ Data saved successfully for', storeName, date);
         res.json({ success: true, message: 'Data saved successfully' });
         
     } catch (error) {
-        console.error('Error saving productivity data:', error);
-        console.error('Request body:', req.body);
+        console.error('Error saving productivity data:', error.message);
         res.status(500).json({ 
             error: 'Failed to save data',
-            message: error.message,
-            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            message: error.message
         });
     }
 }
