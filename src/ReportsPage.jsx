@@ -351,7 +351,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                 picAverages[item.picName].recentPercents = [];
             }
             picAverages[item.picName].recentPercents.push(percentVsTarget);
-            if (picAverages[item.picName].recentPercents.length > 3) {
+            if (picAverages[item.picName].recentPercents.length > 5) {
                 picAverages[item.picName].recentPercents.shift();
             }
         })
@@ -359,9 +359,10 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
         // Convert to array with enhanced metrics
         const averagedData = Object.values(picAverages).map((pic, index) => {
             const avgPercentVsTarget = pic.totalPercentVsTarget / pic.count;
-            // Calculate recent trend as average of last 3 actual-to-target percentage comparisons
-            const recentTrend = pic.recentPercents && pic.recentPercents.length > 0
-                ? pic.recentPercents.reduce((sum, val) => sum + val, 0) / pic.recentPercents.length
+            // Calculate recent trend as average of up to last 5 actual-to-target percentage comparisons
+            const trendCount = Math.min(pic.recentPercents.length, 5);
+            const recentTrend = trendCount > 0
+                ? pic.recentPercents.slice(-trendCount).reduce((sum, val) => sum + val, 0) / trendCount
                 : 0;
             return {
                 id: index + 1,
