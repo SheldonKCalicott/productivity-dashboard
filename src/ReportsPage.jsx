@@ -233,22 +233,25 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
         ? percentList.reduce((s, v) => s + v, 0) / percentList.length
         : 0
 
-      // targetsHit
+      // targetsHit: count dayparts >=2% above target
+      // targetsHit: count dayparts within 2 values of target (actual >= target - 2)
       const targetsHit = records.reduce((count, r) => {
-        const t = Number(r.targetProductivity) || 0
-        const a = Number(r.actualProductivity) || 0
-        return count + (t > 0 && a >= (t - 2) ? 1 : 0)
-      }, 0)
+        const t = Number(r.targetProductivity) || 0;
+        const a = Number(r.actualProductivity) || 0;
+        return count + (t > 0 && a >= (t - 2) ? 1 : 0);
+      }, 0);
 
-      // peakPercentVsTarget
-      const peakPercentVsTarget = percentList.length > 0 ? Math.max(...percentList) : 0
+      // peakPercentVsTarget: only positive values
+      const positivePercents = percentList.filter(v => v > 0);
+      const peakPercentVsTarget = positivePercents.length > 0 ? Math.max(...positivePercents) : 0;
 
       // recentTrend: use up to 5 most recent percent values
       // If there are >=5 use 5; if 3-4 use those; if 1-2 use them but UI will mark limited data
-      const recentSlice = percentList.slice(0, 5)
-      const recentTrend = recentSlice.length > 0
-        ? recentSlice.reduce((s, v) => s + v, 0) / recentSlice.length
-        : 0
+      const recentSlice = percentList.slice(0, 5);
+      const positiveRecent = recentSlice.filter(v => v > 0);
+      const recentTrend = positiveRecent.length > 0
+        ? positiveRecent.reduce((s, v) => s + v, 0) / positiveRecent.length
+        : 0;
 
       // avg sales per record
       const totalSales = records.reduce((s, r) => s + (Number(r.actualSales) || 0), 0)
@@ -381,14 +384,50 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
     })
     .filter(v => typeof v === 'number' && !isNaN(v))
 
-  const teamAvgPercentVsTarget = perRecordPercents.length > 0
-    ? perRecordPercents.reduce((s, v) => s + v, 0) / perRecordPercents.length
-    : 0
+  // Team summary: count all dayparts >=2% above target (not average)
+  // Team summary: count all dayparts within 2 values of target (actual >= target - 2)
+  const teamTargetsHit = filteredData.filter(item => {
+    const t = Number(item.targetProductivity) || 0;
+    const a = Number(item.actualProductivity) || 0;
+    return t > 0 && a >= (t - 2);
+  }).length;
 
-  const teamMaxPercentAboveTarget = perRecordPercents.length > 0
-    ? Math.max(...perRecordPercents)
-    : 0
+  // Team peak: highest positive percent vs target
+  const teamMaxPercentAboveTarget = filteredData.length > 0
+    ? Math.max(0, ...filteredData
+        .map(item => {
+          const t = Number(item.targetProductivity) || 0;
+          const a = Number(item.actualProductivity) || 0;
+          if (t === 0) return 0;
+          const pct = ((a - t) / t) * 100;
+          return pct > 0 ? pct : 0;
+        })
+      )
+    : 0;
 
+  // Team avg percent above target: only positive values
+  const teamAvgPercentVsTarget = filteredData.length > 0
+    ? (() => {
+        const percents = filteredData
+          .map(item => {
+            const t = Number(item.targetProductivity) || 0;
+            const a = Number(item.actualProductivity) || 0;
+            if (t === 0) return null;
+            const pct = ((a - t) / t) * 100;
+            return pct > 0 ? pct : null;
+          })
+          .filter(v => v !== null);
+        return percents.length > 0 ? percents.reduce((s, v) => s + v, 0) / percents.length : 0;
+      })()
+    : 0;
+
+  // Team avg improvement: only positive values
+  const teamAvgImprovement = improvementValues.length > 0
+    ? (() => {
+        const positives = improvementValues.filter(v => v > 0);
+        return positives.length > 0 ? positives.reduce((s, v) => s + v, 0) / positives.length : 0;
+      })()
+    : 0;
   const improvementValues = filteredData
     .map(item => (typeof item.improvement === 'number' && !isNaN(item.improvement) ? item.improvement : null))
     .filter(v => v !== null)
@@ -486,7 +525,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
           <div style={styles.summaryMetrics}>
             <div style={styles.summaryCard}>
               <div style={styles.summaryNumber}>
-                {filteredData.filter(item => item.targetProductivity && ((item.actualProductivity / item.targetProductivity - 1) * 100) > 0).length}
+                {teamTargetsHit}
               </div>
               <div style={styles.summaryLabel}>Above Target</div>
               <div style={styles.summarySubtext}>of {filteredData.length} total shifts</div>
