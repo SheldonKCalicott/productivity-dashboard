@@ -1,7 +1,7 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import pkg from 'pg';
+const express = require('express');
+const cors = require('cors');
+const dotenv = require('dotenv');
+const pkg = require('pg');
 const { calculateTargetProductivity } = require('./targetUtils');
 
 const { Pool } = pkg;
