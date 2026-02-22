@@ -637,12 +637,16 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 const daypartDisplayNames = ['Breakfast', 'Lunch', 'Afternoon', 'Dinner'];
                 dates.forEach(date => {
                     dayparts.forEach((daypart, index) => {
+                        // Normalize date format to YYYY-MM-DD
+                        const normalizedDate = new Date(date).toISOString().split('T')[0];
                         // Find matching record from database
-                        const record = databaseRecords.find(r => 
-                            r.record_date === date && r.daypart === daypart
-                        );
+                        const record = databaseRecords.find(r => {
+                            // Normalize record_date as well
+                            const recordDate = new Date(r.record_date).toISOString().split('T')[0];
+                            return recordDate === normalizedDate && r.daypart === daypart;
+                        });
                         data.push([
-                            date,
+                            normalizedDate,
                             storeName || 'Store',
                             daypartDisplayNames[index],
                             record?.sales_amount || '',
