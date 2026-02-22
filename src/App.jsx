@@ -164,21 +164,21 @@ export default function App() {
                 
                 {/* Store number routing - direct access */}
                 <Route 
-                    path="/store/04680" 
-                    element={<StoreWrapper storeNumber="04680" />} 
+                    path="/store/Tuskawilla" 
+                    element={<StoreWrapper storeNumber="Tuskawilla" />} 
                 />
                 <Route 
-                    path="/store/04680/reports" 
-                    element={<StoreWrapper storeNumber="04680" />} 
+                    path="/store/Tuskawilla/reports" 
+                    element={<StoreWrapper storeNumber="Tuskawilla" />} 
                 />
                 
                 <Route 
-                    path="/store/00661" 
-                    element={<StoreWrapper storeNumber="00661" />} 
+                    path="/store/Forsyth" 
+                    element={<StoreWrapper storeNumber="Forsyth" />} 
                 />
                 <Route 
-                    path="/store/00661/reports" 
-                    element={<StoreWrapper storeNumber="00661" />} 
+                    path="/store/Forsyth/reports" 
+                    element={<StoreWrapper storeNumber="Forsyth" />} 
                 />
                 
                 {/* Catch-all redirect to home */}
