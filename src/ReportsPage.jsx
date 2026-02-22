@@ -670,19 +670,19 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                                                 fontWeight: 'bold',
                                                 fontSize: '18px'
                                             }}>
-                                                {columnConfig.primary.key === 'avgPercentAboveTarget' && (
-                                                    <>{item.avgPercentAboveTarget >= 0 ? (item.avgPercentAboveTarget > 0 ? '🟢+' : '⚫') : '🔴'}{item.avgPercentAboveTarget.toFixed(1)}%</>
+                                                {columnConfig.primary.key === 'avgPercentVsTarget' && (
+                                                    <>{(item.avgPercentVsTarget ?? 0) >= 0 ? ((item.avgPercentVsTarget ?? 0) > 0 ? '🟢+' : '⚫') : '🔴'}{(item.avgPercentVsTarget ?? 0).toFixed(1)}%</>
                                                 )}
                                                 {columnConfig.primary.key === 'targetsHit' && (
-                                                    <>{item.targetsHit}/{item.count || 0} {item.targetHitPercentage >= 75 ? '🟢' : item.targetHitPercentage >= 50 ? '🟡' : '🔴'}
-                                                    <div style={{ fontSize: '11px', opacity: 0.8 }}>({item.targetHitPercentage ? item.targetHitPercentage.toFixed(0) : 0}%)</div></>
+                                                    <>{item.targetsHit ?? 0}/{item.count ?? 0} {(item.targetHitPercentage ?? 0) >= 75 ? '🟢' : (item.targetHitPercentage ?? 0) >= 50 ? '🟡' : '🔴'}
+                                                    <div style={{ fontSize: '11px', opacity: 0.8 }}>({(item.targetHitPercentage ?? 0).toFixed(0)}%)</div></>
                                                 )}
-                                                {columnConfig.primary.key === 'highestPercentAbove' && (
-                                                    <>{item.highestPercentAbove > 10 ? '🟢' : item.highestPercentAbove > 0 ? '🟡' : '🔴'}+{item.highestPercentAbove.toFixed(1)}%</>
+                                                {columnConfig.primary.key === 'peakPercentVsTarget' && (
+                                                    <>{(item.peakPercentVsTarget ?? 0) > 10 ? '🟢' : (item.peakPercentVsTarget ?? 0) > 0 ? '🟡' : '🔴'}+{(item.peakPercentVsTarget ?? 0).toFixed(1)}%</>
                                                 )}
                                                 {columnConfig.primary.key === 'recentTrend' && (
-                                                    <>{item.recentTrend && item.recentTrend > 0 ? (
-                                                        <>{item.recentTrend > 2 ? '🟢' : '🟡'}+{item.recentTrend.toFixed(1)}%
+                                                    <>{(item.recentTrend ?? 0) > 0 ? (
+                                                        <>{(item.recentTrend ?? 0) > 2 ? '🟢' : '🟡'}+{(item.recentTrend ?? 0).toFixed(1)}%
                                                         <div style={{ fontSize: '10px', opacity: 0.8 }}>trending</div></>
                                                     ) : (
                                                         <>🔴--</>
