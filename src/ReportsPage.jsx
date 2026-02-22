@@ -1,819 +1,617 @@
 import React, { useState, useEffect } from 'react'
 import apiService from './apiService'
 
+// Consolidated ReportsPage component
 export default function ReportsPage({ isDemo = false, storeName: propStoreName }) {
-                    // Helper to filter data for current period
-                    const getFilteredData = () => {
-                        let dataSource = (filterPeriod === 'example-data' || isDemo) ? exampleData : reportData;
-                        let filteredData = dataSource;
-                        const today = new Date();
-                        if (filterPeriod === 'last-30-days') {
-                            const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-                            filteredData = dataSource.filter(item => new Date(item.date) >= thirtyDaysAgo);
-                        } else if (filterPeriod === 'last-90-days') {
-                            const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
-                            filteredData = dataSource.filter(item => new Date(item.date) >= ninetyDaysAgo);
-                        } else if (filterPeriod === 'ytd') {
-                            const yearStart = new Date(today.getFullYear(), 0, 1);
-                            filteredData = dataSource.filter(item => new Date(item.date) >= yearStart);
-                        } else if (filterPeriod === 'custom' && customStartDate && customEndDate) {
-                            filteredData = dataSource.filter(item => {
-                                const itemDate = new Date(item.date);
-                                return itemDate >= new Date(customStartDate) && itemDate <= new Date(customEndDate);
-                            });
-                        }
-                        return filteredData;
-                    };
-                // Calculate avgImprovement for team summary
-                const getAvgImprovement = (data) => { 
-                    if (!data || data.length === 0) return 0; 
-                    const improvements = data 
-                        .map(item => (typeof item.recentTrend === 'number' ? item.recentTrend : (typeof item.improvement === 'number' ? item.improvement : null))) 
-                        .filter(v => v !== null && !isNaN(v)); 
-                    if (improvements.length === 0) return 0; 
-                    return improvements.reduce((s, v) => s + v, 0) / improvements.length; 
-                };
-            // Calculate maxPercentAboveTarget for team summary
-            const getMaxPercentAboveTarget = (data) => { 
-                if (!data || data.length === 0) return 0; 
-                const peaks = data 
-                    .map(item => (typeof item.peakPercentVsTarget === 'number' ? item.peakPercentVsTarget : null)) 
-                    .filter(v => v !== null && !isNaN(v)); 
-                if (peaks.length === 0) return 0; 
-                return Math.max(...peaks); 
-            };
-        // Calculate avgPercentVsTarget for team summary
-        const getTeamAvgPercentVsTarget = (data) => { 
-            if (!data || data.length === 0) return 0; 
-            const percents = data 
-                .map(item => (typeof item.avgPercentVsTarget === 'number' ? item.avgPercentVsTarget : null)) 
-                .filter(v => v !== null && !isNaN(v)); 
-            if (percents.length === 0) return 0; 
-            return percents.reduce((s, v) => s + v, 0) / percents.length;
-        };
-    const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'example-data' : 'last-30-days')
-    const [sortBy, setSortBy] = useState('performance')
-    const [customStartDate, setCustomStartDate] = useState('')
-    const [customEndDate, setCustomEndDate] = useState('')
-    const [reportData, setReportData] = useState([]) // Real data from database
-    const [isLoading, setIsLoading] = useState(false)
+  // --- State ---
+  const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'last-30-days' : 'last-30-days')
+  const [sortBy, setSortBy] = useState('performance')
+  const [customStartDate, setCustomStartDate] = useState('')
+  const [customEndDate, setCustomEndDate] = useState('')
+  const [reportData, setReportData] = useState([]) // loaded records
+  const [isLoading, setIsLoading] = useState(false)
 
-    // Sample data for examples
-    const exampleData = [
-        {
-            id: 1,
-            picName: "Alex Johnson",
-            daypart: "Lunch",
-            date: "2026-02-07",
-            actualSales: 10500,
-            actualProductivity: 118,
-            targetProductivity: 115,
-            performanceScore: 102.6,
-            tier: "Top 20%",
-            improvement: 8.4
-        },
-        {
-            id: 2,
-            picName: "Sarah Chen", 
-            daypart: "Breakfast",
-            date: "2026-02-07",
-            actualSales: 6200,
-            actualProductivity: 72,
-            targetProductivity: 68,
-            performanceScore: 105.9,
-            tier: "Top 20%",
-            improvement: 11.2
-        },
-        {
-            id: 3,
-            picName: "Mike Rodriguez",
-            daypart: "Dinner",
-            date: "2026-02-07", 
-            actualSales: 9200,
-            actualProductivity: 87,
-            targetProductivity: 90,
-            performanceScore: 96.7,
-            tier: "Top 33%",
-            improvement: 3.8
-        },
-        {
-            id: 4,
-            picName: "Emma Thompson",
-            daypart: "Afternoon",
-            date: "2026-02-07",
-            actualSales: 7800,
-            actualProductivity: 102,
-            targetProductivity: 98,
-            performanceScore: 104.1,
-            tier: "Top 10%",
-            improvement: 15.7
-        },
-        {
-            id: 5,
-            picName: "David Park",
-            daypart: "Lunch",
-            date: "2026-02-06",
-            actualSales: 11200,
-            actualProductivity: 125,
-            targetProductivity: 118,
-            performanceScore: 105.9,
-            tier: "Top 20%",
-            improvement: 12.1
-        }
-    ]
-
-    // Get store name from prop or URL
-    function getStoreNameFromPath() {
-        if (propStoreName) {
-            console.log('[ReportsPage] storeName prop received:', propStoreName);
-            return propStoreName;
-        }
-        const path = window.location.pathname;
-        const storeMatch = path.match(/\/store\/([^/]+)/);
-        if (storeMatch) {
-            const storeParam = storeMatch[1];
-            if (storeParam === '04680') return 'Tuskawilla';
-            if (storeParam === '00661') return 'Forsyth';
-            return storeParam;
-        }
-        console.warn('[ReportsPage] No storeName found, defaulting to simplified');
-        return 'simplified'; // Default for demo/template
+  // --- Helpers: store name and local fallback (unchanged logic) ---
+  function getStoreNameFromPath() {
+    if (propStoreName) return propStoreName;
+    const path = window.location.pathname;
+    const storeMatch = path.match(/\/store\/([^/]+)/);
+    if (storeMatch) {
+      const storeParam = storeMatch[1];
+      if (storeParam === '04680') return 'Tuskawilla';
+      if (storeParam === '00661') return 'Forsyth';
+      return storeParam;
     }
+    return 'simplified';
+  }
 
-    // Load data from localStorage for store reports
-    const loadLocalStorageData = (startDate, endDate, storeName) => {
-        try {
-            const allData = []
-            const startTime = new Date(startDate).getTime()
-            const endTime = new Date(endDate).getTime()
-            
-            // Scan localStorage for store data within date range
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i)
-                if (key && key.startsWith(`store_${storeName}_`)) {
-                    const dateStr = key.split('_')[2]
-                    if (dateStr) {
-                        const itemTime = new Date(dateStr).getTime()
-                        if (itemTime >= startTime && itemTime <= endTime) {
-                            try {
-                                const savedData = JSON.parse(localStorage.getItem(key))
-                                if (savedData?.salesInputs && savedData?.productivity) {
-                                    // Convert localStorage data to report format
-                                    const daypartData = [
-                                        { daypart: 'breakfast', sales: savedData.salesInputs.breakfastSales, productivity: savedData.productivity.breakfast, pic: savedData.picNames?.breakfast },
-                                        { daypart: 'lunch', sales: savedData.salesInputs.lunchSales, productivity: savedData.productivity.lunch, pic: savedData.picNames?.lunch },
-                                        { daypart: 'afternoon', sales: savedData.salesInputs.afternoonSales, productivity: savedData.productivity.afternoon, pic: savedData.picNames?.afternoon },
-                                        { daypart: 'dinner', sales: savedData.salesInputs.dinnerSales, productivity: savedData.productivity.dinner, pic: savedData.picNames?.dinner }
-                                    ]
-                                    
-                                    daypartData.forEach((item, index) => {
-                                        if (item.sales && item.productivity && parseFloat(item.productivity) > 0) {
-                                            const sales = parseInt(item.sales.replace(/[^0-9]/g, '')) || 0
-                                            const actualProd = parseFloat(item.productivity) || 0
-                                            
-                                            // Calculate proper target based on sales (approximate calculation)
-                                            // This should match the DaypartDashboard calculation logic
-                                            const getTargetForDaypart = (daypart, sales) => {
-                                                const daypartWeights = {
-                                                    breakfast: 0.85,
-                                                    lunch: 1.15, 
-                                                    afternoon: 0.95,
-                                                    dinner: 1.05
-                                                }
-                                                // Approximate tier 2 base calculation
-                                                let baseTarget = 85
-                                                if (sales < 15000) baseTarget = 75
-                                                else if (sales < 25000) baseTarget = 85
-                                                else if (sales < 35000) baseTarget = 95
-                                                else baseTarget = 105
-                                                
-                                                return Math.round(baseTarget * daypartWeights[item.daypart.toLowerCase()])
-                                            }
-                                            
-                                            const targetProd = getTargetForDaypart(item.daypart.toLowerCase(), sales)
-                                            
-                                            allData.push({
-                                                id: allData.length + 1,
-                                                picName: item.pic || 'Unknown',
-                                                daypart: item.daypart.charAt(0).toUpperCase() + item.daypart.slice(1),
-                                                date: dateStr,
-                                                actualSales: sales,
-                                                actualProductivity: actualProd,
-                                                targetProductivity: targetProd,
-                                                performanceScore: (actualProd / targetProd) * 100,
-                                                tier: actualProd >= targetProd ? "Top 20%" : "Top 50%",
-                                                improvement: 0 // Will be calculated based on historical data
-                                            })
-                                        }
-                                    })
-                                }
-                            } catch (parseError) {
-                                console.warn('Error parsing localStorage data for key:', key, parseError)
-                            }
-                        }
-                    }
-                }
-            }
-            
-            return allData
-        } catch (error) {
-            console.error('Error loading from localStorage:', error)
-            return []
-        }
-    }
+  const loadLocalStorageData = (startDate, endDate, storeName) => {
+    try {
+      const allData = []
+      const startTime = new Date(startDate).getTime()
+      const endTime = new Date(endDate).getTime()
 
-    // Load real data from database with localStorage fallback for offline
-    const loadReportData = async (startDate, endDate) => {
-        if (isDemo) return; // Skip loading for demo mode
-        
-        setIsLoading(true);
-        try {
-            const storeName = getStoreNameFromPath();
-            
-            try {
-                // Primary: Try database first for real-time updates (silently)
-                const data = await apiService.loadProductivityRange(startDate, endDate, storeName);
-                
-                // Transform API data to match reports format with proper calculations
-                const transformedData = data.map((record, index) => ({
-                    id: index + 1,
-                    picName: record.pic_name || 'Unknown',
-                    daypart: record.daypart.charAt(0).toUpperCase() + record.daypart.slice(1),
-                    date: record.record_date,
-                    actualSales: record.sales_amount || 0,
-                    actualProductivity: record.actual_productivity || 0,
-                    targetProductivity: record.target_productivity || 0,
-                    performanceScore: record.target_productivity ? 
-                        (record.actual_productivity / record.target_productivity * 100) : 0,
-                    tier: record.target_productivity ? 
-                        (record.actual_productivity >= (record.target_productivity - 2) ? "Top 20%" : "Top 50%") : "No Data",
-                    improvement: calculateImprovementTrend(record.pic_name, record.daypart, data)
-                })).filter(item => item.actualProductivity > 0);
-                
-                setReportData(transformedData);
-                console.log(`📊 Loaded ${transformedData.length} records from database`);
-                return;
-            } catch (apiError) {
-                // Silently fallback to localStorage if database fails
-                const localData = loadLocalStorageData(startDate, endDate, storeName);
-                
-                if (localData.length > 0) {
-                    setReportData(localData);
-                    console.log(`📊 Loaded ${localData.length} records from localStorage (offline mode)`);
-                } else {
-                    setReportData([]);
-                    console.log('📊 No data available for the selected date range');
-                }
-            }
-        } catch (error) {
-            console.error('Error loading report data:', error);
-            setReportData([]);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    
-    // Calculate improvement trend from recent daypart performance
-    const calculateImprovementTrend = (picName, daypart, allData) => {
-        const picDaypartData = allData
-            .filter(record => record.pic_name === picName && record.daypart === daypart)
-            .sort((a, b) => new Date(b.record_date) - new Date(a.record_date))
-            .slice(0, 5); // Last 5 entries for trend
-            
-        if (picDaypartData.length < 3) return 0; // Need at least 3 data points
-        
-        // Calculate trend: compare first half vs second half performance
-        const recent = picDaypartData.slice(0, Math.ceil(picDaypartData.length / 2));
-        const older = picDaypartData.slice(Math.ceil(picDaypartData.length / 2));
-        
-        const recentAvg = recent.reduce((sum, record) => {
-            const percent = record.target_productivity ? 
-                ((record.actual_productivity - record.target_productivity) / record.target_productivity * 100) : 0;
-            return sum + percent;
-        }, 0) / recent.length;
-        
-        const olderAvg = older.reduce((sum, record) => {
-            const percent = record.target_productivity ? 
-                ((record.actual_productivity - record.target_productivity) / record.target_productivity * 100) : 0;
-            return sum + percent;
-        }, 0) / older.length;
-        
-        return recentAvg - olderAvg; // Positive = improving, Negative = declining
-    };
-    useEffect(() => {
-        if (filterPeriod === 'example-data' || isDemo) {
-            return; // Skip loading for demo mode
-        }
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith(`store_${storeName}_`)) {
+          const dateStr = key.split('_')[2]
+          if (!dateStr) continue
+          const itemTime = new Date(dateStr).getTime()
+          if (itemTime < startTime || itemTime > endTime) continue
 
-        const today = new Date();
-        let startDate, endDate;
-        
-        if (filterPeriod === 'last-30-days') {
-            const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-            startDate = thirtyDaysAgo.toISOString().split('T')[0];
-            endDate = today.toISOString().split('T')[0];
-        } else if (filterPeriod === 'last-90-days') {
-            const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
-            startDate = ninetyDaysAgo.toISOString().split('T')[0];
-            endDate = today.toISOString().split('T')[0];
-        } else if (filterPeriod === 'ytd') {
-            const yearStart = new Date(today.getFullYear(), 0, 1);
-            startDate = yearStart.toISOString().split('T')[0];
-            endDate = today.toISOString().split('T')[0];
-        } else if (filterPeriod === 'custom' && customStartDate && customEndDate) {
-            startDate = customStartDate;
-            endDate = customEndDate;
-        } else {
-            return; // Invalid filter period
-        }
+          try {
+            const savedData = JSON.parse(localStorage.getItem(key))
+            if (!savedData?.salesInputs || !savedData?.productivity) continue
 
-        loadReportData(startDate, endDate);
-    }, [filterPeriod, customStartDate, customEndDate, isDemo]);
+            const daypartData = [
+              { daypart: 'breakfast', sales: savedData.salesInputs.breakfastSales, productivity: savedData.productivity.breakfast, pic: savedData.picNames?.breakfast },
+              { daypart: 'lunch', sales: savedData.salesInputs.lunchSales, productivity: savedData.productivity.lunch, pic: savedData.picNames?.lunch },
+              { daypart: 'afternoon', sales: savedData.salesInputs.afternoonSales, productivity: savedData.productivity.afternoon, pic: savedData.picNames?.afternoon },
+              { daypart: 'dinner', sales: savedData.salesInputs.dinnerSales, productivity: savedData.productivity.dinner, pic: savedData.picNames?.dinner }
+            ]
 
-    // Sort and filter data, then group by PIC name for leaderboard
-    const getSortedFilteredData = () => {
-        let dataSource = (filterPeriod === 'example-data' || isDemo) ? exampleData : reportData;
-        let filteredData = dataSource;
+            daypartData.forEach(item => {
+              if (!item.sales || !item.productivity) return
+              const sales = parseInt(String(item.sales).replace(/[^0-9]/g, '')) || 0
+              const actualProd = parseFloat(item.productivity) || 0
+              if (actualProd <= 0) return
 
-        if (filterPeriod === 'example-data' || isDemo) {
-            const today = new Date();
-            if (filterPeriod === 'last-30-days') {
-            const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-            filteredData = dataSource.filter(item => new Date(item.date) >= thirtyDaysAgo);
-            } else if (filterPeriod === 'last-90-days') {
-            const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
-            filteredData = dataSource.filter(item => new Date(item.date) >= ninetyDaysAgo);
-            } else if (filterPeriod === 'ytd') {
-            const yearStart = new Date(today.getFullYear(), 0, 1);
-            filteredData = dataSource.filter(item => new Date(item.date) >= yearStart);
-            } else if (filterPeriod === 'custom' && customStartDate && customEndDate) {
-            filteredData = dataSource.filter(item => {
-                const itemDate = new Date(item.date);
-                return itemDate >= new Date(customStartDate) && itemDate <= new Date(customEndDate);
-            });
-            }
-        }
+              const getTargetForDaypart = (daypart, sales) => {
+                const daypartWeights = { breakfast: 0.85, lunch: 1.15, afternoon: 0.95, dinner: 1.05 }
+                let baseTarget = 85
+                if (sales < 15000) baseTarget = 75
+                else if (sales < 25000) baseTarget = 85
+                else if (sales < 35000) baseTarget = 95
+                else baseTarget = 105
+                return Math.round(baseTarget * (daypartWeights[daypart.toLowerCase()] || 1))
+              }
 
-        // Group records by PIC name
-        const picRecords = {};
-        filteredData.forEach(item => {
-            if (!item || !item.picName) return;
-            if (!picRecords[item.picName]) picRecords[item.picName] = [];
-            picRecords[item.picName].push(item);
-        });
+              const targetProd = getTargetForDaypart(item.daypart.toLowerCase(), sales)
 
-        const averagedData = Object.keys(picRecords).map((picName, idx) => {
-            const records = picRecords[picName];
-            // Sort newest -> oldest
-            const sorted = [...records].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-            // percent vs target per record (exclude target === 0)
-            const percentList = sorted
-            .map(r => {
-                const t = Number(r.targetProductivity) || 0;
-                const a = Number(r.actualProductivity) || 0;
-                if (t === 0) return null;
-                return ((a - t) / t) * 100;
+              allData.push({
+                id: allData.length + 1,
+                picName: item.pic || 'Unknown',
+                daypart: item.daypart.charAt(0).toUpperCase() + item.daypart.slice(1),
+                date: dateStr,
+                actualSales: sales,
+                actualProductivity: actualProd,
+                targetProductivity: targetProd,
+                performanceScore: targetProd ? (actualProd / targetProd) * 100 : 0,
+                tier: actualProd >= targetProd ? "Top 20%" : "Top 50%",
+                improvement: 0
+              })
             })
-            .filter(v => typeof v === 'number' && !isNaN(v));
-
-            // avgPercentVsTarget (numeric)
-            const avgPercentVsTarget = percentList.length > 0
-            ? percentList.reduce((s, v) => s + v, 0) / percentList.length
-            : 0;
-
-            // targetsHit: actual >= target - 2
-            const targetsHit = records.reduce((count, r) => {
-            const t = Number(r.targetProductivity) || 0;
-            const a = Number(r.actualProductivity) || 0;
-            return count + (t > 0 && a >= (t - 2) ? 1 : 0);
-            }, 0);
-
-            // peakPercentVsTarget: highest percentList value
-            const peakPercentVsTarget = percentList.length > 0 ? Math.max(...percentList) : 0;
-
-            // recentTrend: average of up to 5 most recent percent values
-            const recentSlice = percentList.slice(0, 5);
-            const recentTrend = recentSlice.length > 0
-            ? recentSlice.reduce((s, v) => s + v, 0) / recentSlice.length
-            : 0;
-
-            // avg sales per record (rounded)
-            const totalSales = records.reduce((s, r) => s + (Number(r.actualSales) || 0), 0);
-            const avgSales = records.length > 0 ? Math.round(totalSales / records.length) : 0;
-
-            return {
-            id: idx + 1,
-            picName,
-            avgPercentVsTarget,
-            actualSales: avgSales,
-            improvement: recentTrend, // keep existing name
-            targetsHit,
-            count: records.length,
-            targetHitPercentage: records.length > 0 ? (targetsHit / records.length) * 100 : 0,
-            peakPercentVsTarget,
-            recentTrend,
-            tier: records[0]?.tier ?? ''
-            };
-        });
-
-        // Sorting (unchanged logic)
-        return [...averagedData].sort((a, b) => {
-            if (sortBy === 'performance') return (b.avgPercentVsTarget ?? 0) - (a.avgPercentVsTarget ?? 0);
-            if (sortBy === 'targets-hit') return (b.targetsHit ?? 0) - (a.targetsHit ?? 0);
-            if (sortBy === 'peak-performance') return (b.peakPercentVsTarget ?? 0) - (a.peakPercentVsTarget ?? 0);
-            if (sortBy === 'improvement') return (b.improvement ?? 0) - (a.improvement ?? 0);
-            if (sortBy === 'name') return a.picName.localeCompare(b.picName);
-            return 0;
-        });
-        };
-
-
-    // Dynamic column configuration based on sort selection
-    const getColumnConfig = () => {
-        const configs = {
-            'performance': {
-                primary: { key: 'avgPercentVsTarget', label: 'Avg % vs Target', emoji: '✅' },
-                secondary: [
-                    { key: 'targetsHit', label: 'Targets Hit' },
-                    { key: 'peakPercentVsTarget', label: 'Peak % Above' },
-                    { key: 'recentTrend', label: 'Recent Trend' }
-                ]
-            },
-            'targets-hit': {
-                primary: { key: 'targetsHit', label: 'Targets Hit', emoji: '🎯' },
-                secondary: [
-                    { key: 'avgPercentVsTarget', label: 'Avg % vs Target' },
-                    { key: 'peakPercentVsTarget', label: 'Peak % Above' },
-                    { key: 'recentTrend', label: 'Recent Trend' }
-                ]
-            },
-            'peak-performance': {
-                primary: { key: 'peakPercentVsTarget', label: 'Peak % Above', emoji: '⭐' },
-                secondary: [
-                    { key: 'avgPercentVsTarget', label: 'Avg % vs Target' },
-                    { key: 'targetsHit', label: 'Targets Hit' },
-                    { key: 'recentTrend', label: 'Recent Trend' }
-                ]
-            },
-            'improvement': {
-                primary: { key: 'recentTrend', label: 'Recent Trend', emoji: '📈' },
-                secondary: [
-                    { key: 'avgPercentVsTarget', label: 'Avg % vs Target' },
-                    { key: 'targetsHit', label: 'Targets Hit' },
-                    { key: 'peakPercentVsTarget', label: 'Peak % Above' }
-                ]
-            },
-            'name': {
-                primary: { key: 'avgPercentVsTarget', label: 'Avg % vs Target', emoji: '✅' },
-                secondary: [
-                    { key: 'targetsHit', label: 'Targets Hit' },
-                    { key: 'peakPercentVsTarget', label: 'Peak % Above' },
-                    { key: 'recentTrend', label: 'Recent Trend' }
-                ]
-            }
+          } catch (e) {
+            // ignore parse errors
+          }
         }
-        return configs[sortBy] || configs['performance']
+      }
+
+      return allData
+    } catch (err) {
+      console.error('Error loading local data', err)
+      return []
+    }
+  }
+
+  // --- Load data from API with local fallback ---
+  const loadReportData = async (startDate, endDate) => {
+    if (isDemo) return
+    setIsLoading(true)
+    try {
+      const storeName = getStoreNameFromPath()
+      try {
+        const data = await apiService.loadProductivityRange(startDate, endDate, storeName)
+        const transformed = (data || []).map((r, i) => ({
+          id: i + 1,
+          picName: r.pic_name || 'Unknown',
+          daypart: r.daypart ? (r.daypart.charAt(0).toUpperCase() + r.daypart.slice(1)) : 'Unknown',
+          date: r.record_date,
+          actualSales: Number(r.sales_amount) || 0,
+          actualProductivity: Number(r.actual_productivity) || 0,
+          targetProductivity: Number(r.target_productivity) || 0,
+          performanceScore: r.target_productivity ? (Number(r.actual_productivity) / Number(r.target_productivity) * 100) : 0,
+          tier: r.target_productivity ? (Number(r.actual_productivity) >= (Number(r.target_productivity) - 2) ? "Top 20%" : "Top 50%") : "No Data",
+          improvement: calculateImprovementTrend(r.pic_name, r.daypart, data)
+        })).filter(x => x.actualProductivity > 0)
+        setReportData(transformed)
+      } catch (apiErr) {
+        const local = loadLocalStorageData(startDate, endDate, storeName)
+        setReportData(local)
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // --- Improvement trend helper used by API transform (unchanged) ---
+  const calculateImprovementTrend = (picName, daypart, allData) => {
+    const picDaypartData = (allData || [])
+      .filter(record => record.pic_name === picName && record.daypart === daypart)
+      .sort((a, b) => new Date(b.record_date) - new Date(a.record_date))
+      .slice(0, 5)
+
+    if (picDaypartData.length < 3) return 0
+
+    const recent = picDaypartData.slice(0, Math.ceil(picDaypartData.length / 2))
+    const older = picDaypartData.slice(Math.ceil(picDaypartData.length / 2))
+
+    const recentAvg = recent.reduce((s, rec) => {
+      const t = Number(rec.target_productivity) || 0
+      const a = Number(rec.actual_productivity) || 0
+      const pct = t ? ((a - t) / t) * 100 : 0
+      return s + pct
+    }, 0) / recent.length
+
+    const olderAvg = older.reduce((s, rec) => {
+      const t = Number(rec.target_productivity) || 0
+      const a = Number(rec.actual_productivity) || 0
+      const pct = t ? ((a - t) / t) * 100 : 0
+      return s + pct
+    }, 0) / older.length
+
+    return recentAvg - olderAvg
+  }
+
+  // --- Effect: load data when filter changes ---
+  useEffect(() => {
+    if (filterPeriod === 'example-data' || isDemo) return
+
+    const today = new Date()
+    let startDate, endDate
+    if (filterPeriod === 'last-30-days') {
+      const d = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+      startDate = d.toISOString().split('T')[0]
+      endDate = today.toISOString().split('T')[0]
+    } else if (filterPeriod === 'last-90-days') {
+      const d = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
+      startDate = d.toISOString().split('T')[0]
+      endDate = today.toISOString().split('T')[0]
+    } else if (filterPeriod === 'ytd') {
+      const d = new Date(today.getFullYear(), 0, 1)
+      startDate = d.toISOString().split('T')[0]
+      endDate = today.toISOString().split('T')[0]
+    } else if (filterPeriod === 'custom' && customStartDate && customEndDate) {
+      startDate = customStartDate
+      endDate = customEndDate
+    } else {
+      return
     }
 
-    const columnConfig = getColumnConfig()
+    loadReportData(startDate, endDate)
+  }, [filterPeriod, customStartDate, customEndDate, isDemo])
 
-    const getTargetAchievementColor = (score) => {
-        if (score >= 105) return '#22c55e' // green - exceeding target
-        if (score >= 100) return '#3b82f6' // blue - meeting target
-        if (score >= 95) return '#eab308' // yellow - close to target
-        return '#ef4444' // red - below target
+  // --- Core: compute per-PIC aggregated metrics (avg % vs target, targetsHit, peak, recentTrend) ---
+  const getSortedFilteredData = () => {
+    // Use loaded reportData (no example data)
+    let dataSource = reportData || []
+    let filteredData = dataSource
+
+    // Apply frontend date filter only when custom or demo; for real data API already filtered
+    if (filterPeriod === 'custom' && customStartDate && customEndDate) {
+      filteredData = dataSource.filter(item => {
+        const d = new Date(item.date)
+        return d >= new Date(customStartDate) && d <= new Date(customEndDate)
+      })
+    } else if (filterPeriod === 'last-30-days' || filterPeriod === 'last-90-days' || filterPeriod === 'ytd') {
+      // If reportData is empty (demo mode or local fallback), apply client-side filter
+      const today = new Date()
+      if (filterPeriod === 'last-30-days') {
+        const cutoff = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+        filteredData = dataSource.filter(item => new Date(item.date) >= cutoff)
+      } else if (filterPeriod === 'last-90-days') {
+        const cutoff = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
+        filteredData = dataSource.filter(item => new Date(item.date) >= cutoff)
+      } else if (filterPeriod === 'ytd') {
+        const start = new Date(today.getFullYear(), 0, 1)
+        filteredData = dataSource.filter(item => new Date(item.date) >= start)
+      }
     }
 
-    const getTargetAchievementIcon = (score) => {
-        if (score >= 105) return '🏆' // Exceeding target
-        if (score >= 100) return '✅' // Meeting target
-        if (score >= 95) return '📊' // Close to target
-        return '⚠️' // Below target
-    }
-
-    const sortedData = getSortedFilteredData();
-    const filteredData = getFilteredData();
-
-    // Per-record percent vs target (numeric array)
-    const perRecordPercents = filteredData
-    .map(item => {
-        const t = Number(item.targetProductivity) || 0;
-        const a = Number(item.actualProductivity) || 0;
-        if (t === 0) return null;
-        return ((a - t) / t) * 100;
+    // Group by PIC name
+    const picRecords = {}
+    filteredData.forEach(item => {
+      if (!item || !item.picName) return
+      if (!picRecords[item.picName]) picRecords[item.picName] = []
+      picRecords[item.picName].push(item)
     })
-    .filter(v => typeof v === 'number' && !isNaN(v));
 
-    // Team average percent vs target (numeric)
-    const teamAvgPercentVsTarget = perRecordPercents.length > 0
+    // Build aggregated PIC array
+    const aggregated = Object.keys(picRecords).map((picName, idx) => {
+      const records = picRecords[picName]
+      const sorted = [...records].sort((a, b) => new Date(b.date) - new Date(a.date))
+
+      // percent vs target per record (exclude target === 0)
+      const percentList = sorted
+        .map(r => {
+          const t = Number(r.targetProductivity) || 0
+          const a = Number(r.actualProductivity) || 0
+          if (t === 0) return null
+          return ((a - t) / t) * 100
+        })
+        .filter(v => typeof v === 'number' && !isNaN(v))
+
+      // avgPercentVsTarget
+      const avgPercentVsTarget = percentList.length > 0
+        ? percentList.reduce((s, v) => s + v, 0) / percentList.length
+        : 0
+
+      // targetsHit
+      const targetsHit = records.reduce((count, r) => {
+        const t = Number(r.targetProductivity) || 0
+        const a = Number(r.actualProductivity) || 0
+        return count + (t > 0 && a >= (t - 2) ? 1 : 0)
+      }, 0)
+
+      // peakPercentVsTarget
+      const peakPercentVsTarget = percentList.length > 0 ? Math.max(...percentList) : 0
+
+      // recentTrend: use up to 5 most recent percent values
+      // If there are >=5 use 5; if 3-4 use those; if 1-2 use them but UI will mark limited data
+      const recentSlice = percentList.slice(0, 5)
+      const recentTrend = recentSlice.length > 0
+        ? recentSlice.reduce((s, v) => s + v, 0) / recentSlice.length
+        : 0
+
+      // avg sales per record
+      const totalSales = records.reduce((s, r) => s + (Number(r.actualSales) || 0), 0)
+      const avgSales = records.length > 0 ? Math.round(totalSales / records.length) : 0
+
+      return {
+        id: idx + 1,
+        picName,
+        avgPercentVsTarget,
+        actualSales: avgSales,
+        improvement: recentTrend,
+        targetsHit,
+        count: records.length,
+        targetHitPercentage: records.length > 0 ? (targetsHit / records.length) * 100 : 0,
+        peakPercentVsTarget,
+        recentTrend,
+        tier: records[0]?.tier ?? ''
+      }
+    })
+
+    // Sort according to sortBy
+    const sorted = [...aggregated].sort((a, b) => {
+      if (sortBy === 'performance') return (b.avgPercentVsTarget ?? 0) - (a.avgPercentVsTarget ?? 0)
+      if (sortBy === 'targets-hit') return (b.targetsHit ?? 0) - (a.targetsHit ?? 0)
+      if (sortBy === 'peak-performance') return (b.peakPercentVsTarget ?? 0) - (a.peakPercentVsTarget ?? 0)
+      if (sortBy === 'improvement') return (b.improvement ?? 0) - (a.improvement ?? 0)
+      if (sortBy === 'name') return a.picName.localeCompare(b.picName)
+      return 0
+    })
+
+    return sorted
+  }
+
+  // --- Column config and small helpers (unchanged) ---
+  const getColumnConfig = () => {
+    const configs = {
+      'performance': {
+        primary: { key: 'avgPercentVsTarget', label: 'Avg % vs Target', emoji: '✅' },
+        secondary: [
+          { key: 'targetsHit', label: 'Targets Hit' },
+          { key: 'peakPercentVsTarget', label: 'Peak % Above' },
+          { key: 'recentTrend', label: 'Recent Trend' }
+        ]
+      },
+      'targets-hit': {
+        primary: { key: 'targetsHit', label: 'Targets Hit', emoji: '🎯' },
+        secondary: [
+          { key: 'avgPercentVsTarget', label: 'Avg % vs Target' },
+          { key: 'peakPercentVsTarget', label: 'Peak % Above' },
+          { key: 'recentTrend', label: 'Recent Trend' }
+        ]
+      },
+      'peak-performance': {
+        primary: { key: 'peakPercentVsTarget', label: 'Peak % Above', emoji: '⭐' },
+        secondary: [
+          { key: 'avgPercentVsTarget', label: 'Avg % vs Target' },
+          { key: 'targetsHit', label: 'Targets Hit' },
+          { key: 'recentTrend', label: 'Recent Trend' }
+        ]
+      },
+      'improvement': {
+        primary: { key: 'recentTrend', label: 'Recent Trend', emoji: '📈' },
+        secondary: [
+          { key: 'avgPercentVsTarget', label: 'Avg % vs Target' },
+          { key: 'targetsHit', label: 'Targets Hit' },
+          { key: 'peakPercentVsTarget', label: 'Peak % Above' }
+        ]
+      },
+      'name': {
+        primary: { key: 'avgPercentVsTarget', label: 'Avg % vs Target', emoji: '✅' },
+        secondary: [
+          { key: 'targetsHit', label: 'Targets Hit' },
+          { key: 'peakPercentVsTarget', label: 'Peak % Above' },
+          { key: 'recentTrend', label: 'Recent Trend' }
+        ]
+      }
+    }
+    return configs[sortBy] || configs['performance']
+  }
+
+  const columnConfig = getColumnConfig()
+
+  const getTargetAchievementColor = (score) => {
+    if (score >= 105) return '#22c55e'
+    if (score >= 100) return '#3b82f6'
+    if (score >= 95) return '#eab308'
+    return '#ef4444'
+  }
+
+  const getTargetAchievementIcon = (score) => {
+    if (score >= 105) return '🏆'
+    if (score >= 100) return '✅'
+    if (score >= 95) return '📊'
+    return '⚠️'
+  }
+
+  // --- Team summary aggregation (numeric-safe) ---
+  const sortedData = getSortedFilteredData()
+  const filteredData = (() => {
+    // Use reportData filtered by the same date logic as getSortedFilteredData
+    if (!reportData || reportData.length === 0) return []
+    if (filterPeriod === 'custom' && customStartDate && customEndDate) {
+      return reportData.filter(item => {
+        const d = new Date(item.date)
+        return d >= new Date(customStartDate) && d <= new Date(customEndDate)
+      })
+    }
+    if (filterPeriod === 'last-30-days' || filterPeriod === 'last-90-days' || filterPeriod === 'ytd') {
+      const today = new Date()
+      if (filterPeriod === 'last-30-days') {
+        const cutoff = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
+        return reportData.filter(item => new Date(item.date) >= cutoff)
+      } else if (filterPeriod === 'last-90-days') {
+        const cutoff = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
+        return reportData.filter(item => new Date(item.date) >= cutoff)
+      } else if (filterPeriod === 'ytd') {
+        const start = new Date(today.getFullYear(), 0, 1)
+        return reportData.filter(item => new Date(item.date) >= start)
+      }
+    }
+    return reportData
+  })()
+
+  const perRecordPercents = filteredData
+    .map(item => {
+      const t = Number(item.targetProductivity) || 0
+      const a = Number(item.actualProductivity) || 0
+      if (t === 0) return null
+      return ((a - t) / t) * 100
+    })
+    .filter(v => typeof v === 'number' && !isNaN(v))
+
+  const teamAvgPercentVsTarget = perRecordPercents.length > 0
     ? perRecordPercents.reduce((s, v) => s + v, 0) / perRecordPercents.length
-    : 0;
+    : 0
 
-    // Team max percent above target (numeric)
-    const teamMaxPercentAboveTarget = perRecordPercents.length > 0
+  const teamMaxPercentAboveTarget = perRecordPercents.length > 0
     ? Math.max(...perRecordPercents)
-    : 0;
+    : 0
 
-    // Team average improvement: use numeric improvement values only
-    const improvementValues = filteredData
+  const improvementValues = filteredData
     .map(item => (typeof item.improvement === 'number' && !isNaN(item.improvement) ? item.improvement : null))
-    .filter(v => v !== null);
+    .filter(v => v !== null)
 
-    const teamAvgImprovement = improvementValues.length > 0
+  const teamAvgImprovement = improvementValues.length > 0
     ? improvementValues.reduce((s, v) => s + v, 0) / improvementValues.length
-    : 0;
+    : 0
 
-    // Keep per-PIC helper outputs (numeric)
-    const avgImprovement = getAvgImprovement(sortedData);
-    const maxPercentAboveTarget = getMaxPercentAboveTarget(sortedData);
-    const avgPercentVsTarget = getTeamAvgPercentVsTarget(sortedData);
+  // --- Helper functions (numeric outputs) ---
+  const getAvgImprovement = (data) => {
+    if (!data || data.length === 0) return 0
+    const improvements = data
+      .map(item => (typeof item.recentTrend === 'number' ? item.recentTrend : (typeof item.improvement === 'number' ? item.improvement : null)))
+      .filter(v => v !== null && !isNaN(v))
+    if (improvements.length === 0) return 0
+    return improvements.reduce((s, v) => s + v, 0) / improvements.length
+  }
 
+  const getMaxPercentAboveTarget = (data) => {
+    if (!data || data.length === 0) return 0
+    const peaks = data
+      .map(item => (typeof item.peakPercentVsTarget === 'number' ? item.peakPercentVsTarget : null))
+      .filter(v => v !== null && !isNaN(v))
+    if (peaks.length === 0) return 0
+    return Math.max(...peaks)
+  }
 
-    return (
-        <div style={styles.container}>
-            {/* Brief Instruction Section */}
-            <div style={styles.instructionSection}>
-                <p style={styles.instruction}>
-                    {isDemo ? 
-                        "This demo report tracks team achievement and individual growth using key performance metrics. Use sorting options to view % above target (main success metric), targets hit (consistency), peak performance (individual excellence), and recent trends (growth momentum)." :
-                        "This report tracks team achievement and individual growth using key performance metrics. Use timeframe filters and sorting options to track % above target (main success metric), targets hit (consistency), peak performance (individual excellence), and recent trends (growth momentum)."
-                    }
-                </p>
-            </div>
+  const getTeamAvgPercentVsTarget = (data) => {
+    if (!data || data.length === 0) return 0
+    const percents = data
+      .map(item => (typeof item.avgPercentVsTarget === 'number' ? item.avgPercentVsTarget : null))
+      .filter(v => v !== null && !isNaN(v))
+    if (percents.length === 0) return 0
+    return percents.reduce((s, v) => s + v, 0) / percents.length
+  }
 
-            {/* Filters and Controls */}
-            <div style={styles.controls}>
-                {!isDemo && (
-                    <div style={styles.filterGroup}>
-                        <label style={styles.filterLabel}>Time Period:</label>
-                        <select 
-                            value={filterPeriod}
-                            onChange={(e) => setFilterPeriod(e.target.value)}
-                            style={styles.select}
-                        >
-                            <option value="last-30-days">Last 30 Days</option>
-                            <option value="last-90-days">Last 90 Days</option>
-                            <option value="ytd">Year to Date</option>
-                            <option value="example-data">Example Data</option>
-                            <option value="custom">Custom Dates</option>
-                        </select>
-                    </div>
-                )}
+  const avgImprovement = getAvgImprovement(sortedData)
+  const maxPercentAboveTarget = getMaxPercentAboveTarget(sortedData)
+  const avgPercentVsTarget = getTeamAvgPercentVsTarget(sortedData)
 
-                {!isDemo && filterPeriod === 'custom' && (
-                    <div style={styles.filterGroup}>
-                        <label style={styles.filterLabel}>Date Range:</label>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                            <input
-                                type="date"
-                                value={customStartDate}
-                                onChange={(e) => setCustomStartDate(e.target.value)}
-                                style={styles.dateInput}
-                            />
-                            <input
-                                type="date"
-                                value={customEndDate}
-                                onChange={(e) => setCustomEndDate(e.target.value)}
-                                style={styles.dateInput}
-                            />
-                        </div>
-                    </div>
-                )}
+  // --- Render ---
+  return (
+    <div style={styles.container}>
+      <div style={styles.instructionSection}>
+        <p style={styles.instruction}>
+          {isDemo ?
+            "This demo report tracks team achievement and individual growth using key performance metrics." :
+            "This report tracks team achievement and individual growth using key performance metrics."
+          }
+        </p>
+      </div>
 
-                <div style={styles.filterGroup}>
-                    <label style={styles.filterLabel}>Sort By:</label>
-                    <select 
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                        style={styles.select}
-                    >
-                        <option value="performance">% Above Target</option>
-                        <option value="targets-hit">Targets Hit</option>
-                        <option value="peak-performance">Peak Performance</option>
-                        <option value="improvement">Recent Improvement</option>
-                        <option value="name">Name</option>
-                    </select>
-                </div>
-            </div>
-
-            {/* Loading State */}
-            {isLoading && !isDemo && (
-                <div style={styles.loadingContainer}>
-                    <div style={styles.loadingText}>📊 Loading report data...</div>
-                </div>
-            )}
-
-            {/* Main Content: Team Summary (Left) + Leaderboard (Right) */}
-            <div style={styles.mainContentGrid}>
-                {/* Team Summary - Left Side */}
-                <div style={styles.teamSummarySection}>
-                    <h2 style={{...styles.sectionTitle, textAlign: 'center', fontSize: '2rem'}}>Team Summary</h2>
-                    <p style={styles.sectionDescription}>
-                        Performance insights across all dayparts, measuring consistent target achievement and team growth.
-                    </p>
-                    
-                    <div style={styles.summaryMetrics}>
-                        <div style={styles.summaryCard}>
-                            <div style={styles.summaryNumber}>
-                                {filteredData.filter(item => item.targetProductivity && ((item.actualProductivity / item.targetProductivity - 1) * 100) > 0).length}
-                            </div>
-                            <div style={styles.summaryLabel}>Above Target</div>
-                            <div style={styles.summarySubtext}>
-                                of {filteredData.length} total shifts
-                            </div>
-                        </div>
-                        <div style={styles.summaryCard}>
-                            <div style={styles.summaryNumber}> 
-                                {(teamAvgPercentVsTarget).toFixed(1)}% 
-                            </div>
-                            <div style={styles.summaryLabel}>Avg % Above Target</div>
-                            <div style={styles.summarySubtext}>
-                                performance vs targets
-                            </div>
-                        </div>
-                        <div style={styles.summaryCard}>
-                            <div style={styles.summaryNumber}> 
-                                {(teamAvgImprovement).toFixed(1)}% 
-                            </div>
-                            <div style={styles.summaryLabel}>Avg Improvement</div>
-                            <div style={styles.summarySubtext}>
-                                recent trend
-                            </div>
-                        </div>
-                        <div style={styles.summaryCard}>
-                            <div style={styles.summaryNumber}> 
-                                {(teamMaxPercentAboveTarget).toFixed(1)}% 
-                            </div>
-                            <div style={styles.summaryLabel}>Top Performance</div>
-                            <div style={styles.summarySubtext}>
-                                best % above target
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div style={styles.insightBox}>
-                        <h4 style={styles.insightTitle}>💡 Key Insights</h4>
-                        <ul style={styles.insightList}>
-                            <li style={styles.insightItem}>• Each daypart has unique challenges - breakfast complexity vs. lunch volume</li>
-                            <li style={styles.insightItem}>• Targets adjust automatically based on sales and operational weights</li>
-                            <li style={styles.insightItem}>• Consistency matters more than peak performance on high-sales days</li>
-                            <li style={styles.insightItem}>• Improvement trends show team development over time</li>
-                        </ul>
-                    </div>
-                </div>
-
-                {/* Leaderboard - Right Side */}
-                <div style={styles.leaderboardSection}>
-                    <h2 style={styles.leaderboardTitle}>📊 Leaderboard</h2>
-                    
-                    {sortedData.length === 0 ? (
-                        <div style={styles.noData}>
-                            {filterPeriod === 'example-data' ? 
-                                "No example data available" : 
-                                isDemo ? 
-                                    "No demo data available for this time period" :
-                                    "No performance data found for this date range. Use the store dashboard to record daily sales and productivity data, then view team reports here."
-                            }
-                        </div>
-                    ) : (
-                        <div>
-                            {/* Dynamic Headers */}
-                            <div style={styles.leaderboardHeaders}>
-                                <div style={styles.rankHeader}>Rank</div>
-                                <div style={styles.picHeader}>Name</div>
-                                <div style={styles.primaryHeader}>
-                                    {columnConfig.primary.emoji} {columnConfig.primary.label}
-                                </div>
-                                {columnConfig.secondary.map((col, index) => (
-                                    <div key={col.key} style={index === columnConfig.secondary.length - 1 ? styles.lastSecondaryHeader : styles.secondaryHeader}>
-                                        {col.label}
-                                    </div>
-                                ))}
-                            </div>
-                            
-                            <div style={styles.scoreboardList}>
-                                {sortedData.slice(0, 10).map((item, index) => {
-                                    // Progressive shades of blue for each row
-                                    const blueShades = [
-                                        '#3b82f6', // Bright blue
-                                        '#2563eb', // Medium-bright blue  
-                                        '#1d4ed8', // Medium blue
-                                        '#1e40af', // Darker blue
-                                        '#1e3a8a', // Dark blue
-                                        '#1e3a8a', // Dark blue (repeat)
-                                        '#172b69', // Darker blue
-                                        '#172b69', // Darker blue (repeat)
-                                        '#0f1f47', // Very dark blue
-                                        '#0f1f47'  // Very dark blue (repeat)
-                                    ]
-                                    const backgroundColor = blueShades[index] || '#1e293b'
-                                    
-                                    return (
-                                    <div key={item.id} style={{
-                                        ...styles.scoreboardRow,
-                                        backgroundColor
-                                    }}>
-                                        {/* Rank */}
-                                        <div style={styles.rankColumn}>
-                                            <div style={{...styles.rankNumber, color: '#ffffff'}}>#{index + 1}</div>
-                                        </div>
-                                        
-                                        {/* PIC Name */}
-                                        <div style={styles.picColumn}>
-                                            <div style={{...styles.picNameLarge, color: '#ffffff'}}>{item.picName}</div>
-                                        </div>
-                                        
-                                        {/* Primary Metric (Dynamic) */}
-                                        <div style={styles.primaryColumn}>
-                                            <div style={{
-                                                ...styles.primaryValue,
-                                                color: '#ffffff', 
-                                                fontWeight: 'bold',
-                                                fontSize: '18px'
-                                            }}>
-                                                {columnConfig.primary.key === 'avgPercentVsTarget' && (
-                                                    <>
-                                                        {(item.avgPercentVsTarget ?? 0) >= 0 ? ((item.avgPercentVsTarget ?? 0) > 0 ? '🟢+' : '⚫') : '🔴'}
-                                                        {(item.avgPercentVsTarget ?? 0).toFixed(1)}%
-                                                    </>
-                                                    )}
-                                                {columnConfig.primary.key === 'targetsHit' && (
-                                                    <>
-                                                        {item.targetsHit ?? 0}/{item.count ?? 0}
-                                                        <div style={{ fontSize: '11px', opacity: 0.8 }}>
-                                                        ({item.count ? ((item.targetHitPercentage ?? 0).toFixed(0)) : '0'}%)
-                                                        </div>
-                                                    </>
-                                                    )}
-                                                {columnConfig.primary.key === 'peakPercentVsTarget' && (
-                                                    <>{(item.peakPercentVsTarget ?? 0) > 10 ? '🟢' : (item.peakPercentVsTarget ?? 0) > 0 ? '🟡' : '🔴'}+{(item.peakPercentVsTarget ?? 0).toFixed(1)}%</>
-                                                )}
-                                                {columnConfig.primary.key === 'recentTrend' && (
-                                                    <>{(item.recentTrend ?? 0) > 0 ? (
-                                                        <>{(item.recentTrend ?? 0) > 2 ? '🟢' : '🟡'}+{(item.recentTrend ?? 0).toFixed(1)}%
-                                                        <div style={{ fontSize: '10px', opacity: 0.8 }}>trending</div></>
-                                                    ) : (
-                                                        <>🔴--</>
-                                                    )}</>
-                                                )}
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Secondary Metrics (Dynamic) */}
-                                        {columnConfig.secondary.map((col) => (
-                                            <div key={col.key} style={styles.secondaryColumn}>
-                                                <div style={{
-                                                    ...styles.secondaryValue,
-                                                    color: '#ffffff'
-                                                }}>
-                                                    {col.key === 'avgPercentVsTarget' && (
-                                                        <>{(item.avgPercentVsTarget ?? 0) >= 0 ? '+' : ''}{(item.avgPercentVsTarget ?? 0).toFixed(1)}%</>
-                                                    )}
-                                                    {col.key === 'targetsHit' && (
-                                                        <>{item.targetsHit}/{item.count || 0}
-                                                        <div style={{ fontSize: '11px', opacity: 0.8 }}>({item.targetHitPercentage ? item.targetHitPercentage.toFixed(0) : 0}%)</div></>
-                                                    )}
-                                                    {col.key === 'highestPercentAbove' && (
-                                                        <>+{item.highestPercentAbove.toFixed(1)}%</>
-                                                    )}
-                                                    {col.key === 'recentTrend' && (
-                                                        <>
-                                                            {item.recentTrend !== undefined && item.count > 0 ? (
-                                                            <>+{(item.recentTrend).toFixed(1)}%<div style={{ fontSize: '10px', opacity: 0.8 }}>trending</div></>
-                                                            ) : (
-                                                            '--'
-                                                            )}
-                                                        </>
-                                                        )}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Our Philosophy - Bottom Section */}
-            <div style={styles.philosophySection}>
-                <h3 style={styles.philosophyTitle}>Our Philosophy</h3>
-                <p style={styles.philosophyText}>
-                    This isn't about being better than each other—it's about each of us hitting our individual targets 
-                    based on the unique challenges of our daypart and sales volume. We win together when everyone 
-                    reaches their realistic, context-aware goals.
-                </p>
-                <p style={styles.philosophyText}>
-                    <strong>Remember:</strong> A breakfast shift hitting 95% of a complexity-adjusted target 
-                    is just as valuable as a lunch shift hitting 105% of their high-volume target. We measure 
-                    progress, not perfection.
-                </p>
-            </div>
+      <div style={styles.controls}>
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Time Period:</label>
+          <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)} style={styles.select}>
+            <option value="last-30-days">Last 30 Days</option>
+            <option value="last-90-days">Last 90 Days</option>
+            <option value="ytd">Year to Date</option>
+            <option value="custom">Custom Dates</option>
+          </select>
         </div>
-    )
+
+        {filterPeriod === 'custom' && (
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>Date Range:</label>
+            <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} style={styles.dateInput} />
+            <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} style={styles.dateInput} />
+          </div>
+        )}
+
+        <div style={styles.filterGroup}>
+          <label style={styles.filterLabel}>Sort By:</label>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={styles.select}>
+            <option value="performance">% Above Target</option>
+            <option value="targets-hit">Targets Hit</option>
+            <option value="peak-performance">Peak Performance</option>
+            <option value="improvement">Recent Improvement</option>
+            <option value="name">Name</option>
+          </select>
+        </div>
+      </div>
+
+      {isLoading && (
+        <div style={styles.loadingContainer}>
+          <div style={styles.loadingText}>📊 Loading report data...</div>
+        </div>
+      )}
+
+      <div style={styles.mainContentGrid}>
+        <div style={styles.teamSummarySection}>
+          <h2 style={{ ...styles.sectionTitle, textAlign: 'center', fontSize: '2rem' }}>Team Summary</h2>
+          <p style={styles.sectionDescription}>Performance insights across all dayparts, measuring consistent target achievement and team growth.</p>
+
+          <div style={styles.summaryMetrics}>
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryNumber}>
+                {filteredData.filter(item => item.targetProductivity && ((item.actualProductivity / item.targetProductivity - 1) * 100) > 0).length}
+              </div>
+              <div style={styles.summaryLabel}>Above Target</div>
+              <div style={styles.summarySubtext}>of {filteredData.length} total shifts</div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryNumber}>
+                {(teamAvgPercentVsTarget).toFixed(1)}%
+              </div>
+              <div style={styles.summaryLabel}>Avg % Above Target</div>
+              <div style={styles.summarySubtext}>performance vs targets</div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryNumber}>
+                {(teamAvgImprovement).toFixed(1)}%
+              </div>
+              <div style={styles.summaryLabel}>Avg Improvement</div>
+              <div style={styles.summarySubtext}>recent trend</div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryNumber}>
+                {(teamMaxPercentAboveTarget).toFixed(1)}%
+              </div>
+              <div style={styles.summaryLabel}>Top Performance</div>
+              <div style={styles.summarySubtext}>best % above target</div>
+            </div>
+          </div>
+
+          <div style={styles.insightBox}>
+            <h4 style={styles.insightTitle}>💡 Key Insights</h4>
+            <ul style={styles.insightList}>
+              <li style={styles.insightItem}>• Each daypart has unique challenges - breakfast complexity vs. lunch volume</li>
+              <li style={styles.insightItem}>• Targets adjust automatically based on sales and operational weights</li>
+              <li style={styles.insightItem}>• Consistency matters more than peak performance on high-sales days</li>
+              <li style={styles.insightItem}>• Improvement trends show team development over time</li>
+            </ul>
+          </div>
+        </div>
+
+        <div style={styles.leaderboardSection}>
+          <h2 style={styles.leaderboardTitle}>📊 Leaderboard</h2>
+
+          {sortedData.length === 0 ? (
+            <div style={styles.noData}>No performance data found for this date range.</div>
+          ) : (
+            <>
+              <div style={styles.leaderboardHeaders}>
+                <div style={styles.rankHeader}>Rank</div>
+                <div style={styles.picHeader}>Name</div>
+                <div style={styles.primaryHeader}>{columnConfig.primary.emoji} {columnConfig.primary.label}</div>
+                {columnConfig.secondary.map((col, i) => (
+                  <div key={col.key} style={i === columnConfig.secondary.length - 1 ? styles.lastSecondaryHeader : styles.secondaryHeader}>{col.label}</div>
+                ))}
+              </div>
+
+              <div style={styles.scoreboardList}>
+                {sortedData.slice(0, 10).map((item, index) => {
+                  const blueShades = ['#3b82f6', '#2563eb', '#1d4ed8', '#1e40af', '#1e3a8a', '#172b69', '#0f1f47']
+                  const backgroundColor = blueShades[index] || '#1e293b'
+
+                  return (
+                    <div key={item.id} style={{ ...styles.scoreboardRow, backgroundColor }}>
+                      <div style={styles.rankColumn}><div style={{ ...styles.rankNumber, color: '#ffffff' }}>#{index + 1}</div></div>
+
+                      <div style={styles.picColumn}><div style={{ ...styles.picNameLarge, color: '#ffffff' }}>{item.picName}</div></div>
+
+                      <div style={styles.primaryColumn}>
+                        <div style={{ ...styles.primaryValue, color: '#ffffff', fontWeight: 'bold', fontSize: '18px' }}>
+                          {columnConfig.primary.key === 'avgPercentVsTarget' && (
+                            <>{(item.avgPercentVsTarget ?? 0) >= 0 ? ((item.avgPercentVsTarget ?? 0) > 0 ? '🟢+' : '⚫') : '🔴'}{(item.avgPercentVsTarget ?? 0).toFixed(1)}%</>
+                          )}
+                          {columnConfig.primary.key === 'targetsHit' && (
+                            <>{item.targetsHit ?? 0}/{item.count ?? 0} {(item.targetHitPercentage ?? 0) >= 75 ? '🟢' : (item.targetHitPercentage ?? 0) >= 50 ? '🟡' : '🔴'}
+                              <div style={{ fontSize: '11px', opacity: 0.8 }}>({(item.targetHitPercentage ?? 0).toFixed(0)}%)</div></>
+                          )}
+                          {columnConfig.primary.key === 'peakPercentVsTarget' && (
+                            <>{(item.peakPercentVsTarget ?? 0) > 10 ? '🟢' : (item.peakPercentVsTarget ?? 0) > 0 ? '🟡' : '🔴'}+{(item.peakPercentVsTarget ?? 0).toFixed(1)}%</>
+                          )}
+                          {columnConfig.primary.key === 'recentTrend' && (
+                            <>{item.count === 0 ? '--' : (item.recentTrend !== 0 ? ((item.recentTrend > 0 ? '🟢+' : '🔴') + (item.recentTrend).toFixed(1) + '%') : '--')}</>
+                          )}
+                        </div>
+                      </div>
+
+                      {columnConfig.secondary.map((col) => (
+                        <div key={col.key} style={styles.secondaryColumn}>
+                          <div style={{ ...styles.secondaryValue, color: '#ffffff' }}>
+                            {col.key === 'avgPercentVsTarget' && (
+                              <>{(item.avgPercentVsTarget ?? 0) >= 0 ? '+' : ''}{(item.avgPercentVsTarget ?? 0).toFixed(1)}%</>
+                            )}
+                            {col.key === 'targetsHit' && (
+                              <>{item.targetsHit}/{item.count || 0}
+                                <div style={{ fontSize: '11px', opacity: 0.8 }}>({item.targetHitPercentage ? item.targetHitPercentage.toFixed(0) : 0}%)</div></>
+                            )}
+                            {col.key === 'peakPercentVsTarget' && (
+                              <>+{(item.peakPercentVsTarget ?? 0).toFixed(1)}%</>
+                            )}
+                            {col.key === 'recentTrend' && (
+                              <>{item.count === 0 ? '--' : (item.recentTrend !== 0 ? `+${(item.recentTrend).toFixed(1)}%` : '--')}</>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div style={styles.philosophySection}>
+        <h3 style={styles.philosophyTitle}>Our Philosophy</h3>
+        <p style={styles.philosophyText}>
+          This isn't about being better than each other—it's about each of us hitting our individual targets based on the unique challenges of our daypart and sales volume.
+        </p>
+      </div>
+    </div>
+  )
 }
 
 const styles = {
