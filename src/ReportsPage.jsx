@@ -2,6 +2,22 @@ import React, { useState, useEffect } from 'react'
 import apiService from './apiService'
 
 export default function ReportsPage({ isDemo = false, storeName: propStoreName }) {
+                // ...existing code...
+                // Calculate avgImprovement for team summary
+                const getAvgImprovement = (data) => {
+                    if (!data || data.length === 0) return '0.0';
+                    const improvements = data.map(item => item.recentTrend ?? item.improvement ?? 0).filter(val => typeof val === 'number');
+                    if (improvements.length === 0) return '0.0';
+                    return (improvements.reduce((sum, val) => sum + val, 0) / improvements.length).toFixed(1);
+                };
+            // ...existing code...
+            // Calculate maxPercentAboveTarget for team summary
+            const getMaxPercentAboveTarget = (data) => {
+                if (!data || data.length === 0) return '0.0';
+                const peaks = data.map(item => item.peakPercentVsTarget ?? 0).filter(val => typeof val === 'number');
+                if (peaks.length === 0) return '0.0';
+                return Math.max(...peaks).toFixed(1);
+            };
         // ...existing code...
         // Calculate avgPercentVsTarget for team summary
         const getTeamAvgPercentVsTarget = (data) => {
@@ -459,6 +475,8 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
     }
 
     const sortedData = getSortedFilteredData()
+            const avgImprovement = getAvgImprovement(sortedData);
+        const maxPercentAboveTarget = getMaxPercentAboveTarget(sortedData);
     const avgPercentVsTarget = getTeamAvgPercentVsTarget(sortedData);
 
     return (
@@ -565,9 +583,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                         </div>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {sortedData.length > 0 ? (
-                                    sortedData.reduce((sum, item) => sum + (item.recentTrend !== undefined ? item.recentTrend : 0), 0) / sortedData.length
-                                ).toFixed(1) : '0.0'}%
+                                {avgImprovement}%
                             </div>
                             <div style={styles.summaryLabel}>Avg Improvement</div>
                             <div style={styles.summarySubtext}>
