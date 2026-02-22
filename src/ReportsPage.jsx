@@ -356,7 +356,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
 
         // Aggregate for team summary
         const allPercents = picAverages.__allPercents || [];
-        const avgPercentVsTarget = allPercents.length > 0 ? (allPercents.reduce((sum, val) => sum + val, 0) / allPercents.length).toFixed(1) : '0.0';
+        const teamAvgPercentVsTarget = allPercents.length > 0 ? (allPercents.reduce((sum, val) => sum + val, 0) / allPercents.length).toFixed(1) : '0.0';
         const maxPercentAboveTarget = allPercents.length > 0 ? Math.max(...allPercents).toFixed(1) : '0.0';
 
         // Convert to array with enhanced metrics
@@ -561,7 +561,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                         </div>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {avgPercentVsTarget}
+                                {teamAvgPercentVsTarget}
                             </div>
                             <div style={styles.summaryLabel}>Avg % Above Target</div>
                             <div style={styles.summarySubtext}>
