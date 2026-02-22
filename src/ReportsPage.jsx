@@ -1,3 +1,110 @@
+  // --- Core: compute per-PIC aggregated metrics (avg % vs target, targetsHit, peak, recentTrend) ---
+  const getSortedFilteredData = () => {
+    // Use loaded reportData (no example data)
+    let dataSource = reportData || [];
+    let filteredData = dataSource;
+
+    // Apply frontend date filter only when custom or demo; for real data API already filtered
+    if (filterPeriod === 'custom' && customStartDate && customEndDate) {
+      filteredData = dataSource.filter(item => {
+        const d = new Date(item.date);
+        return d >= new Date(customStartDate) && d <= new Date(customEndDate);
+      });
+    } else if (filterPeriod === 'last-30-days' || filterPeriod === 'last-90-days' || filterPeriod === 'ytd') {
+      // If reportData is empty (demo mode or local fallback), apply client-side filter
+      const today = new Date();
+      if (filterPeriod === 'last-30-days') {
+        const cutoff = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        filteredData = dataSource.filter(item => new Date(item.date) >= cutoff);
+      } else if (filterPeriod === 'last-90-days') {
+        const cutoff = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+        filteredData = dataSource.filter(item => new Date(item.date) >= cutoff);
+      } else if (filterPeriod === 'ytd') {
+        const start = new Date(today.getFullYear(), 0, 1);
+        filteredData = dataSource.filter(item => new Date(item.date) >= start);
+      }
+    }
+
+    // Group by PIC name
+    const picRecords = {};
+    filteredData.forEach(item => {
+      if (!item || !item.picName) return;
+      if (!picRecords[item.picName]) picRecords[item.picName] = [];
+      picRecords[item.picName].push(item);
+    });
+
+    // Build aggregated PIC array
+    const aggregated = Object.keys(picRecords).map((picName, idx) => {
+      const records = picRecords[picName];
+      const sorted = [...records].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+      // percent vs target per record (exclude target === 0)
+      const percentList = sorted
+        .map(r => {
+          const t = Number(r.targetProductivity) || 0;
+          const a = Number(r.actualProductivity) || 0;
+          if (t === 0) return null;
+          return ((a - t) / t) * 100;
+        })
+        .filter(v => typeof v === 'number' && !isNaN(v));
+
+      // avgPercentVsTarget
+      const avgPercentVsTarget = percentList.length > 0
+        ? percentList.reduce((s, v) => s + v, 0) / percentList.length
+        : 0;
+
+      // targetsHit: count dayparts >=2% above target
+      // targetsHit: count dayparts within 2 values of target (actual >= target - 2)
+      const targetsHit = records.reduce((count, r) => {
+        const t = Number(r.targetProductivity) || 0;
+        const a = Number(r.actualProductivity) || 0;
+        return count + (t > 0 && a >= (t - 2) ? 1 : 0);
+      }, 0);
+
+      // peakPercentVsTarget: only positive values
+      const positivePercents = percentList.filter(v => v > 0);
+      const peakPercentVsTarget = positivePercents.length > 0 ? Math.max(...positivePercents) : 0;
+
+      // recentTrend: use up to 5 most recent percent values
+      // If there are >=5 use 5; if 3-4 use those; if 1-2 use them but UI will mark limited data
+      const recentSlice = percentList.slice(0, 5);
+      const positiveRecent = recentSlice.filter(v => v > 0);
+      const recentTrend = positiveRecent.length > 0
+        ? positiveRecent.reduce((s, v) => s + v, 0) / positiveRecent.length
+        : 0;
+
+      // avg sales per record
+      const totalSales = records.reduce((s, r) => s + (Number(r.actualSales) || 0), 0);
+      const avgSales = records.length > 0 ? Math.round(totalSales / records.length) : 0;
+
+      return {
+        id: idx + 1,
+        picName,
+        avgPercentVsTarget,
+        actualSales: avgSales,
+        improvement: recentTrend,
+        targetsHit,
+        count: records.length,
+        targetHitPercentage: records.length > 0 ? (targetsHit / records.length) * 100 : 0,
+        peakPercentVsTarget,
+        recentTrend,
+        tier: records[0]?.tier ?? ''
+      };
+    });
+
+    // Sort according to sortBy
+    const sorted = [...aggregated].sort((a, b) => {
+      if (sortBy === 'performance') return (b.avgPercentVsTarget ?? 0) - (a.avgPercentVsTarget ?? 0);
+      if (sortBy === 'targets-hit') return (b.targetsHit ?? 0) - (a.targetsHit ?? 0);
+      if (sortBy === 'peak-performance') return (b.peakPercentVsTarget ?? 0) - (a.peakPercentVsTarget ?? 0);
+      if (sortBy === 'improvement') return (b.improvement ?? 0) - (a.improvement ?? 0);
+      if (sortBy === 'name') return a.picName.localeCompare(b.picName);
+      return 0;
+    });
+
+    return sorted;
+  };
+
   // --- Team summary aggregation (numeric-safe) ---
   const sortedData = getSortedFilteredData();
   const filteredData = (() => {
