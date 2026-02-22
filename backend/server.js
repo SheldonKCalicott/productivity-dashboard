@@ -204,6 +204,26 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
         const { storeName, startDate, endDate } = req.params;
         const storeId = await getStoreId(storeName);
 
+        // Fetch current weights and tier for the store
+        const weightsResult = await pool.query(
+            'SELECT * FROM operational_weights WHERE store_id = $1',
+            [storeId]
+        );
+        const settingsResult = await pool.query(
+            'SELECT * FROM store_settings WHERE store_id = $1',
+            [storeId]
+        );
+        // Default weights and tier if not set
+        const weightsRow = weightsResult.rows[0] || {};
+        const settingsRow = settingsResult.rows[0] || {};
+        const daypartWeights = {
+            breakfast: weightsRow.breakfast || 0.76,
+            lunch: weightsRow.lunch || 1.24,
+            afternoon: weightsRow.afternoon || 1.06,
+            dinner: weightsRow.dinner || 0.94
+        };
+        const selectedTier = settingsRow.ambition_tier || 'Top 50%';
+
         const result = await pool.query(`
             SELECT * FROM productivity_records 
             WHERE store_id = $1 AND record_date BETWEEN $2 AND $3
@@ -216,7 +236,22 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
                 END
         `, [storeId, startDate, endDate]);
 
-        res.json(result.rows);
+        // Recalculate targetProductivity for each record using current weights/tier
+        const recalculatedRows = result.rows.map(record => {
+            const sales = record.sales_amount ? parseInt(record.sales_amount.toString().replace(/[^0-9]/g, '')) : 0;
+            const targetProductivity = calculateTargetProductivity(
+                record.daypart,
+                sales,
+                selectedTier,
+                daypartWeights
+            );
+            return {
+                ...record,
+                target_productivity: targetProductivity
+            };
+        });
+
+        res.json(recalculatedRows);
     } catch (error) {
         console.error('Error fetching productivity range data:', error);
         res.status(500).json({ error: 'Internal server error' });
