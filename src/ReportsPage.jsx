@@ -357,7 +357,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
 
         // Aggregate for team summary
         const allPercents = picAverages.__allPercents || [];
-        const avgPercentAboveTarget = allPercents.length > 0 ? (allPercents.reduce((sum, val) => sum + val, 0) / allPercents.length).toFixed(1) : '0.0';
+        const avgPercentVsTarget = allPercents.length > 0 ? (allPercents.reduce((sum, val) => sum + val, 0) / allPercents.length).toFixed(1) : '0.0';
         const maxPercentAboveTarget = allPercents.length > 0 ? Math.max(...allPercents).toFixed(1) : '0.0';
 
         // Convert to array with enhanced metrics
@@ -553,7 +553,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                     <div style={styles.summaryMetrics}>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {sortedData.filter(item => item.avgPercentAboveTarget >= 0).length}
+                                {sortedData.filter(item => (item.avgPercentVsTarget ?? 0) >= 0).length}
                             </div>
                             <div style={styles.summaryLabel}>Above Target</div>
                             <div style={styles.summarySubtext}>
@@ -562,7 +562,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                         </div>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {avgPercentAboveTarget}
+                                {avgPercentVsTarget}
                             </div>
                             <div style={styles.summaryLabel}>Avg % Above Target</div>
                             <div style={styles.summarySubtext}>
@@ -699,8 +699,8 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                                                     ...styles.secondaryValue,
                                                     color: '#ffffff'
                                                 }}>
-                                                    {col.key === 'avgPercentAboveTarget' && (
-                                                        <>{item.avgPercentAboveTarget >= 0 ? '+' : ''}{item.avgPercentAboveTarget.toFixed(1)}%</>
+                                                    {col.key === 'avgPercentVsTarget' && (
+                                                        <>{(item.avgPercentVsTarget ?? 0) >= 0 ? '+' : ''}{(item.avgPercentVsTarget ?? 0).toFixed(1)}%</>
                                                     )}
                                                     {col.key === 'targetsHit' && (
                                                         <>{item.targetsHit}/{item.count || 0}
