@@ -1,4 +1,6 @@
+
 import React, { useState, useEffect } from "react"
+import { calculateTargetProductivity } from "./utils/targetUtils"
 
 // Simplified Productivity Dial - focused on ONE job: actual vs target
 function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, noDataMessage = "Enter sales and actual productivity below" }) {
@@ -582,7 +584,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             // Calculate date range based on selection
             const today = new Date()
             let startDate, endDate
-            
             if (exportDateRange === 'this-week') {
                 const startOfWeek = new Date(today)
                 startOfWeek.setDate(today.getDate() - today.getDay())
@@ -604,59 +605,57 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 // Fallback to current date
                 startDate = endDate = new Date().toISOString().split('T')[0]
             }
-            
             try {
                 // Fetch data from database for the date range
                 console.log(`📊 Exporting data from ${startDate} to ${endDate}`)
                 const response = await fetch(`/api/productivity/${effectiveStoreName}/range/${startDate}/${endDate}`)
-                
                 if (!response.ok) {
                     throw new Error(`Failed to fetch data: ${response.status}`)
                 }
-                
                 const databaseRecords = await response.json()
                 console.log(`📊 Retrieved ${databaseRecords.length} records from database`)
-                
                 // Generate all dates in range
                 const dates = []
                 const currentDate = new Date(startDate)
                 const finalDate = new Date(endDate)
-                
                 while (currentDate <= finalDate) {
                     dates.push(currentDate.toISOString().split('T')[0])
                     currentDate.setDate(currentDate.getDate() + 1)
                 }
-                
                 // Create CSV data with Date column first
                 const data = [
                     ['Date', 'Store', 'Daypart', 'Sales', 'Productivity', 'PIC', 'Target']
                 ];
-
-                // Only export actual database records
                 const dayparts = ['breakfast', 'lunch', 'afternoon', 'dinner'];
                 const daypartDisplayNames = ['Breakfast', 'Lunch', 'Afternoon', 'Dinner'];
                 dates.forEach(date => {
+                    // Get all records for this date
+                    const recordsForDate = databaseRecords.filter(r => {
+                        const recordDate = new Date(r.record_date).toISOString().split('T')[0];
+                        return recordDate === date;
+                    });
+                    // Calculate total sales for the day
+                    const totalSales = recordsForDate.reduce((sum, r) => sum + (parseInt(r.sales_amount) || 0), 0);
                     dayparts.forEach((daypart, index) => {
-                        // Normalize date format to YYYY-MM-DD
-                        const normalizedDate = new Date(date).toISOString().split('T')[0];
-                        // Find matching record from database
-                        const record = databaseRecords.find(r => {
-                            // Normalize record_date as well
-                            const recordDate = new Date(r.record_date).toISOString().split('T')[0];
-                            return recordDate === normalizedDate && r.daypart === daypart;
-                        });
+                        const record = recordsForDate.find(r => r.daypart === daypart);
+                        // Use centralized target calculation for export
+                        const target = calculateTargetProductivity(
+                            daypart,
+                            totalSales,
+                            selectedTier,
+                            daypartWeights
+                        );
                         data.push([
-                            normalizedDate,
+                            date,
                             storeName || 'Store',
                             daypartDisplayNames[index],
                             record?.sales_amount || '',
                             record?.actual_productivity || '',
                             record?.pic_name || '',
-                            record?.target_productivity || ''
+                            target
                         ]);
                     });
                 });
-
                 const csvContent = data.map(row => row.join(',')).join('\n')
                 const blob = new Blob([csvContent], { type: 'text/csv' })
                 const url = window.URL.createObjectURL(blob)
@@ -665,12 +664,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 link.download = `${storeName || 'store'}-productivity-${startDate}-to-${endDate}.csv`
                 link.click()
                 window.URL.revokeObjectURL(url)
-                
                 console.log(`✅ Exported ${data.length - 1} rows of data`)
-                
             } catch (error) {
                 console.error('Export failed:', error)
-                // Fallback message or could show an error notification
                 showMessage('export-error')
             }
         }
