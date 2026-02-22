@@ -891,7 +891,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 title="Breakfast"
                                 salesInput={breakfastSales}
                                 actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
-                                targetProductivity={calculateTargetProductivity('breakfast', getDaypartSales('breakfast') || 6000)}
+                                targetProductivity={calculateTargetProductivity('breakfast', getTotalSales(), selectedTier, daypartWeights)}
                                 salesContext="Tier-Based"
                             />
                         </div>
@@ -941,7 +941,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 title="Lunch"
                                 salesInput={lunchSales}
                                 actualProductivity={parseFloat(actualProductivity.lunch) || 0}
-                                targetProductivity={calculateTargetProductivity('lunch', getDaypartSales('lunch') || 10000)}
+                                targetProductivity={calculateTargetProductivity('lunch', getTotalSales(), selectedTier, daypartWeights)}
                                 salesContext="Tier-Based"
                             />
                         </div>
@@ -991,7 +991,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 title="Afternoon"
                                 salesInput={afternoonSales}
                                 actualProductivity={parseFloat(actualProductivity.afternoon) || 0}
-                                targetProductivity={calculateTargetProductivity('afternoon', getDaypartSales('afternoon') || 7000)}
+                                targetProductivity={calculateTargetProductivity('afternoon', getTotalSales(), selectedTier, daypartWeights)}
                                 salesContext="Tier-Based"
                             />
                         </div>
@@ -1041,7 +1041,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 title="Dinner"
                                 salesInput={dinnerSales}
                                 actualProductivity={parseFloat(actualProductivity.dinner) || 0}
-                                targetProductivity={calculateTargetProductivity('dinner', getDaypartSales('dinner') || 9000)}
+                                targetProductivity={calculateTargetProductivity('dinner', getTotalSales(), selectedTier, daypartWeights)}
                                 salesContext="Tier-Based"
                             />
                         </div>
