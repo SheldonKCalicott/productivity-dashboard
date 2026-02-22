@@ -76,7 +76,11 @@ function DashboardWrapper({ children, title, isTemplate = false, storeNumber = n
                                 } else {
                                     // Extract store number from current path
                                     const pathParts = window.location.pathname.split('/')
-                                    const storeNumber = pathParts[2]
+                                        const storeNumber = pathParts[2]
+                                        let storeName = storeNumber;
+                                        if (storeNumber === '04680') storeName = 'Tuskawilla';
+                                        if (storeNumber === '00661') storeName = 'Forsyth';
+                                        navigate(`/store/${storeName}/reports`)
                                     navigate(`/store/${storeNumber}/reports`)
                                 }
                             }} 
@@ -118,10 +122,11 @@ function StoreWrapper({ storeNumber }) {
     const location = useLocation()
     
     // Map store numbers to display names
-    const storeNames = {
-        '04680': 'Tuskawilla',
-        '00661': 'Forsyth'
-    }
+        const storeNames = {
+            '04680': 'Tuskawilla',
+            '00661': 'Forsyth'
+        }
+        const storeName = storeNames[storeNumber] || storeNumber || 'simplified';
     
     const storeName = storeNames[storeNumber] || `Store ${storeNumber}`
     const isReportsPage = location.pathname.includes('/reports')
@@ -137,8 +142,8 @@ function StoreWrapper({ storeNumber }) {
     return (
         <DashboardWrapper title={storeName}>
             <DaypartDashboard 
-                onNavigateToReports={() => navigate(`/store/${storeNumber}/reports`)}
-                storeNumber={storeNumber}
+                onNavigateToReports={() => navigate(`/store/${storeName}/reports`)}
+                storeNumber={storeName}
                 storeName={storeName}
             />
         </DashboardWrapper>

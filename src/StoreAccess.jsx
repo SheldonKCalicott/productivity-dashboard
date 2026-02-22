@@ -23,7 +23,7 @@ export default function StoreAccess() {
         const storeName = validStores[storeNumber.trim()]
         if (storeName) {
             // Direct routing to store dashboard
-            navigate(`/store/${storeNumber.trim()}`)
+            navigate(`/store/${storeName}`)
         } else {
             setError('Invalid store number. Please contact your manager.')
         }
