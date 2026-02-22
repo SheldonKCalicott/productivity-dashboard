@@ -570,7 +570,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
                                 {sortedData.length > 0 ? (
-                                    sortedData.reduce((sum, item) => sum + (item.improvement !== undefined ? item.improvement : 0), 0) / sortedData.length
+                                    sortedData.reduce((sum, item) => sum + (item.recentTrend !== undefined ? item.recentTrend : 0), 0) / sortedData.length
                                 ).toFixed(1) : '0.0'}%
                             </div>
                             <div style={styles.summaryLabel}>Avg Improvement</div>
@@ -581,7 +581,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
                                 {sortedData.length > 0 ? 
-                                    Math.max(...sortedData.map(item => item.avgPercentVsTarget !== undefined ? item.avgPercentVsTarget : 0)).toFixed(1) : '0.0'}%
+                                    Math.max(...sortedData.map(item => item.peakPercentVsTarget !== undefined ? item.peakPercentVsTarget : 0)).toFixed(1) : '0.0'}%
                             </div>
                             <div style={styles.summaryLabel}>Top Performance</div>
                             <div style={styles.summarySubtext}>
