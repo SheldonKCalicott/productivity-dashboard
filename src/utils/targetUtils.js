@@ -16,5 +16,5 @@ export function calculateTargetProductivity(daypartKey, totalDailySales, selecte
   const baseline = tierBaselines[selectedTier] || 85;
   const salesDelta = (totalDailySales - ANCHOR_SALES) / 1000;
   const baseTarget = baseline + SLOPE * salesDelta;
-  return Math.round(baseTarget);
+  return Math.round(baseTarget * daypartWeights[daypartKey]);
 }
