@@ -389,32 +389,34 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
     return '⚠️'
   }
 
+  // --- Core: compute per-PIC aggregated metrics (avg % vs target, targetsHit, peak, recentTrend) ---
+
   // --- Team summary aggregation (numeric-safe) ---
-  const sortedData = getSortedFilteredData()
+  const sortedData = getSortedFilteredData();
   const filteredData = (() => {
     // Use reportData filtered by the same date logic as getSortedFilteredData
-    if (!reportData || reportData.length === 0) return []
+    if (!reportData || reportData.length === 0) return [];
     if (filterPeriod === 'custom' && customStartDate && customEndDate) {
       return reportData.filter(item => {
-        const d = new Date(item.date)
-        return d >= new Date(customStartDate) && d <= new Date(customEndDate)
-      })
+        const d = new Date(item.date);
+        return d >= new Date(customStartDate) && d <= new Date(customEndDate);
+      });
     }
     if (filterPeriod === 'last-30-days' || filterPeriod === 'last-90-days' || filterPeriod === 'ytd') {
-      const today = new Date()
+      const today = new Date();
       if (filterPeriod === 'last-30-days') {
-        const cutoff = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
-        return reportData.filter(item => new Date(item.date) >= cutoff)
+        const cutoff = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return reportData.filter(item => new Date(item.date) >= cutoff);
       } else if (filterPeriod === 'last-90-days') {
-        const cutoff = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
-        return reportData.filter(item => new Date(item.date) >= cutoff)
+        const cutoff = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+        return reportData.filter(item => new Date(item.date) >= cutoff);
       } else if (filterPeriod === 'ytd') {
-        const start = new Date(today.getFullYear(), 0, 1)
-        return reportData.filter(item => new Date(item.date) >= start)
+        const start = new Date(today.getFullYear(), 0, 1);
+        return reportData.filter(item => new Date(item.date) >= start);
       }
     }
-    return reportData
-  })()
+    return reportData;
+  })();
 
   const perRecordPercents = filteredData
     .map(item => {
