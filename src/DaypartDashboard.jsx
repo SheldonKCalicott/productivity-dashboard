@@ -438,6 +438,13 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
         return bf + ln + af + dn
     }
+    const getTotalSales = () => {
+        const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
+        const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
+        const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
+        const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
+        return bf + ln + af + dn
+    }
 
     // Helper function to get sales value for a daypart
     const getDaypartSales = (daypartKey) => {
