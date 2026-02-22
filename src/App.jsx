@@ -132,7 +132,7 @@ function StoreWrapper({ storeNumber }) {
     if (isReportsPage) {
         return (
             <DashboardWrapper title={storeName}>
-                <ReportsPage />
+                <ReportsPage storeName={storeName} />
             </DashboardWrapper>
         )
     }

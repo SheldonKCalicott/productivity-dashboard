@@ -73,16 +73,16 @@ export default function ReportsPage({ isDemo = false }) {
         }
     ]
 
-    // Get store name from current URL path
+    // Get store name from prop or URL
     function getStoreNameFromPath() {
+        if (propStoreName) return propStoreName;
         const path = window.location.pathname;
-        const storeMatch = path.match(/\/store\/(\d+)/);
+        const storeMatch = path.match(/\/store\/([^/]+)/);
         if (storeMatch) {
-            // Map store number to store name
-            const storeNumber = storeMatch[1];
-            if (storeNumber === '04680') return 'Tuskawilla';
-            if (storeNumber === '00661') return 'Forsyth';
-            return `Store ${storeNumber}`;
+            const storeParam = storeMatch[1];
+            if (storeParam === '04680') return 'Tuskawilla';
+            if (storeParam === '00661') return 'Forsyth';
+            return storeParam;
         }
         return 'simplified'; // Default for demo/template
     }
