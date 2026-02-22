@@ -633,16 +633,24 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 ];
 
                 // Only export actual database records
-                databaseRecords.forEach(record => {
-                    data.push([
-                        record.record_date,
-                        storeName || 'Store',
-                        record.daypart.charAt(0).toUpperCase() + record.daypart.slice(1),
-                        record.sales_amount || '',
-                        record.actual_productivity || '',
-                        record.pic_name || '',
-                        record.target_productivity || ''
-                    ]);
+                const dayparts = ['breakfast', 'lunch', 'afternoon', 'dinner'];
+                const daypartDisplayNames = ['Breakfast', 'Lunch', 'Afternoon', 'Dinner'];
+                dates.forEach(date => {
+                    dayparts.forEach((daypart, index) => {
+                        // Find matching record from database
+                        const record = databaseRecords.find(r => 
+                            r.record_date === date && r.daypart === daypart
+                        );
+                        data.push([
+                            date,
+                            storeName || 'Store',
+                            daypartDisplayNames[index],
+                            record?.sales_amount || '',
+                            record?.actual_productivity || '',
+                            record?.pic_name || '',
+                            record?.target_productivity || ''
+                        ]);
+                    });
                 });
 
                 const csvContent = data.map(row => row.join(',')).join('\n')
