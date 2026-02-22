@@ -118,17 +118,14 @@ function TemplateWrapper() {
 }
 
 // Store wrapper (direct access by store number)
-function StoreWrapper({ storeNumber }) {
+function StoreWrapper({ storeNumber, storeName: propStoreName }) {
     const location = useLocation()
-    
-    // Map store numbers to display names
     const storeNames = {
         '04680': 'Tuskawilla',
         '00661': 'Forsyth'
     };
-    const storeName = storeNames[storeNumber] || storeNumber || 'simplified';
+    const storeName = propStoreName || storeNames[storeNumber] || storeNumber || 'simplified';
     const isReportsPage = location.pathname.includes('/reports')
-    
     if (isReportsPage) {
         return (
             <DashboardWrapper title={storeName}>
@@ -136,7 +133,6 @@ function StoreWrapper({ storeNumber }) {
             </DashboardWrapper>
         )
     }
-    
     return (
         <DashboardWrapper title={storeName}>
             <DaypartDashboard 
@@ -165,20 +161,20 @@ export default function App() {
                 {/* Store number routing - direct access */}
                 <Route 
                     path="/store/Tuskawilla" 
-                    element={<StoreWrapper storeNumber="Tuskawilla" />} 
+                    element={<StoreWrapper storeNumber="Tuskawilla" storeName="Tuskawilla" />} 
                 />
                 <Route 
                     path="/store/Tuskawilla/reports" 
-                    element={<StoreWrapper storeNumber="Tuskawilla" />} 
+                    element={<StoreWrapper storeNumber="Tuskawilla" storeName="Tuskawilla" />} 
                 />
                 
                 <Route 
                     path="/store/Forsyth" 
-                    element={<StoreWrapper storeNumber="Forsyth" />} 
+                    element={<StoreWrapper storeNumber="Forsyth" storeName="Forsyth" />} 
                 />
                 <Route 
                     path="/store/Forsyth/reports" 
-                    element={<StoreWrapper storeNumber="Forsyth" />} 
+                    element={<StoreWrapper storeNumber="Forsyth" storeName="Forsyth" />} 
                 />
                 
                 {/* Catch-all redirect to home */}
