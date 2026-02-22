@@ -122,13 +122,11 @@ function StoreWrapper({ storeNumber }) {
     const location = useLocation()
     
     // Map store numbers to display names
-        const storeNames = {
-            '04680': 'Tuskawilla',
-            '00661': 'Forsyth'
-        }
-        const storeName = storeNames[storeNumber] || storeNumber || 'simplified';
-    
-    const storeName = storeNames[storeNumber] || `Store ${storeNumber}`
+    const storeNames = {
+        '04680': 'Tuskawilla',
+        '00661': 'Forsyth'
+    };
+    const storeName = storeNames[storeNumber] || storeNumber || 'simplified';
     const isReportsPage = location.pathname.includes('/reports')
     
     if (isReportsPage) {
