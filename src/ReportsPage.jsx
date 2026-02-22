@@ -326,11 +326,10 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                     recentImprovements: [] // Track last few improvements
                 }
             }
-            // Calculate percent above target for this record
-            const percentAboveTarget = item.targetProductivity ? 
-                ((item.actualProductivity - item.targetProductivity) / item.targetProductivity * 100) : 0
-            
-            picAverages[item.picName].totalPercentAboveTarget += percentAboveTarget
+            // Calculate percent vs target for this record
+            const percentVsTarget = item.targetProductivity ? 
+                ((item.actualProductivity / item.targetProductivity) * 100 - 100) : 0;
+            picAverages[item.picName].totalPercentVsTarget = (picAverages[item.picName].totalPercentVsTarget || 0) + percentVsTarget;
             picAverages[item.picName].totalSales += item.actualSales
             picAverages[item.picName].totalImprovement += (item.improvement || 0)
             picAverages[item.picName].count++
@@ -343,40 +342,39 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
             }
             
             // Track highest individual performance
-            if (percentAboveTarget > picAverages[item.picName].highestPercentAbove) {
-                picAverages[item.picName].highestPercentAbove = percentAboveTarget
+            if (percentVsTarget > (picAverages[item.picName].highestPercentVsTarget || -Infinity)) {
+                picAverages[item.picName].highestPercentVsTarget = percentVsTarget;
             }
             
-            // Track recent improvements (last 3 most recent)
-            if (item.improvement && item.improvement > 0) {
-                picAverages[item.picName].recentImprovements.push(item.improvement)
-                if (picAverages[item.picName].recentImprovements.length > 3) {
-                    picAverages[item.picName].recentImprovements.shift()
-                }
+            // Track recent actual-to-target comparisons (last 3 most recent)
+            if (!picAverages[item.picName].recentPercents) {
+                picAverages[item.picName].recentPercents = [];
+            }
+            picAverages[item.picName].recentPercents.push(percentVsTarget);
+            if (picAverages[item.picName].recentPercents.length > 3) {
+                picAverages[item.picName].recentPercents.shift();
             }
         })
 
         // Convert to array with enhanced metrics
         const averagedData = Object.values(picAverages).map((pic, index) => {
-            const avgPercentAboveTarget = pic.totalPercentAboveTarget / pic.count
-            
-            // Calculate recent trend from actual improvement data (not random)
-            const sortedImprovements = pic.recentImprovements.sort((a, b) => b - a) // Most recent first
-            const recentTrend = sortedImprovements.length >= 3 ? 
-                sortedImprovements.slice(0, 3).reduce((sum, val) => sum + val, 0) / 3 : null
-            
+            const avgPercentVsTarget = pic.totalPercentVsTarget / pic.count;
+            // Calculate recent trend as average of last 3 actual-to-target percentage comparisons
+            const recentTrend = pic.recentPercents && pic.recentPercents.length > 0
+                ? pic.recentPercents.reduce((sum, val) => sum + val, 0) / pic.recentPercents.length
+                : 0;
             return {
                 id: index + 1,
                 picName: pic.picName,
-                avgPercentAboveTarget,
+                avgPercentVsTarget,
                 actualSales: Math.round(pic.totalSales / pic.count),
                 improvement: pic.totalImprovement / pic.count,
                 targetsHit: pic.targetsHit,
                 count: pic.count, // Total dayparts entered
                 targetHitPercentage: (pic.targetsHit / pic.count) * 100,
-                highestPercentAbove: pic.highestPercentAbove === -Infinity ? 0 : pic.highestPercentAbove,
-                recentTrend: recentTrend !== null ? recentTrend : 0,
-                targetAchievementScore: 100 + avgPercentAboveTarget,
+                peakPercentVsTarget: pic.highestPercentVsTarget === undefined ? 0 : pic.highestPercentVsTarget,
+                recentTrend,
+                targetAchievementScore: 100 + avgPercentVsTarget,
                 tier: pic.tier
             }
         })
