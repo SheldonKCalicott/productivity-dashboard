@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react'
 import apiService from './apiService'
 
 export default function ReportsPage({ isDemo = false, storeName: propStoreName }) {
+        // ...existing code...
+        // Calculate avgPercentVsTarget for team summary
+        const getTeamAvgPercentVsTarget = (data) => {
+            if (!data || data.length === 0) return '0.0';
+            const percents = data.map(item => item.avgPercentVsTarget ?? 0).filter(val => typeof val === 'number');
+            if (percents.length === 0) return '0.0';
+            return (percents.reduce((sum, val) => sum + val, 0) / percents.length).toFixed(1);
+        };
     const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'example-data' : 'last-30-days')
     const [sortBy, setSortBy] = useState('performance')
     const [customStartDate, setCustomStartDate] = useState('')
@@ -451,6 +459,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
     }
 
     const sortedData = getSortedFilteredData()
+    const avgPercentVsTarget = getTeamAvgPercentVsTarget(sortedData);
 
     return (
         <div style={styles.container}>
