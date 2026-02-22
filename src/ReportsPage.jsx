@@ -432,10 +432,6 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
     .map(item => (typeof item.improvement === 'number' && !isNaN(item.improvement) ? item.improvement : null))
     .filter(v => v !== null)
 
-  const teamAvgImprovement = improvementValues.length > 0
-    ? improvementValues.reduce((s, v) => s + v, 0) / improvementValues.length
-    : 0
-
   // --- Helper functions (numeric outputs) ---
   const getAvgImprovement = (data) => {
     if (!data || data.length === 0) return 0
