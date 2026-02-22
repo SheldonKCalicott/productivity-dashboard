@@ -402,25 +402,25 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
     const getColumnConfig = () => {
         const configs = {
             'performance': {
-                primary: { key: 'avgPercentAboveTarget', label: 'Avg % vs Target', emoji: '✅' },
+                primary: { key: 'avgPercentVsTarget', label: 'Avg % vs Target', emoji: '✅' },
                 secondary: [
                     { key: 'targetsHit', label: 'Targets Hit' },
-                    { key: 'highestPercentAbove', label: 'Peak % Above' },
+                    { key: 'peakPercentVsTarget', label: 'Peak % Above' },
                     { key: 'recentTrend', label: 'Recent Trend' }
                 ]
             },
             'targets-hit': {
                 primary: { key: 'targetsHit', label: 'Targets Hit', emoji: '🎯' },
                 secondary: [
-                    { key: 'avgPercentAboveTarget', label: 'Avg % vs Target' },
-                    { key: 'highestPercentAbove', label: 'Peak % Above' },
+                    { key: 'avgPercentVsTarget', label: 'Avg % vs Target' },
+                    { key: 'peakPercentVsTarget', label: 'Peak % Above' },
                     { key: 'recentTrend', label: 'Recent Trend' }
                 ]
             },
             'peak-performance': {
-                primary: { key: 'highestPercentAbove', label: 'Peak % Above', emoji: '⭐' },
+                primary: { key: 'peakPercentVsTarget', label: 'Peak % Above', emoji: '⭐' },
                 secondary: [
-                    { key: 'avgPercentAboveTarget', label: 'Avg % vs Target' },
+                    { key: 'avgPercentVsTarget', label: 'Avg % vs Target' },
                     { key: 'targetsHit', label: 'Targets Hit' },
                     { key: 'recentTrend', label: 'Recent Trend' }
                 ]
@@ -428,16 +428,16 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
             'improvement': {
                 primary: { key: 'recentTrend', label: 'Recent Trend', emoji: '📈' },
                 secondary: [
-                    { key: 'avgPercentAboveTarget', label: 'Avg % vs Target' },
+                    { key: 'avgPercentVsTarget', label: 'Avg % vs Target' },
                     { key: 'targetsHit', label: 'Targets Hit' },
-                    { key: 'highestPercentAbove', label: 'Peak % Above' }
+                    { key: 'peakPercentVsTarget', label: 'Peak % Above' }
                 ]
             },
             'name': {
-                primary: { key: 'avgPercentAboveTarget', label: 'Avg % vs Target', emoji: '✅' },
+                primary: { key: 'avgPercentVsTarget', label: 'Avg % vs Target', emoji: '✅' },
                 secondary: [
                     { key: 'targetsHit', label: 'Targets Hit' },
-                    { key: 'highestPercentAbove', label: 'Peak % Above' },
+                    { key: 'peakPercentVsTarget', label: 'Peak % Above' },
                     { key: 'recentTrend', label: 'Recent Trend' }
                 ]
             }
