@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pkg from 'pg';
-import { calculateTargetProductivity } from './targetUtils.js';
+const { calculateTargetProductivity } = require('./targetUtils');
 
 const { Pool } = pkg;
 dotenv.config();
