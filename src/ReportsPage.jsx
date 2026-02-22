@@ -78,7 +78,11 @@ export default function ReportsPage({ isDemo = false }) {
         const path = window.location.pathname;
         const storeMatch = path.match(/\/store\/(\d+)/);
         if (storeMatch) {
-            return storeMatch[1]; // Return store number (e.g., '04680')
+            // Map store number to store name
+            const storeNumber = storeMatch[1];
+            if (storeNumber === '04680') return 'Tuskawilla';
+            if (storeNumber === '00661') return 'Forsyth';
+            return `Store ${storeNumber}`;
         }
         return 'simplified'; // Default for demo/template
     }
