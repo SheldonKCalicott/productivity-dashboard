@@ -1,3 +1,30 @@
+  // --- Team summary aggregation (numeric-safe) ---
+  const sortedData = getSortedFilteredData();
+  const filteredData = (() => {
+    // Use reportData filtered by the same date logic as getSortedFilteredData
+    if (!reportData || reportData.length === 0) return [];
+    if (filterPeriod === 'custom' && customStartDate && customEndDate) {
+      return reportData.filter(item => {
+        const d = new Date(item.date);
+        return d >= new Date(customStartDate) && d <= new Date(customEndDate);
+      });
+    }
+    if (filterPeriod === 'last-30-days' || filterPeriod === 'last-90-days' || filterPeriod === 'ytd') {
+      const today = new Date();
+      if (filterPeriod === 'last-30-days') {
+        const cutoff = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+        return reportData.filter(item => new Date(item.date) >= cutoff);
+      } else if (filterPeriod === 'last-90-days') {
+        const cutoff = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+        return reportData.filter(item => new Date(item.date) >= cutoff);
+      } else if (filterPeriod === 'ytd') {
+        const start = new Date(today.getFullYear(), 0, 1);
+        return reportData.filter(item => new Date(item.date) >= start);
+      }
+    }
+    return reportData;
+  })();
+
   // Team avg percent above target: only positive values
   const teamAvgPercentVsTarget = (() => {
     if (!filteredData || filteredData.length === 0) return 0;
