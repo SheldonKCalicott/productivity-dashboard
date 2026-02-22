@@ -327,8 +327,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                 }
             }
             // Calculate percent vs target for this record
-            const percentVsTarget = item.targetProductivity ? 
-                ((item.actualProductivity / item.targetProductivity) * 100 - 100) : 0;
+            const percentVsTarget = item.targetProductivity ? ((item.actualProductivity / item.targetProductivity - 1) * 100) : 0;
             picAverages[item.picName].totalPercentVsTarget = (picAverages[item.picName].totalPercentVsTarget || 0) + percentVsTarget;
             picAverages[item.picName].totalSales += item.actualSales
             picAverages[item.picName].totalImprovement += (item.improvement || 0)
@@ -356,8 +355,15 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
             }
         })
 
+        // Aggregate for team summary
+        if (!picAverages.__allPercents) picAverages.__allPercents = [];
+        filteredData.forEach(item => {
+            const percentVsTarget = item.targetProductivity ? ((item.actualProductivity / item.targetProductivity - 1) * 100) : 0;
+            picAverages.__allPercents.push(percentVsTarget);
+        });
+
         // Convert to array with enhanced metrics
-        const averagedData = Object.values(picAverages).map((pic, index) => {
+        const averagedData = Object.values(picAverages).filter(pic => pic.picName).map((pic, index) => {
             const avgPercentVsTarget = pic.totalPercentVsTarget / pic.count;
             // Calculate recent trend as average of up to last 5 actual-to-target percentage comparisons
             const trendCount = Math.min(pic.recentPercents.length, 5);
@@ -369,13 +375,13 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                 picName: pic.picName,
                 avgPercentVsTarget,
                 actualSales: Math.round(pic.totalSales / pic.count),
-                improvement: pic.totalImprovement / pic.count,
+                improvement: recentTrend,
                 targetsHit: pic.targetsHit,
                 count: pic.count, // Total dayparts entered
                 targetHitPercentage: (pic.targetsHit / pic.count) * 100,
                 peakPercentVsTarget: pic.highestPercentVsTarget === undefined ? 0 : pic.highestPercentVsTarget,
                 recentTrend,
-                targetAchievementScore: 100 + avgPercentVsTarget,
+                targetAchievementScore: avgPercentVsTarget,
                 tier: pic.tier
             }
         })
@@ -558,8 +564,8 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                         </div>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {sortedData.length > 0 ? (
-                                    sortedData.reduce((sum, item) => sum + (item.avgPercentVsTarget !== undefined ? item.avgPercentVsTarget : 0), 0) / sortedData.length
+                                {picAverages.__allPercents && picAverages.__allPercents.length > 0 ? (
+                                    picAverages.__allPercents.reduce((sum, val) => sum + val, 0) / picAverages.__allPercents.length
                                 ).toFixed(1) : '0.0'}%
                             </div>
                             <div style={styles.summaryLabel}>Avg % Above Target</div>
@@ -580,8 +586,8 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                         </div>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {sortedData.length > 0 ? 
-                                    Math.max(...sortedData.map(item => item.peakPercentVsTarget !== undefined ? item.peakPercentVsTarget : 0)).toFixed(1) : '0.0'}%
+                                {picAverages.__allPercents && picAverages.__allPercents.length > 0 ? 
+                                    Math.max(...picAverages.__allPercents).toFixed(1) : '0.0'}%
                             </div>
                             <div style={styles.summaryLabel}>Top Performance</div>
                             <div style={styles.summarySubtext}>
