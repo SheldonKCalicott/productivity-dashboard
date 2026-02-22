@@ -216,13 +216,13 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
         // Default weights and tier if not set
         const weightsRow = weightsResult.rows[0] || {};
         const settingsRow = settingsResult.rows[0] || {};
-        const defaultDaypartWeights = {
+        const daypartWeights = {
             breakfast: weightsRow.breakfast || 0.76,
             lunch: weightsRow.lunch || 1.24,
             afternoon: weightsRow.afternoon || 1.06,
             dinner: weightsRow.dinner || 0.94
         };
-        const defaultTier = settingsRow.ambition_tier || 'Top 50%';
+        const selectedTier = settingsRow.ambition_tier || 'Top 50%';
 
         const result = await pool.query(`
             SELECT * FROM productivity_records 
@@ -236,26 +236,23 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
                 END
         `, [storeId, startDate, endDate]);
 
-        // Recalculate targetProductivity for each record using per-record weights/tier if present
+        // Calculate total daily sales for each date
+        const recordsByDate = {};
+        result.rows.forEach(record => {
+            const date = record.record_date;
+            if (!recordsByDate[date]) recordsByDate[date] = [];
+            recordsByDate[date].push(record);
+        });
+
+        // Recalculate targetProductivity for each record using total daily sales and weights
         const recalculatedRows = result.rows.map(record => {
-            const sales = record.sales_amount ? parseInt(record.sales_amount.toString().replace(/[^0-9]/g, '')) : 0;
-            // Try to use per-record weights/tier if present, else fallback to store defaults
-            let daypartWeights = defaultDaypartWeights;
-            let selectedTier = defaultTier;
-            if (record.daypart_weights) {
-                try {
-                    // Assume daypart_weights is stored as JSON string
-                    daypartWeights = JSON.parse(record.daypart_weights);
-                } catch (e) { /* fallback to default */ }
-            }
-            if (record.ambition_tier) {
-                selectedTier = record.ambition_tier;
-            }
+            const dateRecords = recordsByDate[record.record_date] || [];
+            const totalSales = dateRecords.reduce((sum, r) => sum + (parseInt(r.sales_amount) || 0), 0);
             let targetProductivity = null;
-            if (sales > 0) {
+            if (totalSales > 0) {
                 targetProductivity = calculateTargetProductivity(
                     record.daypart,
-                    sales,
+                    totalSales,
                     selectedTier,
                     daypartWeights
                 );
