@@ -2,6 +2,28 @@ import React, { useState, useEffect } from 'react'
 import apiService from './apiService'
 
 export default function ReportsPage({ isDemo = false, storeName: propStoreName }) {
+                    // Helper to filter data for current period
+                    const getFilteredData = () => {
+                        let dataSource = (filterPeriod === 'example-data' || isDemo) ? exampleData : reportData;
+                        let filteredData = dataSource;
+                        const today = new Date();
+                        if (filterPeriod === 'last-30-days') {
+                            const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+                            filteredData = dataSource.filter(item => new Date(item.date) >= thirtyDaysAgo);
+                        } else if (filterPeriod === 'last-90-days') {
+                            const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+                            filteredData = dataSource.filter(item => new Date(item.date) >= ninetyDaysAgo);
+                        } else if (filterPeriod === 'ytd') {
+                            const yearStart = new Date(today.getFullYear(), 0, 1);
+                            filteredData = dataSource.filter(item => new Date(item.date) >= yearStart);
+                        } else if (filterPeriod === 'custom' && customStartDate && customEndDate) {
+                            filteredData = dataSource.filter(item => {
+                                const itemDate = new Date(item.date);
+                                return itemDate >= new Date(customStartDate) && itemDate <= new Date(customEndDate);
+                            });
+                        }
+                        return filteredData;
+                    };
                 // ...existing code...
                 // Calculate avgImprovement for team summary
                 const getAvgImprovement = (data) => {
@@ -475,6 +497,17 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
     }
 
     const sortedData = getSortedFilteredData()
+                const filteredData = getFilteredData();
+                // Team summary metrics: aggregate all individual records
+                const teamAvgPercentVsTarget = filteredData.length > 0
+                    ? (filteredData.reduce((sum, item) => sum + (item.targetProductivity ? ((item.actualProductivity / item.targetProductivity - 1) * 100) : 0), 0) / filteredData.length).toFixed(1)
+                    : '0.0';
+                const teamMaxPercentAboveTarget = filteredData.length > 0
+                    ? Math.max(...filteredData.map(item => item.targetProductivity ? ((item.actualProductivity / item.targetProductivity - 1) * 100) : 0)).toFixed(1)
+                    : '0.0';
+                const teamAvgImprovement = filteredData.length > 0
+                    ? (filteredData.reduce((sum, item) => sum + (item.improvement ?? 0), 0) / filteredData.length).toFixed(1)
+                    : '0.0';
             const avgImprovement = getAvgImprovement(sortedData);
         const maxPercentAboveTarget = getMaxPercentAboveTarget(sortedData);
     const avgPercentVsTarget = getTeamAvgPercentVsTarget(sortedData);
@@ -565,16 +598,16 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                     <div style={styles.summaryMetrics}>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {sortedData.filter(item => (item.avgPercentVsTarget ?? 0) >= 0).length}
+                                {filteredData.filter(item => item.targetProductivity && ((item.actualProductivity / item.targetProductivity - 1) * 100) > 0).length}
                             </div>
                             <div style={styles.summaryLabel}>Above Target</div>
                             <div style={styles.summarySubtext}>
-                                of {sortedData.length} total shifts
+                                of {filteredData.length} total shifts
                             </div>
                         </div>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {avgPercentVsTarget}
+                                {teamAvgPercentVsTarget}
                             </div>
                             <div style={styles.summaryLabel}>Avg % Above Target</div>
                             <div style={styles.summarySubtext}>
@@ -583,7 +616,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                         </div>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {avgImprovement}%
+                                {teamAvgImprovement}%
                             </div>
                             <div style={styles.summaryLabel}>Avg Improvement</div>
                             <div style={styles.summarySubtext}>
@@ -592,7 +625,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                         </div>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {maxPercentAboveTarget}
+                                {teamMaxPercentAboveTarget}
                             </div>
                             <div style={styles.summaryLabel}>Top Performance</div>
                             <div style={styles.summarySubtext}>
