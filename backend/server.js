@@ -101,16 +101,9 @@ app.post('/api/productivity', async (req, res) => {
                                 // Use weights and tier from data if available, else defaults
                                 const daypartWeights = data.daypartWeights || { breakfast: 0.76, lunch: 1.24, afternoon: 1.06, dinner: 0.94 };
                                 const selectedTier = data.selectedTier || 'Top 50%';
-                                // For total sales, sum all daypart sales if available
-                                let totalSales = 0;
-                                if (data.totalSales) {
-                                    totalSales = data.totalSales;
-                                } else if (data.allSales) {
-                                    totalSales = Object.values(data.allSales).reduce((sum, s) => sum + (parseInt(String(s).replace(/[^0-9]/g, '')) || 0), 0);
-                                } else {
-                                    totalSales = data.sales ? parseInt(data.sales.toString().replace(/[^0-9]/g, '')) : 0;
-                                }
-                                const targetProductivity = calculateTargetProductivity(daypart, totalSales, selectedTier, daypartWeights);
+                                // Use individual daypart sales for target calculation
+                                const sales = data.sales ? parseInt(data.sales.toString().replace(/[^0-9]/g, '')) : 0;
+                                const targetProductivity = calculateTargetProductivity(daypart, sales, selectedTier, daypartWeights);
                                 await client.query(`
                                         INSERT INTO productivity_records 
                                         (store_id, record_date, daypart, sales_amount, actual_productivity, target_productivity, pic_name)
