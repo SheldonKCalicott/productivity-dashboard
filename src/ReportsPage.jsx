@@ -1,3 +1,17 @@
+  // Team avg percent above target: only positive values
+  const teamAvgPercentVsTarget = (() => {
+    if (!filteredData || filteredData.length === 0) return 0;
+    const percents = filteredData
+      .map(item => {
+        const t = Number(item.targetProductivity) || 0;
+        const a = Number(item.actualProductivity) || 0;
+        if (t === 0) return null;
+        const pct = ((a - t) / t) * 100;
+        return pct > 0 ? pct : null;
+      })
+      .filter(v => v !== null);
+    return percents.length > 0 ? percents.reduce((s, v) => s + v, 0) / percents.length : 0;
+  })();
 import React, { useState, useEffect } from 'react'
 import apiService from './apiService'
 import { calculateTargetProductivity } from './utils/targetUtils'
