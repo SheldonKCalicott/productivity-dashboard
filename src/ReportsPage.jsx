@@ -356,65 +356,64 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
             }
         }
 
-        // Group by PIC name and calculate metrics
-        const picAverages = {};
+        // Group by PIC name and calculate comprehensive metrics
+        const picAverages = {}
         filteredData.forEach(item => {
             if (!picAverages[item.picName]) {
                 picAverages[item.picName] = {
                     picName: item.picName,
-                    percentVsTargetArr: [],
+                    totalSales: 0,
+                    totalImprovement: 0,
                     targetsHit: 0,
-                    actualSalesArr: [],
+                    peakPercentVsTarget: -Infinity,
+                    count: 0,
                     tier: item.tier,
-                    dayparts: [],
-                };
+                    improvement: 0
+                }
             }
             // Calculate percent vs target for this record
-            const percentVsTarget = item.targetProductivity ? ((item.actualProductivity / item.targetProductivity - 1) * 100) : null;
-            picAverages[item.picName].percentVsTargetArr.push(percentVsTarget);
-            picAverages[item.picName].actualSalesArr.push(item.actualSales);
-            picAverages[item.picName].dayparts.push({
-                date: item.date,
-                percentVsTarget,
-            });
+            const percentVsTarget = item.targetProductivity ? ((item.actualProductivity / item.targetProductivity - 1) * 100) : 0;
+            picAverages[item.picName].avgPercentVsTarget = ((picAverages[item.picName].avgPercentVsTarget || 0) * picAverages[item.picName].count + percentVsTarget) / (picAverages[item.picName].count + 1);
+            picAverages[item.picName].totalSales += item.actualSales;
+            picAverages[item.picName].totalImprovement += (item.improvement ?? 0);
+            picAverages[item.picName].count++;
+
             // Track targets hit (when within tolerance zone - 2 points below target or above)
-            if (item.actualProductivity >= (item.targetProductivity - 2)) {
+            const isTargetHit = item.actualProductivity >= (item.targetProductivity - 2);
+            if (isTargetHit) {
                 picAverages[item.picName].targetsHit++;
             }
-        });
+
+            // Track peak individual performance
+            if (percentVsTarget > (picAverages[item.picName].peakPercentVsTarget ?? -Infinity)) {
+                picAverages[item.picName].peakPercentVsTarget = percentVsTarget;
+            }
+
+            // Track improvement (recent trend)
+            picAverages[item.picName].improvement = percentVsTarget;
+        })
+
+        // Aggregate for team summary
+        const allPercents = picAverages.__allPercents || [];
+        const avgPercentVsTarget = allPercents.length > 0 ? (allPercents.reduce((sum, val) => sum + val, 0) / allPercents.length).toFixed(1) : '0.0';
+        const maxPercentAboveTarget = allPercents.length > 0 ? Math.max(...allPercents).toFixed(1) : '0.0';
 
         // Convert to array with enhanced metrics
         const averagedData = Object.values(picAverages).filter(pic => pic.picName).map((pic, index) => {
-            // Avg % vs Target
-            const validPercents = pic.percentVsTargetArr.filter(v => v !== null);
-            const avgPercentVsTarget = validPercents.length > 0 ? validPercents.reduce((sum, v) => sum + v, 0) / validPercents.length : null;
-            // Peak % Above
-            const peakPercentVsTarget = validPercents.length > 0 ? Math.max(...validPercents) : null;
-            // Targets Hit
-            const count = pic.percentVsTargetArr.length;
-            const targetsHit = pic.targetsHit;
-            const targetHitPercentage = count > 0 ? (targetsHit / count) * 100 : null;
-            // Recent Trend
-            const sortedDayparts = pic.dayparts.sort((a, b) => new Date(b.date) - new Date(a.date));
-            const trendCount = Math.min(sortedDayparts.length, 5);
-            const trendArr = sortedDayparts.slice(0, trendCount).map(d => d.percentVsTarget).filter(v => v !== null);
-            const recentTrend = trendArr.length > 0 ? trendArr.reduce((sum, v) => sum + v, 0) / trendArr.length : null;
-            // Actual Sales
-            const actualSales = pic.actualSalesArr.length > 0 ? Math.round(pic.actualSalesArr.reduce((sum, v) => sum + v, 0) / pic.actualSalesArr.length) : null;
             return {
                 id: index + 1,
                 picName: pic.picName,
-                avgPercentVsTarget,
-                actualSales,
-                improvement: recentTrend,
-                targetsHit,
-                count,
-                targetHitPercentage,
-                peakPercentVsTarget,
-                recentTrend,
-                tier: pic.tier ?? '',
-            };
-        });
+                avgPercentVsTarget: pic.avgPercentVsTarget ?? 0,
+                actualSales: Math.round(pic.totalSales / pic.count) ?? 0,
+                improvement: pic.improvement ?? 0,
+                targetsHit: pic.targetsHit ?? 0,
+                count: pic.count ?? 0, // Total dayparts entered
+                targetHitPercentage: ((pic.targetsHit ?? 0) / (pic.count ?? 1)) * 100,
+                peakPercentVsTarget: pic.peakPercentVsTarget === undefined ? 0 : pic.peakPercentVsTarget,
+                recentTrend: pic.improvement ?? 0,
+                tier: pic.tier ?? ''
+            }
+        })
 
         // Enhanced sorting: focus on target achievement and improvement
         return [...averagedData].sort((a, b) => {
