@@ -316,19 +316,18 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
             if (!picAverages[item.picName]) {
                 picAverages[item.picName] = {
                     picName: item.picName,
-                    totalPercentVsTarget: 0,
                     totalSales: 0,
                     totalImprovement: 0,
                     targetsHit: 0,
                     peakPercentVsTarget: -Infinity,
                     count: 0,
                     tier: item.tier,
-                    recentImprovements: [] // Track last few improvements
+                    improvement: 0
                 }
             }
             // Calculate percent vs target for this record
             const percentVsTarget = item.targetProductivity ? ((item.actualProductivity / item.targetProductivity - 1) * 100) : 0;
-            picAverages[item.picName].totalPercentVsTarget = (picAverages[item.picName].totalPercentVsTarget || 0) + percentVsTarget;
+            picAverages[item.picName].avgPercentVsTarget = ((picAverages[item.picName].avgPercentVsTarget || 0) * picAverages[item.picName].count + percentVsTarget) / (picAverages[item.picName].count + 1);
             picAverages[item.picName].totalSales += item.actualSales;
             picAverages[item.picName].totalImprovement += (item.improvement ?? 0);
             picAverages[item.picName].count++;
@@ -344,41 +343,28 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                 picAverages[item.picName].peakPercentVsTarget = percentVsTarget;
             }
 
-            // Track recent actual-to-target comparisons (last 5 most recent)
-            if (!picAverages[item.picName].recentPercents) {
-                picAverages[item.picName].recentPercents = [];
-            }
-            picAverages[item.picName].recentPercents.push(percentVsTarget);
-            if (picAverages[item.picName].recentPercents.length > 5) {
-                picAverages[item.picName].recentPercents.shift();
-            }
+            // Track improvement (recent trend)
+            picAverages[item.picName].improvement = percentVsTarget;
         })
 
         // Aggregate for team summary
         const allPercents = picAverages.__allPercents || [];
-        const teamAvgPercentVsTarget = allPercents.length > 0 ? (allPercents.reduce((sum, val) => sum + val, 0) / allPercents.length).toFixed(1) : '0.0';
+        const avgPercentVsTarget = allPercents.length > 0 ? (allPercents.reduce((sum, val) => sum + val, 0) / allPercents.length).toFixed(1) : '0.0';
         const maxPercentAboveTarget = allPercents.length > 0 ? Math.max(...allPercents).toFixed(1) : '0.0';
 
         // Convert to array with enhanced metrics
         const averagedData = Object.values(picAverages).filter(pic => pic.picName).map((pic, index) => {
-            const avgPercentVsTarget = pic.totalPercentVsTarget / pic.count;
-            // Calculate recent trend as average of up to last 5 actual-to-target percentage comparisons
-            const trendCount = Math.min(pic.recentPercents.length, 5);
-            const recentTrend = trendCount > 0
-                ? pic.recentPercents.slice(-trendCount).reduce((sum, val) => sum + val, 0) / trendCount
-                : 0;
             return {
                 id: index + 1,
                 picName: pic.picName,
-                avgPercentVsTarget: avgPercentVsTarget ?? 0,
+                avgPercentVsTarget: pic.avgPercentVsTarget ?? 0,
                 actualSales: Math.round(pic.totalSales / pic.count) ?? 0,
-                improvement: recentTrend ?? 0,
+                improvement: pic.improvement ?? 0,
                 targetsHit: pic.targetsHit ?? 0,
                 count: pic.count ?? 0, // Total dayparts entered
                 targetHitPercentage: ((pic.targetsHit ?? 0) / (pic.count ?? 1)) * 100,
                 peakPercentVsTarget: pic.peakPercentVsTarget === undefined ? 0 : pic.peakPercentVsTarget,
-                recentTrend: recentTrend ?? 0,
-                targetAchievementScore: avgPercentVsTarget ?? 0,
+                recentTrend: pic.improvement ?? 0,
                 tier: pic.tier ?? ''
             }
         })
@@ -386,14 +372,14 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
         // Enhanced sorting: focus on target achievement and improvement
         return [...averagedData].sort((a, b) => {
             if (sortBy === 'performance') {
-                // Sort by target achievement score (higher % above target wins)
-                return (b.targetAchievementScore ?? 0) - (a.targetAchievementScore ?? 0);
+                // Sort by avgPercentVsTarget (higher % above target wins)
+                return (b.avgPercentVsTarget ?? 0) - (a.avgPercentVsTarget ?? 0);
             } else if (sortBy === 'targets-hit') {
                 return (b.targetsHit ?? 0) - (a.targetsHit ?? 0);
             } else if (sortBy === 'peak-performance') {
                 return (b.peakPercentVsTarget ?? 0) - (a.peakPercentVsTarget ?? 0);
             } else if (sortBy === 'improvement') {
-                return (b.recentTrend ?? 0) - (a.recentTrend ?? 0);
+                return (b.improvement ?? 0) - (a.improvement ?? 0);
             } else if (sortBy === 'name') {
                 return a.picName.localeCompare(b.picName);
             }
@@ -561,7 +547,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                         </div>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {teamAvgPercentVsTarget}
+                                {avgPercentVsTarget}
                             </div>
                             <div style={styles.summaryLabel}>Avg % Above Target</div>
                             <div style={styles.summarySubtext}>
