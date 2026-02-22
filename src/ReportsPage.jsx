@@ -709,7 +709,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                                                         <>+{item.highestPercentAbove.toFixed(1)}%</>
                                                     )}
                                                     {col.key === 'recentTrend' && (
-                                                        <>{item.recentTrend && item.recentTrend > 0 ? (
+                                                        <>{item.recentTrend !== undefined && item.recentTrend > 0 ? (
                                                             <>+{item.recentTrend.toFixed(1)}%
                                                             <div style={{ fontSize: '10px', opacity: 0.8 }}>trending</div></>
                                                         ) : (
