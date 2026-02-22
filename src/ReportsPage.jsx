@@ -405,32 +405,13 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
       )
     : 0;
 
-  // Team avg percent above target: only positive values
-  const teamAvgPercentVsTarget = filteredData.length > 0
-    ? (() => {
-        const percents = filteredData
-          .map(item => {
-            const t = Number(item.targetProductivity) || 0;
-            const a = Number(item.actualProductivity) || 0;
-            if (t === 0) return null;
-            const pct = ((a - t) / t) * 100;
-            return pct > 0 ? pct : null;
-          })
-          .filter(v => v !== null);
-        return percents.length > 0 ? percents.reduce((s, v) => s + v, 0) / percents.length : 0;
-      })()
-    : 0;
-
-  // Team avg improvement: only positive values
-  const teamAvgImprovement = improvementValues.length > 0
-    ? (() => {
-        const positives = improvementValues.filter(v => v > 0);
-        return positives.length > 0 ? positives.reduce((s, v) => s + v, 0) / positives.length : 0;
-      })()
-    : 0;
   const improvementValues = filteredData
     .map(item => (typeof item.improvement === 'number' && !isNaN(item.improvement) ? item.improvement : null))
     .filter(v => v !== null)
+
+  const teamAvgImprovement = improvementValues.length > 0
+    ? improvementValues.reduce((s, v) => s + v, 0) / improvementValues.length
+    : 0
 
   // --- Helper functions (numeric outputs) ---
   const getAvgImprovement = (data) => {
