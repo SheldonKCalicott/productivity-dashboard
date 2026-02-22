@@ -1,7 +1,9 @@
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pkg from 'pg';
+const { calculateTargetProductivity } = require('./targetUtils');
 
 const { Pool } = pkg;
 dotenv.config();
@@ -95,28 +97,41 @@ app.post('/api/productivity', async (req, res) => {
 
         // Update/Insert productivity records for each daypart
         for (const [daypart, data] of Object.entries(daypartsData)) {
-            if (data.sales || data.actualProductivity || data.picName) {
-                await client.query(`
-                    INSERT INTO productivity_records 
-                    (store_id, record_date, daypart, sales_amount, actual_productivity, target_productivity, pic_name)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
-                    ON CONFLICT (store_id, record_date, daypart)
-                    DO UPDATE SET
-                        sales_amount = EXCLUDED.sales_amount,
-                        actual_productivity = EXCLUDED.actual_productivity,
-                        target_productivity = EXCLUDED.target_productivity,
-                        pic_name = EXCLUDED.pic_name,
-                        updated_at = CURRENT_TIMESTAMP
-                `, [
-                    storeId,
-                    date,
-                    daypart,
-                    data.sales ? parseInt(data.sales.toString().replace(/[^0-9]/g, '')) : null,
-                    data.actualProductivity ? parseFloat(data.actualProductivity) : null,
-                    data.targetProductivity ? parseFloat(data.targetProductivity) : null,
-                    data.picName || null
-                ]);
-            }
+                        if (data.sales || data.actualProductivity || data.picName) {
+                                // Use weights and tier from data if available, else defaults
+                                const daypartWeights = data.daypartWeights || { breakfast: 0.76, lunch: 1.24, afternoon: 1.06, dinner: 0.94 };
+                                const selectedTier = data.selectedTier || 'Top 50%';
+                                // For total sales, sum all daypart sales if available
+                                let totalSales = 0;
+                                if (data.totalSales) {
+                                    totalSales = data.totalSales;
+                                } else if (data.allSales) {
+                                    totalSales = Object.values(data.allSales).reduce((sum, s) => sum + (parseInt(String(s).replace(/[^0-9]/g, '')) || 0), 0);
+                                } else {
+                                    totalSales = data.sales ? parseInt(data.sales.toString().replace(/[^0-9]/g, '')) : 0;
+                                }
+                                const targetProductivity = calculateTargetProductivity(daypart, totalSales, selectedTier, daypartWeights);
+                                await client.query(`
+                                        INSERT INTO productivity_records 
+                                        (store_id, record_date, daypart, sales_amount, actual_productivity, target_productivity, pic_name)
+                                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                                        ON CONFLICT (store_id, record_date, daypart)
+                                        DO UPDATE SET
+                                                sales_amount = EXCLUDED.sales_amount,
+                                                actual_productivity = EXCLUDED.actual_productivity,
+                                                target_productivity = EXCLUDED.target_productivity,
+                                                pic_name = EXCLUDED.pic_name,
+                                                updated_at = CURRENT_TIMESTAMP
+                                `, [
+                                        storeId,
+                                        date,
+                                        daypart,
+                                        data.sales ? parseInt(data.sales.toString().replace(/[^0-9]/g, '')) : null,
+                                        data.actualProductivity ? parseFloat(data.actualProductivity) : null,
+                                        targetProductivity,
+                                        data.picName || null
+                                ]);
+                        }
         }
 
         // Update operational weights

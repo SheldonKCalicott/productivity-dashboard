@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import apiService from './apiService'
+import { calculateTargetProductivity } from './utils/targetUtils'
 
 // Consolidated ReportsPage component
 export default function ReportsPage({ isDemo = false, storeName: propStoreName }) {
@@ -50,23 +51,18 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
               { daypart: 'dinner', sales: savedData.salesInputs.dinnerSales, productivity: savedData.productivity.dinner, pic: savedData.picNames?.dinner }
             ]
 
+            // Use weights and tier from savedData if available, else defaults
+            const daypartWeights = savedData.daypartWeights || { breakfast: 0.76, lunch: 1.24, afternoon: 1.06, dinner: 0.94 }
+            const selectedTier = savedData.selectedTier || 'Top 50%'
+            const totalSales = Object.values(savedData.salesInputs).reduce((sum, s) => sum + (parseInt(String(s).replace(/[^0-9]/g, '')) || 0), 0)
+
             daypartData.forEach(item => {
               if (!item.sales || !item.productivity) return
               const sales = parseInt(String(item.sales).replace(/[^0-9]/g, '')) || 0
               const actualProd = parseFloat(item.productivity) || 0
               if (actualProd <= 0) return
 
-              const getTargetForDaypart = (daypart, sales) => {
-                const daypartWeights = { breakfast: 0.85, lunch: 1.15, afternoon: 0.95, dinner: 1.05 }
-                let baseTarget = 85
-                if (sales < 15000) baseTarget = 75
-                else if (sales < 25000) baseTarget = 85
-                else if (sales < 35000) baseTarget = 95
-                else baseTarget = 105
-                return Math.round(baseTarget * (daypartWeights[daypart.toLowerCase()] || 1))
-              }
-
-              const targetProd = getTargetForDaypart(item.daypart.toLowerCase(), sales)
+              const targetProd = calculateTargetProductivity(item.daypart.toLowerCase(), totalSales, selectedTier, daypartWeights)
 
               allData.push({
                 id: allData.length + 1,
