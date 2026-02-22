@@ -6,9 +6,12 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ||
 // Get store name from current URL path
 function getStoreNameFromPath() {
     const path = window.location.pathname;
-    const storeMatch = path.match(/\/store\/(\d+)/);
+    const storeMatch = path.match(/\/store\/([^/]+)/);
     if (storeMatch) {
-        return storeMatch[1]; // Return store number (e.g., '04680')
+        const storeParam = storeMatch[1];
+        if (storeParam === '04680') return 'Tuskawilla';
+        if (storeParam === '00661') return 'Forsyth';
+        return storeParam;
     }
     return 'simplified'; // Default for demo/template
 }
