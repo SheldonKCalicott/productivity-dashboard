@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from "react"
 import { calculateTargetProductivity } from "./utils/targetUtils"
-import { calculateTargetProductivity } from "./utils/targetUtils"
 
 // Simplified Productivity Dial - focused on ONE job: actual vs target
 function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, noDataMessage = "Enter sales and actual productivity below" }) {
@@ -432,18 +431,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
 
     // Use centralized calculateTargetProductivity from utils/targetUtils.js
     const getTotalSales = () => {
-        const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
-        const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
-        const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
-        const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
-        return bf + ln + af + dn
-    }
-    const getTotalSales = () => {
-        const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
-        const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
-        const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0
-        const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
-        return bf + ln + af + dn
+        const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0;
+        const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0;
+        const af = afternoonSales ? parseInt(afternoonSales.replace(/[^0-9]/g, '')) : 0;
+        const dn = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0;
+        return bf + ln + af + dn;
     }
 
     // Helper function to get sales value for a daypart
