@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import apiService from './apiService'
 
-export default function ReportsPage({ isDemo = false }) {
+export default function ReportsPage({ isDemo = false, storeName: propStoreName }) {
     const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'example-data' : 'last-30-days')
     const [sortBy, setSortBy] = useState('performance')
     const [customStartDate, setCustomStartDate] = useState('')
@@ -75,7 +75,10 @@ export default function ReportsPage({ isDemo = false }) {
 
     // Get store name from prop or URL
     function getStoreNameFromPath() {
-        if (propStoreName) return propStoreName;
+        if (propStoreName) {
+            console.log('[ReportsPage] storeName prop received:', propStoreName);
+            return propStoreName;
+        }
         const path = window.location.pathname;
         const storeMatch = path.match(/\/store\/([^/]+)/);
         if (storeMatch) {
@@ -84,6 +87,7 @@ export default function ReportsPage({ isDemo = false }) {
             if (storeParam === '00661') return 'Forsyth';
             return storeParam;
         }
+        console.warn('[ReportsPage] No storeName found, defaulting to simplified');
         return 'simplified'; // Default for demo/template
     }
 

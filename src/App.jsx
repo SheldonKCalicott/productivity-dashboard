@@ -125,6 +125,7 @@ function StoreWrapper({ storeNumber, storeName: propStoreName }) {
         '00661': 'Forsyth'
     };
     const storeName = propStoreName || storeNames[storeNumber] || storeNumber || 'simplified';
+    console.log('[StoreWrapper] storeNumber:', storeNumber, '| propStoreName:', propStoreName, '| computed storeName:', storeName, '| pathname:', location.pathname);
     const isReportsPage = location.pathname.includes('/reports')
     if (isReportsPage) {
         return (
