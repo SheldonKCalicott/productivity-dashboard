@@ -239,12 +239,15 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
         // Recalculate targetProductivity for each record using current weights/tier
         const recalculatedRows = result.rows.map(record => {
             const sales = record.sales_amount ? parseInt(record.sales_amount.toString().replace(/[^0-9]/g, '')) : 0;
-            const targetProductivity = calculateTargetProductivity(
-                record.daypart,
-                sales,
-                selectedTier,
-                daypartWeights
-            );
+            let targetProductivity = null;
+            if (sales > 0) {
+                targetProductivity = calculateTargetProductivity(
+                    record.daypart,
+                    sales,
+                    selectedTier,
+                    daypartWeights
+                );
+            }
             return {
                 ...record,
                 target_productivity: targetProductivity
