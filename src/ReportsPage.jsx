@@ -62,7 +62,8 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
               const actualProd = parseFloat(item.productivity) || 0
               if (actualProd <= 0) return
 
-              const targetProd = calculateTargetProductivity(item.daypart.toLowerCase(), totalSales, selectedTier, daypartWeights)
+              // Use individual daypart sales for target calculation
+              const targetProd = calculateTargetProductivity(item.daypart.toLowerCase(), sales, selectedTier, daypartWeights)
 
               allData.push({
                 id: allData.length + 1,
