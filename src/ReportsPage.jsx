@@ -356,11 +356,9 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
         })
 
         // Aggregate for team summary
-        if (!picAverages.__allPercents) picAverages.__allPercents = [];
-        filteredData.forEach(item => {
-            const percentVsTarget = item.targetProductivity ? ((item.actualProductivity / item.targetProductivity - 1) * 100) : 0;
-            picAverages.__allPercents.push(percentVsTarget);
-        });
+        const allPercents = picAverages.__allPercents || [];
+        const avgPercentAboveTarget = allPercents.length > 0 ? (allPercents.reduce((sum, val) => sum + val, 0) / allPercents.length).toFixed(1) : '0.0';
+        const maxPercentAboveTarget = allPercents.length > 0 ? Math.max(...allPercents).toFixed(1) : '0.0';
 
         // Convert to array with enhanced metrics
         const averagedData = Object.values(picAverages).filter(pic => pic.picName).map((pic, index) => {
@@ -564,9 +562,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                         </div>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {picAverages.__allPercents && picAverages.__allPercents.length > 0 ? (
-                                    picAverages.__allPercents.reduce((sum, val) => sum + val, 0) / picAverages.__allPercents.length
-                                ).toFixed(1) : '0.0'}%
+                                {avgPercentAboveTarget}
                             </div>
                             <div style={styles.summaryLabel}>Avg % Above Target</div>
                             <div style={styles.summarySubtext}>
@@ -586,8 +582,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                         </div>
                         <div style={styles.summaryCard}>
                             <div style={styles.summaryNumber}>
-                                {picAverages.__allPercents && picAverages.__allPercents.length > 0 ? 
-                                    Math.max(...picAverages.__allPercents).toFixed(1) : '0.0'}%
+                                {maxPercentAboveTarget}
                             </div>
                             <div style={styles.summaryLabel}>Top Performance</div>
                             <div style={styles.summarySubtext}>
