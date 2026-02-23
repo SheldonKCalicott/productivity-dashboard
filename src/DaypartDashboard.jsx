@@ -300,10 +300,8 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                 </div>
             </div>
         </div>
-    )
+    );
 }
-
-// Day/Night Combined Productivity Dial
 function CombinedProductivityDial({ title, combinedSales, combinedActual, targetProductivity, daypart1Prod, daypart2Prod, isDayNight = false, showNeedle = true, noDataMessage = "Enter productivity data" }) {
     const salesValue = combinedSales || 0
     
@@ -773,16 +771,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return ((afSales * afProd) + (dnSales * dnProd)) / (afSales + dnSales)
     }
 
-    const getDayCombinedTarget = () => {
-        const bfSales = getDaypartSales('breakfast') || 6000  // Default breakfast sales
-        const lnSales = getDaypartSales('lunch') || 10000     // Default lunch sales
-        const dayCombinedSales = bfSales + lnSales
-        
-        const bfTarget = calculateTargetProductivity('breakfast', bfSales)
-        const lnTarget = calculateTargetProductivity('lunch', lnSales)
-        
-        return ((bfSales * bfTarget) + (lnSales * lnTarget)) / dayCombinedSales
-    }
+
 
     // Combined dials: use projected total sales for both day and night targets
     const getDayCombinedTarget = () => {
@@ -843,7 +832,32 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         const numValue = parseInt(value.replace(/[^0-9]/g, ''))
         return isNaN(numValue) ? '' : numValue.toString()
     }
-
+    
+    // Set up midnight auto-save timer
+    useEffect(() => {
+        if (isDemo) return;
+        
+        const now = new Date()
+        const midnight = new Date(now)
+        midnight.setHours(23, 59, 0, 0) // 11:59 PM
+        
+        const timeUntilMidnight = midnight.getTime() - now.getTime()
+        
+        // If it's already past 11:59 PM today, set for tomorrow
+        if (timeUntilMidnight <= 0) {
+            midnight.setDate(midnight.getDate() + 1)
+        }
+        
+        const timer = setTimeout(() => {
+            handleMidnightAutoSave()
+            
+            // Set up daily recurring timer
+            const dailyTimer = setInterval(handleMidnightAutoSave, 24 * 60 * 60 * 1000)
+            return () => clearInterval(dailyTimer)
+        }, timeUntilMidnight > 0 ? timeUntilMidnight : midnight.getTime() - now.getTime())
+        
+        return () => clearTimeout(timer)
+    }, [dataDate, isDemo])
     return (
         <div style={dashboardStyles.container}>
             <div style={dashboardStyles.mainContent}>
@@ -856,34 +870,40 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         transform: 'translate(-50%, -50%)',
                         backgroundColor: '#f59e0b',
                         color: '#000',
-                        return (
-                            <div style={dashboardStyles.container}>
-                                <div style={dashboardStyles.mainContent}>
-                                    {/* ...existing code... */}
-                                    <div style={dashboardStyles.dialGrid}>
-                                        <div style={dialStyles.inputSection}>
-                                            <h4 style={dialStyles.daypartTitle}>Breakfast</h4>
-                                            <div style={dialStyles.dialContainer}>
-                                                <SimplifiedProductivityDial
-                                                    title="Breakfast"
-                                                    salesInput={breakfastSales}
-                                                    actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
-                                                    targetProductivity={calculateTargetProductivity('breakfast', getProjectedTotalSales(), selectedTier, daypartWeights)}
-                                                    salesContext="Tier-Based"
-                                                />
-                                            </div>
-                                    <input
-                                        type="text"
-                                        placeholder="Productivity"
-                                        value={actualProductivity.breakfast}
-                                        onChange={(e) => setActualProductivity(prev => ({
-                                            ...prev,
-                                            breakfast: e.target.value.replace(/[^0-9.]/g, '')
-                                        }))}
-                                        style={dialStyles.input}
-                                    />
-                                </div>
+                        padding: '24px 48px',
+                        borderRadius: '12px',
+                        fontWeight: 'bold',
+                        fontSize: '1.2rem',
+                        zIndex: 9999,
+                        boxShadow: '0 2px 16px rgba(0,0,0,0.25)'
+                    }}>
+                        Demo Mode: Data not saved
+                    </div>
+                )}
+                <div className="dashboard-dials">
+                    <div style={dashboardStyles.dialGrid}>
+                        {/* Breakfast Dial */}
+                        <div style={dialStyles.inputSection}>
+                            <h4 style={dialStyles.daypartTitle}>Breakfast</h4>
+                            <div style={dialStyles.dialContainer}>
+                                <SimplifiedProductivityDial
+                                    title="Breakfast"
+                                    salesInput={breakfastSales}
+                                    actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
+                                    targetProductivity={calculateTargetProductivity('breakfast', getProjectedTotalSales(), selectedTier, daypartWeights)}
+                                    salesContext="Tier-Based"
+                                />
                             </div>
+                            <input
+                                type="text"
+                                placeholder="Productivity"
+                                value={actualProductivity.breakfast}
+                                onChange={(e) => setActualProductivity(prev => ({
+                                    ...prev,
+                                    breakfast: e.target.value.replace(/[^0-9.]/g, '')
+                                }))}
+                                style={dialStyles.input}
+                            />
                             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
                                 <input
                                     type="text"
@@ -897,25 +917,167 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 />
                             </div>
                         </div>
-                    </div>
-
-                    <div style={dialStyles.inputSection}>
-                        <h4 style={dialStyles.daypartTitle}>Lunch</h4>
-                        <div style={dialStyles.dialContainer}>
-                            <SimplifiedProductivityDial
-                                title="Lunch"
-                                salesInput={lunchSales}
-                                actualProductivity={parseFloat(actualProductivity.lunch) || 0}
-                                targetProductivity={calculateTargetProductivity('lunch', getProjectedTotalSales(), selectedTier, daypartWeights)}
-                                salesContext="Tier-Based"
+                        {/* Lunch Dial */}
+                        <div style={dialStyles.inputSection}>
+                            <h4 style={dialStyles.daypartTitle}>Lunch</h4>
+                            <div style={dialStyles.dialContainer}>
+                                <SimplifiedProductivityDial
+                                    title="Lunch"
+                                    salesInput={lunchSales}
+                                    actualProductivity={parseFloat(actualProductivity.lunch) || 0}
+                                    targetProductivity={calculateTargetProductivity('lunch', getProjectedTotalSales(), selectedTier, daypartWeights)}
+                                    salesContext="Tier-Based"
+                                />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Productivity"
+                                value={actualProductivity.lunch}
+                                onChange={(e) => setActualProductivity(prev => ({
+                                    ...prev,
+                                    lunch: e.target.value.replace(/[^0-9.]/g, '')
+                                }))}
+                                style={dialStyles.input}
                             />
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="PIC Name"
+                                    value={picNames.lunch}
+                                    onChange={(e) => setPicNames(prev => ({
+                                        ...prev,
+                                        lunch: e.target.value
+                                    }))}
+                                    style={{ ...dialStyles.input, width: '70%' }}
+                                />
+                            </div>
                         </div>
-                        <div style={dialStyles.inputGroup}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <div style={dialStyles.inputField}>
-                                    <input
-                                        type="text"
-                                        placeholder="$10,000"
+                        {/* Afternoon Dial */}
+                        <div style={dialStyles.inputSection}>
+                            <h4 style={dialStyles.daypartTitle}>Afternoon</h4>
+                            <div style={dialStyles.dialContainer}>
+                                <SimplifiedProductivityDial
+                                    title="Afternoon"
+                                    salesInput={afternoonSales}
+                                    actualProductivity={parseFloat(actualProductivity.afternoon) || 0}
+                                    targetProductivity={calculateTargetProductivity('afternoon', getProjectedTotalSales(), selectedTier, daypartWeights)}
+                                    salesContext="Tier-Based"
+                                />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Productivity"
+                                value={actualProductivity.afternoon}
+                                onChange={(e) => setActualProductivity(prev => ({
+                                    ...prev,
+                                    afternoon: e.target.value.replace(/[^0-9.]/g, '')
+                                }))}
+                                style={dialStyles.input}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="PIC Name"
+                                    value={picNames.afternoon}
+                                    onChange={(e) => setPicNames(prev => ({
+                                        ...prev,
+                                        afternoon: e.target.value
+                                    }))}
+                                    style={{ ...dialStyles.input, width: '70%' }}
+                                />
+                            </div>
+                        </div>
+                        {/* Dinner Dial */}
+                        <div style={dialStyles.inputSection}>
+                            <h4 style={dialStyles.daypartTitle}>Dinner</h4>
+                            <div style={dialStyles.dialContainer}>
+                                <SimplifiedProductivityDial
+                                    title="Dinner"
+                                    salesInput={dinnerSales}
+                                    actualProductivity={parseFloat(actualProductivity.dinner) || 0}
+                                    targetProductivity={calculateTargetProductivity('dinner', getProjectedTotalSales(), selectedTier, daypartWeights)}
+                                    salesContext="Tier-Based"
+                                />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Productivity"
+                                value={actualProductivity.dinner}
+                                onChange={(e) => setActualProductivity(prev => ({
+                                    ...prev,
+                                    dinner: e.target.value.replace(/[^0-9.]/g, '')
+                                }))}
+                                style={dialStyles.input}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="PIC Name"
+                                    value={picNames.dinner}
+                                    onChange={(e) => setPicNames(prev => ({
+                                        ...prev,
+                                        dinner: e.target.value
+                                    }))}
+                                    style={{ ...dialStyles.input, width: '70%' }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {/* Combined Dials and Controls Panel */}
+                <div style={dashboardStyles.bottomRow}>
+                    <div style={dashboardStyles.combinedSection}>
+                        <div style={dashboardStyles.combinedDial}>
+                            <h4 style={dashboardStyles.combinedTitle}>Day</h4>
+                            <div style={dialStyles.dialContainer}>
+                                <CombinedProductivityDial
+                                    title="Breakfast + Lunch"
+                                    combinedSales={getDayCombinedSales()}
+                                    combinedActual={getDayCombinedActual()}
+                                    targetProductivity={getDayCombinedTarget()}
+                                    daypart1Prod={actualProductivity.breakfast}
+                                    daypart2Prod={actualProductivity.lunch}
+                                    isDayNight={true}
+                                    showNeedle={breakfastSales && lunchSales && 
+                                             actualProductivity.breakfast && actualProductivity.lunch &&
+                                             parseFloat(breakfastSales.replace(/[^0-9]/g, '')) > 0 &&
+                                             parseFloat(lunchSales.replace(/[^0-9]/g, '')) > 0 &&
+                                             parseFloat(actualProductivity.breakfast) > 0 &&
+                                             parseFloat(actualProductivity.lunch) > 0}
+                                    noDataMessage="Complete breakfast & lunch data to view combined performance"
+                                />
+                            </div>
+                        </div>
+                        <div style={dashboardStyles.combinedDial}>
+                            <h4 style={dashboardStyles.combinedTitle}>Night</h4>
+                            <div style={dialStyles.dialContainer}>
+                                <CombinedProductivityDial
+                                    title="Afternoon + Dinner"
+                                    combinedSales={getNightCombinedSales()}
+                                    combinedActual={getNightCombinedActual()}
+                                    targetProductivity={getNightCombinedTarget()}
+                                    daypart1Prod={actualProductivity.afternoon}
+                                    daypart2Prod={actualProductivity.dinner}
+                                    isDayNight={true}
+                                    showNeedle={afternoonSales && dinnerSales && 
+                                             actualProductivity.afternoon && actualProductivity.dinner &&
+                                             parseFloat(afternoonSales.replace(/[^0-9]/g, '')) > 0 &&
+                                             parseFloat(dinnerSales.replace(/[^0-9]/g, '')) > 0 &&
+                                             parseFloat(actualProductivity.afternoon) > 0 &&
+                                             parseFloat(actualProductivity.dinner) > 0}
+                                    noDataMessage="Complete afternoon & dinner data to view combined performance"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                    {/* Controls Panel (unchanged) */}
+                    <div style={dashboardStyles.controlsPanel}>
+                        {/* ...existing controls panel code... */}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
                                         value={formatCurrency(lunchSales)}
                                         onChange={(e) => setLunchSales(parseCurrency(e.target.value))}
                                         style={{...dialStyles.input, fontSize: '16px'}}
