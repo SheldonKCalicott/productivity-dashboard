@@ -1083,6 +1083,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                             lunch: e.target.value.replace(/[^0-9.]/g, '')
                                         }))}
                                         style={{...dialStyles.input, fontSize: '16px'}}
+                                        onChange={(e) => setActualProductivity(prev => ({
+                                            ...prev,
+                                            lunch: e.target.value.replace(/[^0-9.]/g, '')
+                                        }))}
                                     />
                                 </div>
                             </div>
