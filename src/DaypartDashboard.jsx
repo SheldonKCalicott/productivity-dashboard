@@ -1079,22 +1079,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         </div>
     );
 
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
-                                <input
-                                    type="text"
-                                    placeholder="PIC Name"
-                                    value={picNames.lunch}
-                                    onChange={(e) => setPicNames(prev => ({
-                                        ...prev,
-                                        lunch: e.target.value
-                                    }))}
-                                    style={{ ...dialStyles.input, width: '70%', fontSize: '16px' }}
-                                />
-                            </div>
-                        </div>
-                    </div>
+
 
                     <div style={dialStyles.inputSection}>
                         <h4 style={dialStyles.daypartTitle}>Afternoon</h4>
