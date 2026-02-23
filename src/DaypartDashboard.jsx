@@ -1078,16 +1078,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             </div>
         </div>
     );
-                                        value={formatCurrency(lunchSales)}
-                                        onChange={(e) => setLunchSales(parseCurrency(e.target.value))}
-                                        style={{...dialStyles.input, fontSize: '16px'}}
-                                    />
-                                </div>
-                                <div style={dialStyles.inputField}>
-                                    <input
-                                        type="text"
-                                        placeholder="Productivity"
-                                        value={actualProductivity.lunch}
                                         onChange={(e) => setActualProductivity(prev => ({
                                             ...prev,
                                             lunch: e.target.value.replace(/[^0-9.]/g, '')
