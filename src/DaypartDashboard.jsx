@@ -1020,9 +1020,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     }))}
                                     style={{ ...dialStyles.input, width: '70%' }}
                                 />
-                            </div>
-                        </div>
-                    </div>
+
                 </div>
                 {/* Combined Dials and Controls Panel */}
                 <div style={dashboardStyles.bottomRow}>
