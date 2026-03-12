@@ -3,7 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import pkg from 'pg';
-const { calculateTargetProductivity } = require('./targetUtils');
+import { calculateTargetProductivity } from './targetUtils.js';
 
 const { Pool } = pkg;
 dotenv.config();
@@ -244,15 +244,14 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
             recordsByDate[date].push(record);
         });
 
-        // Recalculate targetProductivity for each record using total daily sales and weights
+        // Recalculate targetProductivity for each record using individual daypart sales and weights
         const recalculatedRows = result.rows.map(record => {
-            const dateRecords = recordsByDate[record.record_date] || [];
-            const totalSales = dateRecords.reduce((sum, r) => sum + (parseInt(r.sales_amount) || 0), 0);
+            const sales = parseInt(record.sales_amount) || 0;
             let targetProductivity = null;
-            if (totalSales > 0) {
+            if (sales > 0) {
                 targetProductivity = calculateTargetProductivity(
                     record.daypart,
-                    totalSales,
+                    sales,
                     selectedTier,
                     daypartWeights
                 );

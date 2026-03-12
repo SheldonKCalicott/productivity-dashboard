@@ -457,7 +457,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         if (type === 'demo') {
             setShowDemoBanner(true)
             setTimeout(() => setShowDemoBanner(false), 3000)
-        } else {
+        } else if (type === 'data') {
             setShowDataBanner(true)
             setTimeout(() => setShowDataBanner(false), 3000)
         }
@@ -480,11 +480,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 manualSave: true
             }
             
-            // Store in localStorage
-            const storageKey = `store_${storeNumber}_${dataDate}`
-            localStorage.setItem(storageKey, JSON.stringify(storeData))
-            
-            // Save to database for real-time reporting
+            // Save to database
             saveToDatabase(storeData)
             
             showMessage('data')
@@ -496,36 +492,52 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     // Save productivity data to database
     const saveToDatabase = async (data) => {
         try {
-            const dayparts = ['breakfast', 'lunch', 'afternoon', 'dinner'];
-            for (const daypart of dayparts) {
-                const sales = data.salesInputs[`${daypart}Sales`];
-                const actualProductivity = data.productivity[daypart];
-                const targetProductivity = calculateTargetProductivity(daypart, getTotalSales());
-                const pic = data.picNames[daypart] || 'Unknown';
+            const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+            const payload = {
+                storeName: effectiveStoreName,
+                date: dataDate,
+                daypartsData: {
+                    breakfast: {
+                        sales: data.salesInputs.breakfastSales,
+                        actualProductivity: data.productivity.breakfast,
+                        picName: data.picNames.breakfast || '',
+                        daypartWeights: data.daypartWeights || daypartWeights,
+                        selectedTier: data.selectedTier || selectedTier
+                    },
+                    lunch: {
+                        sales: data.salesInputs.lunchSales,
+                        actualProductivity: data.productivity.lunch,
+                        picName: data.picNames.lunch || '',
+                        daypartWeights: data.daypartWeights || daypartWeights,
+                        selectedTier: data.selectedTier || selectedTier
+                    },
+                    afternoon: {
+                        sales: data.salesInputs.afternoonSales,
+                        actualProductivity: data.productivity.afternoon,
+                        picName: data.picNames.afternoon || '',
+                        daypartWeights: data.daypartWeights || daypartWeights,
+                        selectedTier: data.selectedTier || selectedTier
+                    },
+                    dinner: {
+                        sales: data.salesInputs.dinnerSales,
+                        actualProductivity: data.productivity.dinner,
+                        picName: data.picNames.dinner || '',
+                        daypartWeights: data.daypartWeights || daypartWeights,
+                        selectedTier: data.selectedTier || selectedTier
+                    }
+                },
+                operationalWeights: data.daypartWeights || daypartWeights,
+                ambitionTier: data.selectedTier || selectedTier
+            };
 
-                // Only save if sales and productivity are present
-                if (sales && actualProductivity && parseFloat(actualProductivity) > 0) {
-                    const payload = {
-                        store_number: effectiveStoreName,
-                        daypart,
-                        sales_amount: parseInt(sales.replace(/[^0-9]/g, '')) || 0,
-                        actual_productivity: parseFloat(actualProductivity) || 0,
-                        target_productivity: targetProductivity,
-                        pic_name: pic,
-                        record_date: dataDate
-                    };
-
-                    await fetch('/api/productivity', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                }
-            }
+            await fetch(`${apiBase}/productivity`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
             console.log(`✅ Data saved to database for ${dataDate}`);
         } catch (error) {
             console.warn('Database save failed (offline mode):', error.message);
-            // Data is still saved in localStorage for offline operation
         }
     }
     
@@ -533,6 +545,13 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         if (isDemo) {
             showMessage('demo')
         } else {
+            // Format a Date as YYYY-MM-DD using local time (avoids UTC shift near midnight)
+            const formatDate = (d) => {
+                const year = d.getFullYear()
+                const month = String(d.getMonth() + 1).padStart(2, '0')
+                const day = String(d.getDate()).padStart(2, '0')
+                return `${year}-${month}-${day}`
+            }
             // Calculate date range based on selection
             const today = new Date()
             let startDate, endDate
@@ -541,38 +560,39 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 startOfWeek.setDate(today.getDate() - today.getDay())
                 const endOfWeek = new Date(startOfWeek)
                 endOfWeek.setDate(startOfWeek.getDate() + 6)
-                startDate = startOfWeek.toISOString().split('T')[0]
-                endDate = endOfWeek.toISOString().split('T')[0]
+                startDate = formatDate(startOfWeek)
+                endDate = formatDate(endOfWeek)
             } else if (exportDateRange === 'this-month') {
-                startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0]
-                endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0]
+                startDate = formatDate(new Date(today.getFullYear(), today.getMonth(), 1))
+                endDate = formatDate(new Date(today.getFullYear(), today.getMonth() + 1, 0))
             } else if (exportDateRange === 'this-quarter') {
                 const quarter = Math.floor(today.getMonth() / 3)
-                startDate = new Date(today.getFullYear(), quarter * 3, 1).toISOString().split('T')[0]
-                endDate = new Date(today.getFullYear(), quarter * 3 + 3, 0).toISOString().split('T')[0]
+                startDate = formatDate(new Date(today.getFullYear(), quarter * 3, 1))
+                endDate = formatDate(new Date(today.getFullYear(), quarter * 3 + 3, 0))
             } else if (exportDateRange === 'custom-start-date' && customExportStartDate && customExportEndDate) {
                 startDate = customExportStartDate
                 endDate = customExportEndDate
             } else {
                 // Fallback to current date
-                startDate = endDate = new Date().toISOString().split('T')[0]
+                startDate = endDate = formatDate(today)
             }
             try {
                 // Fetch data from database for the date range
                 console.log(`📊 Exporting data from ${startDate} to ${endDate}`)
-                const response = await fetch(`/api/productivity/${effectiveStoreName}/range/${startDate}/${endDate}`)
+                const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+                const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/range/${startDate}/${endDate}`)
                 if (!response.ok) {
                     throw new Error(`Failed to fetch data: ${response.status}`)
                 }
                 const databaseRecords = await response.json()
                 console.log(`📊 Retrieved ${databaseRecords.length} records from database`)
-                // Generate all dates in range
+                // Generate all dates in range (use UTC to avoid DST off-by-one)
                 const dates = []
-                const currentDate = new Date(startDate)
-                const finalDate = new Date(endDate)
+                const currentDate = new Date(startDate + 'T00:00:00Z')
+                const finalDate = new Date(endDate + 'T00:00:00Z')
                 while (currentDate <= finalDate) {
                     dates.push(currentDate.toISOString().split('T')[0])
-                    currentDate.setDate(currentDate.getDate() + 1)
+                    currentDate.setUTCDate(currentDate.getUTCDate() + 1)
                 }
                 // Create CSV data with Date column first
                 const data = [
@@ -586,14 +606,13 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         const recordDate = new Date(r.record_date).toISOString().split('T')[0];
                         return recordDate === date;
                     });
-                    // Calculate total sales for the day
-                    const totalSales = recordsForDate.reduce((sum, r) => sum + (parseInt(r.sales_amount) || 0), 0);
                     dayparts.forEach((daypart, index) => {
                         const record = recordsForDate.find(r => r.daypart === daypart);
-                        // Use centralized target calculation for export
+                        // Use individual daypart sales for target calculation
+                        const daypartSalesAmount = record ? (parseInt(record.sales_amount) || 0) : 0;
                         const target = calculateTargetProductivity(
                             daypart,
-                            totalSales,
+                            daypartSalesAmount,
                             selectedTier,
                             daypartWeights
                         );
@@ -629,48 +648,43 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const handleDemoAction = () => handleDataAction()
     const handleDemoExport = () => handleExportAction()
     
-    // Load data from localStorage for selected date
-    const loadDataForDate = (selectedDate) => {
+    // Load data from database for selected date
+    const loadDataForDate = async (selectedDate) => {
         if (isDemo) return;
         
-        const storageKey = `store_${storeNumber}_${selectedDate}`
-        const savedData = localStorage.getItem(storageKey)
-        
-        if (savedData) {
-            try {
-                const data = JSON.parse(savedData)
-                // Load sales data
-                setBreakfastSales(data.salesInputs?.breakfastSales || '')
-                setLunchSales(data.salesInputs?.lunchSales || '')
-                setAfternoonSales(data.salesInputs?.afternoonSales || '')
-                setDinnerSales(data.salesInputs?.dinnerSales || '')
+        try {
+            const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+            const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/${selectedDate}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const daypartsData = await response.json();
+            
+            // Check if we got any data
+            const hasData = daypartsData && (daypartsData.breakfast || daypartsData.lunch || daypartsData.afternoon || daypartsData.dinner);
+            
+            if (hasData) {
+                setBreakfastSales(daypartsData.breakfast?.sales ? daypartsData.breakfast.sales.toString() : '')
+                setLunchSales(daypartsData.lunch?.sales ? daypartsData.lunch.sales.toString() : '')
+                setAfternoonSales(daypartsData.afternoon?.sales ? daypartsData.afternoon.sales.toString() : '')
+                setDinnerSales(daypartsData.dinner?.sales ? daypartsData.dinner.sales.toString() : '')
                 
-                // Load productivity data
-                setActualProductivity(data.productivity || {
-                    breakfast: '',
-                    lunch: '',
-                    afternoon: '',
-                    dinner: ''
+                setActualProductivity({
+                    breakfast: daypartsData.breakfast?.actualProductivity ? daypartsData.breakfast.actualProductivity.toString() : '',
+                    lunch: daypartsData.lunch?.actualProductivity ? daypartsData.lunch.actualProductivity.toString() : '',
+                    afternoon: daypartsData.afternoon?.actualProductivity ? daypartsData.afternoon.actualProductivity.toString() : '',
+                    dinner: daypartsData.dinner?.actualProductivity ? daypartsData.dinner.actualProductivity.toString() : ''
                 })
                 
-                // Load PIC names
-                setPicNames(data.picNames || {
-                    breakfast: '',
-                    lunch: '',
-                    afternoon: '',
-                    dinner: ''
+                setPicNames({
+                    breakfast: daypartsData.breakfast?.picName || '',
+                    lunch: daypartsData.lunch?.picName || '',
+                    afternoon: daypartsData.afternoon?.picName || '',
+                    dinner: daypartsData.dinner?.picName || ''
                 })
-                
-                // Load other settings
-                if (data.selectedTier) setSelectedTier(data.selectedTier)
-                if (data.daypartWeights) setDaypartWeights(data.daypartWeights)
-            } catch (error) {
-                console.error('Error loading saved data:', error)
-                // Clear fields if data is corrupted
+            } else {
                 clearAllFields()
             }
-        } else {
-            // No data for this date, clear all fields
+        } catch (error) {
+            console.warn('Failed to load from database:', error.message)
             clearAllFields()
         }
     }
@@ -724,10 +738,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 autoSaved: true
             }
             
-            const storageKey = `store_${storeNumber}_${dataDate}`
-            localStorage.setItem(storageKey, JSON.stringify(storeData))
-            
-            // Also save to database for real-time reporting
+            // Save to database
             saveToDatabase(storeData)
         }
         
@@ -891,7 +902,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 title="Breakfast"
                                 salesInput={breakfastSales}
                                 actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
-                                targetProductivity={calculateTargetProductivity('breakfast', getTotalSales(), selectedTier, daypartWeights)}
+                                targetProductivity={calculateTargetProductivity('breakfast', getDaypartSales('breakfast'), selectedTier, daypartWeights)}
                                 salesContext="Tier-Based"
                             />
                         </div>
@@ -941,7 +952,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 title="Lunch"
                                 salesInput={lunchSales}
                                 actualProductivity={parseFloat(actualProductivity.lunch) || 0}
-                                targetProductivity={calculateTargetProductivity('lunch', getTotalSales(), selectedTier, daypartWeights)}
+                                targetProductivity={calculateTargetProductivity('lunch', getDaypartSales('lunch'), selectedTier, daypartWeights)}
                                 salesContext="Tier-Based"
                             />
                         </div>
@@ -991,7 +1002,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 title="Afternoon"
                                 salesInput={afternoonSales}
                                 actualProductivity={parseFloat(actualProductivity.afternoon) || 0}
-                                targetProductivity={calculateTargetProductivity('afternoon', getTotalSales(), selectedTier, daypartWeights)}
+                                targetProductivity={calculateTargetProductivity('afternoon', getDaypartSales('afternoon'), selectedTier, daypartWeights)}
                                 salesContext="Tier-Based"
                             />
                         </div>
@@ -1041,7 +1052,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 title="Dinner"
                                 salesInput={dinnerSales}
                                 actualProductivity={parseFloat(actualProductivity.dinner) || 0}
-                                targetProductivity={calculateTargetProductivity('dinner', getTotalSales(), selectedTier, daypartWeights)}
+                                targetProductivity={calculateTargetProductivity('dinner', getDaypartSales('dinner'), selectedTier, daypartWeights)}
                                 salesContext="Tier-Based"
                             />
                         </div>
@@ -1163,142 +1174,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             </p>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0px', margin: '0', padding: '0', width: '100%' }}>
-                            <div style={{ margin: '0', padding: '0', borderRight: '1px solid #333', boxSizing: 'border-box' }}>
-                                <h5 style={{ 
-                                    margin: '0 0 6px 0', 
-                                    color: '#ffffff', 
-                                    fontSize: '14px', 
-                                    fontWeight: '600',
-                                    textAlign: 'center',
-                                    padding: '0 0px'
-                                }}>
-                                    Operational Weights
-                                </h5>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', padding: '0 4px' }}>
-                                    {[
-                                        { key: 'breakfast', name: 'Breakfast', desc: 'Low ticket, high prep, stock for lunch', weight: 76 },
-                                        { key: 'lunch', name: 'Lunch', desc: 'Peak volume, high throughput', weight: 124 },
-                                        { key: 'afternoon', name: 'Afternoon', desc: 'Post-lunch cleanup + dinner prep', weight: 106 },
-                                        { key: 'dinner', name: 'Dinner', desc: 'Peak volume + close-down inefficiency', weight: 94 }
-                                    ].map(({ key, name, desc, weight }) => (
-                                        <div key={key} style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            padding: '0',
-                                            width: '100%'
-                                        }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', minWidth: '70px' }}>
-                                                <input
-                                                    type="number"
-                                                    value={(daypartWeights[key] * 100).toFixed(0)}
-                                                    placeholder={weight.toString()}
-                                                    onChange={(e) => {
-                                                        const newWeight = parseFloat(e.target.value) / 100;
-                                                        setDaypartWeights(prev => ({
-                                                            ...prev,
-                                                            [key]: newWeight
-                                                        }));
-                                                    }}
-                                                    min="50"
-                                                    max="150"
-                                                    step="1"
-                                                    style={{
-                                                        width: '40px',
-                                                        padding: '2px 3px',
-                                                        fontSize: '13px',
-                                                        backgroundColor: '#1a1a1a',
-                                                        color: '#ffffff',
-                                                        border: '1px solid #4a4a4a',
-                                                        borderRadius: '3px',
-                                                        textAlign: 'center'
-                                                    }}
-                                                />
-                                                <span style={{ color: '#888', fontSize: '13px' }}>%</span>
-                                            </div>
-                                            <div style={{ marginLeft: '2px', flex: 1 }}>
-                                                <div style={{
-                                                    color: '#ffffff',
-                                                    fontSize: '13px',
-                                                    fontWeight: '600'
-                                                }}>
-                                                    {name}
-                                                </div>
-                                                <div style={{
-                                                    color: '#888',
-                                                    fontSize: '11px'
-                                                }}>
-                                                    {desc}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    
-                                    {/* Partition line and average */}
-                                    <div style={{
-                                        borderTop: '1px solid #444',
-                                        marginTop: '8px',
-                                        paddingTop: '6px',
-                                        padding: '6px 0px 0 4px'
-                                    }}>
-                                        <div style={{
-                                            textAlign: 'center',
-                                            color: '#ffffff',
-                                            fontSize: '13px',
-                                            fontWeight: '600'
-                                        }}>
-                                            Total Average: {(
-                                                (daypartWeights.breakfast + daypartWeights.lunch + daypartWeights.afternoon + daypartWeights.dinner) 
-                                                / 4 * 100
-                                            ).toFixed(0)}%
-                                        </div>
-                                        <div style={{
-                                            textAlign: 'center',
-                                            color: '#888',
-                                            fontSize: '11px',
-                                            marginTop: '2px'
-                                        }}>
-                                            Weighted operational complexity
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '0px', margin: '0', padding: '0', width: '100%' }}>
+                            {/* Data Management - Left Column */}
                             <div style={{ textAlign: 'center', margin: '0', padding: '0', borderRight: '1px solid #333', boxSizing: 'border-box' }}>
-                                <h5 style={{ margin: '0 0 6px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600', padding: '0 0px' }}>
-                                    Ambition Tier
-                                </h5>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '0 0px', alignItems: 'center' }}>
-                                    {[
-                                        { value: 'Top 50%', label: 'Top 50%' },
-                                        { value: 'Top 33%', label: 'Top 33%' },
-                                        { value: 'Top 20%', label: 'Top 20%' },
-                                        { value: 'Top 10%', label: 'Top 10%' }
-                                    ].map(tier => (
-                                        <label key={tier.value} style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '8px',
-                                            color: '#cccccc',
-                                            fontSize: '13px',
-                                            cursor: 'pointer'
-                                        }}>
-                                            <input
-                                                type="radio"
-                                                name="tier"
-                                                value={tier.value}
-                                                checked={selectedTier === tier.value}
-                                                onChange={(e) => setSelectedTier(e.target.value)}
-                                                style={{ margin: 0 }}
-                                            />
-                                            {tier.label}
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Data Management - Right Column */}
-                            <div style={{ textAlign: 'center', margin: '0', padding: '0', boxSizing: 'border-box' }}>
                                 <h5 style={{ margin: '0 0 6px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600', padding: '0 4px' }}>
                                     Data Management
                                 </h5>
@@ -1339,6 +1217,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     type="date" 
                                                     value={dataDate}
                                                     onChange={(e) => handleDateChange(e.target.value)}
+                                                    onClick={(e) => e.target.showPicker && e.target.showPicker()}
                                                     style={{
                                                         width: '80%',
                                                         padding: '4px 6px',
@@ -1346,7 +1225,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                         backgroundColor: '#1a1a1a',
                                                         color: '#ffffff',
                                                         border: '1px solid #4a4a4a',
-                                                        borderRadius: '3px'
+                                                        borderRadius: '3px',
+                                                        cursor: 'pointer'
                                                     }}
                                                 />
                                             )}
@@ -1422,6 +1302,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     placeholder="Start"
                                                     value={customExportStartDate}
                                                     onChange={(e) => setCustomExportStartDate(e.target.value)}
+                                                    onClick={(e) => e.target.showPicker && e.target.showPicker()}
                                                     style={{
                                                         width: '100%',
                                                         padding: '4px 6px',
@@ -1430,7 +1311,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                         color: '#ffffff',
                                                         border: '1px solid #4a4a4a',
                                                         borderRadius: '3px',
-                                                        boxSizing: 'border-box'
+                                                        boxSizing: 'border-box',
+                                                        cursor: 'pointer'
                                                     }}
                                                 />
                                                 <input 
@@ -1438,6 +1320,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     placeholder="End"
                                                     value={customExportEndDate}
                                                     onChange={(e) => setCustomExportEndDate(e.target.value)}
+                                                    onClick={(e) => e.target.showPicker && e.target.showPicker()}
                                                     style={{
                                                         width: '100%',
                                                         padding: '4px 6px',
@@ -1446,12 +1329,148 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                         color: '#ffffff',
                                                         border: '1px solid #4a4a4a',
                                                         borderRadius: '3px',
-                                                        boxSizing: 'border-box'
+                                                        boxSizing: 'border-box',
+                                                        cursor: 'pointer'
                                                     }}
                                                 />
                                             </div>
                                         </div>
                                     )}
+                                </div>
+                            </div>
+
+                            <div style={{ textAlign: 'center', margin: '0', padding: '0', borderRight: '1px solid #333', boxSizing: 'border-box' }}>
+                                <h5 style={{ margin: '0 0 6px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600', padding: '0 0px' }}>
+                                    Ambition Tier
+                                </h5>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '0 0px', alignItems: 'center' }}>
+                                    {[
+                                        { value: 'Top 50%', label: 'Top 50%' },
+                                        { value: 'Top 33%', label: 'Top 33%' },
+                                        { value: 'Top 20%', label: 'Top 20%' },
+                                        { value: 'Top 10%', label: 'Top 10%' }
+                                    ].map(tier => (
+                                        <label key={tier.value} style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            color: '#cccccc',
+                                            fontSize: '13px',
+                                            cursor: 'pointer'
+                                        }}>
+                                            <input
+                                                type="radio"
+                                                name="tier"
+                                                value={tier.value}
+                                                checked={selectedTier === tier.value}
+                                                onChange={(e) => setSelectedTier(e.target.value)}
+                                                style={{ margin: 0 }}
+                                            />
+                                            {tier.label}
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Operational Weights - Right Column */}
+                            <div style={{ margin: '0', padding: '0', boxSizing: 'border-box' }}>
+                                <h5 style={{ 
+                                    margin: '0 0 6px 0', 
+                                    color: '#ffffff', 
+                                    fontSize: '14px', 
+                                    fontWeight: '600',
+                                    textAlign: 'center',
+                                    padding: '0 0px'
+                                }}>
+                                    Operational Weights
+                                </h5>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', padding: '0 4px', alignItems: 'center' }}>
+                                    {[
+                                        { key: 'breakfast', name: 'Breakfast', desc: 'Low ticket, high prep, stock for lunch', weight: 76 },
+                                        { key: 'lunch', name: 'Lunch', desc: 'Peak volume, high throughput', weight: 124 },
+                                        { key: 'afternoon', name: 'Afternoon', desc: 'Post-lunch cleanup + dinner prep', weight: 106 },
+                                        { key: 'dinner', name: 'Dinner', desc: 'Peak volume + close-down inefficiency', weight: 94 }
+                                    ].map(({ key, name, desc, weight }) => (
+                                        <div key={key} style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '0',
+                                            width: '100%'
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', minWidth: '70px' }}>
+                                                <input
+                                                    type="number"
+                                                    value={(daypartWeights[key] * 100).toFixed(0)}
+                                                    placeholder={weight.toString()}
+                                                    onChange={(e) => {
+                                                        const newWeight = parseFloat(e.target.value) / 100;
+                                                        setDaypartWeights(prev => ({
+                                                            ...prev,
+                                                            [key]: newWeight
+                                                        }));
+                                                    }}
+                                                    min="50"
+                                                    max="150"
+                                                    step="1"
+                                                    style={{
+                                                        width: '40px',
+                                                        padding: '2px 3px',
+                                                        fontSize: '13px',
+                                                        backgroundColor: '#1a1a1a',
+                                                        color: '#ffffff',
+                                                        border: '1px solid #4a4a4a',
+                                                        borderRadius: '3px',
+                                                        textAlign: 'center'
+                                                    }}
+                                                />
+                                                <span style={{ color: '#888', fontSize: '13px' }}>%</span>
+                                            </div>
+                                            <div style={{ marginLeft: '2px', width: '220px' }}>
+                                                <div style={{
+                                                    color: '#ffffff',
+                                                    fontSize: '13px',
+                                                    fontWeight: '600'
+                                                }}>
+                                                    {name}
+                                                </div>
+                                                <div style={{
+                                                    color: '#888',
+                                                    fontSize: '11px'
+                                                }}>
+                                                    {desc}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    
+                                    {/* Partition line and average */}
+                                    <div style={{
+                                        borderTop: '1px solid #444',
+                                        marginTop: '8px',
+                                        paddingTop: '6px',
+                                        padding: '6px 0px 0 4px'
+                                    }}>
+                                        <div style={{
+                                            textAlign: 'center',
+                                            color: '#ffffff',
+                                            fontSize: '13px',
+                                            fontWeight: '600'
+                                        }}>
+                                            Total Average: {(
+                                                (daypartWeights.breakfast + daypartWeights.lunch + daypartWeights.afternoon + daypartWeights.dinner) 
+                                                / 4 * 100
+                                            ).toFixed(0)}%
+                                        </div>
+                                        <div style={{
+                                            textAlign: 'center',
+                                            color: '#888',
+                                            fontSize: '11px',
+                                            marginTop: '2px'
+                                        }}>
+                                            Weighted operational complexity
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

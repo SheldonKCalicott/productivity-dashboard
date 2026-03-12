@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import apiService from './apiService'
-import { calculateTargetProductivity } from './utils/targetUtils'
 
 // Consolidated ReportsPage component
 export default function ReportsPage({ isDemo = false, storeName: propStoreName }) {
@@ -26,72 +25,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
     return 'simplified';
   }
 
-  const loadLocalStorageData = (startDate, endDate, storeName) => {
-    try {
-      const allData = []
-      const startTime = new Date(startDate).getTime()
-      const endTime = new Date(endDate).getTime()
-
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i)
-        if (key && key.startsWith(`store_${storeName}_`)) {
-          const dateStr = key.split('_')[2]
-          if (!dateStr) continue
-          const itemTime = new Date(dateStr).getTime()
-          if (itemTime < startTime || itemTime > endTime) continue
-
-          try {
-            const savedData = JSON.parse(localStorage.getItem(key))
-            if (!savedData?.salesInputs || !savedData?.productivity) continue
-
-            const daypartData = [
-              { daypart: 'breakfast', sales: savedData.salesInputs.breakfastSales, productivity: savedData.productivity.breakfast, pic: savedData.picNames?.breakfast },
-              { daypart: 'lunch', sales: savedData.salesInputs.lunchSales, productivity: savedData.productivity.lunch, pic: savedData.picNames?.lunch },
-              { daypart: 'afternoon', sales: savedData.salesInputs.afternoonSales, productivity: savedData.productivity.afternoon, pic: savedData.picNames?.afternoon },
-              { daypart: 'dinner', sales: savedData.salesInputs.dinnerSales, productivity: savedData.productivity.dinner, pic: savedData.picNames?.dinner }
-            ]
-
-            // Use weights and tier from savedData if available, else defaults
-            const daypartWeights = savedData.daypartWeights || { breakfast: 0.76, lunch: 1.24, afternoon: 1.06, dinner: 0.94 }
-            const selectedTier = savedData.selectedTier || 'Top 50%'
-            const totalSales = Object.values(savedData.salesInputs).reduce((sum, s) => sum + (parseInt(String(s).replace(/[^0-9]/g, '')) || 0), 0)
-
-            daypartData.forEach(item => {
-              if (!item.sales || !item.productivity) return
-              const sales = parseInt(String(item.sales).replace(/[^0-9]/g, '')) || 0
-              const actualProd = parseFloat(item.productivity) || 0
-              if (actualProd <= 0) return
-
-              // Use individual daypart sales for target calculation
-              const targetProd = calculateTargetProductivity(item.daypart.toLowerCase(), sales, selectedTier, daypartWeights)
-
-              allData.push({
-                id: allData.length + 1,
-                picName: item.pic || 'Unknown',
-                daypart: item.daypart.charAt(0).toUpperCase() + item.daypart.slice(1),
-                date: dateStr,
-                actualSales: sales,
-                actualProductivity: actualProd,
-                targetProductivity: targetProd,
-                performanceScore: targetProd ? (actualProd / targetProd) * 100 : 0,
-                tier: actualProd >= targetProd ? "Top 20%" : "Top 50%",
-                improvement: 0
-              })
-            })
-          } catch (e) {
-            // ignore parse errors
-          }
-        }
-      }
-
-      return allData
-    } catch (err) {
-      console.error('Error loading local data', err)
-      return []
-    }
-  }
-
-  // --- Load data from API with local fallback ---
+  // --- Load data from API ---
   const loadReportData = async (startDate, endDate) => {
     if (isDemo) return
     setIsLoading(true)
@@ -113,8 +47,8 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
         })).filter(x => x.actualProductivity > 0)
         setReportData(transformed)
       } catch (apiErr) {
-        const local = loadLocalStorageData(startDate, endDate, storeName)
-        setReportData(local)
+        console.error('Failed to load report data:', apiErr)
+        setReportData([])
       }
     } finally {
       setIsLoading(false)
@@ -154,20 +88,28 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
   useEffect(() => {
     if (filterPeriod === 'example-data' || isDemo) return
 
+    const formatDate = (d) => {
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
     const today = new Date()
     let startDate, endDate
     if (filterPeriod === 'last-30-days') {
-      const d = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
-      startDate = d.toISOString().split('T')[0]
-      endDate = today.toISOString().split('T')[0]
+      const d = new Date(today)
+      d.setDate(today.getDate() - 30)
+      startDate = formatDate(d)
+      endDate = formatDate(today)
     } else if (filterPeriod === 'last-90-days') {
-      const d = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000)
-      startDate = d.toISOString().split('T')[0]
-      endDate = today.toISOString().split('T')[0]
+      const d = new Date(today)
+      d.setDate(today.getDate() - 90)
+      startDate = formatDate(d)
+      endDate = formatDate(today)
     } else if (filterPeriod === 'ytd') {
-      const d = new Date(today.getFullYear(), 0, 1)
-      startDate = d.toISOString().split('T')[0]
-      endDate = today.toISOString().split('T')[0]
+      startDate = formatDate(new Date(today.getFullYear(), 0, 1))
+      endDate = formatDate(today)
     } else if (filterPeriod === 'custom' && customStartDate && customEndDate) {
       startDate = customStartDate
       endDate = customEndDate

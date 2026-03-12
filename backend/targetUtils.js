@@ -19,4 +19,4 @@ function calculateTargetProductivity(daypartKey, totalDailySales, selectedTier =
   return Math.round(baseTarget * daypartWeights[daypartKey]);
 }
 
-module.exports = { tierBaselines, calculateTargetProductivity };
+export { tierBaselines, calculateTargetProductivity };
