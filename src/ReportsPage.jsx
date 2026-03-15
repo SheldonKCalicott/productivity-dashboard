@@ -263,7 +263,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
   const getColumnConfig = () => {
     const configs = {
       'performance': {
-        primary: { key: 'avgPercentVsTarget', label: 'Avg % vs Target', emoji: '✅' },
+        primary: { key: 'avgPercentVsTarget', label: 'Avg Score', emoji: '✅' },
         secondary: [
           { key: 'targetsHit', label: 'Targets Hit' },
           { key: 'peakPercentVsTarget', label: 'Peak % Above' },
@@ -273,7 +273,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
       'targets-hit': {
         primary: { key: 'targetsHit', label: 'Targets Hit', emoji: '🎯' },
         secondary: [
-          { key: 'avgPercentVsTarget', label: 'Avg % vs Target' },
+          { key: 'avgPercentVsTarget', label: 'Avg Score' },
           { key: 'peakPercentVsTarget', label: 'Peak % Above' },
           { key: 'recentTrend', label: 'Recent Trend' }
         ]
@@ -281,7 +281,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
       'peak-performance': {
         primary: { key: 'peakPercentVsTarget', label: 'Peak % Above', emoji: '⭐' },
         secondary: [
-          { key: 'avgPercentVsTarget', label: 'Avg % vs Target' },
+          { key: 'avgPercentVsTarget', label: 'Avg Score' },
           { key: 'targetsHit', label: 'Targets Hit' },
           { key: 'recentTrend', label: 'Recent Trend' }
         ]
@@ -289,13 +289,13 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
       'improvement': {
         primary: { key: 'recentTrend', label: 'Recent Trend', emoji: '📈' },
         secondary: [
-          { key: 'avgPercentVsTarget', label: 'Avg % vs Target' },
+          { key: 'avgPercentVsTarget', label: 'Avg Score' },
           { key: 'targetsHit', label: 'Targets Hit' },
           { key: 'peakPercentVsTarget', label: 'Peak % Above' }
         ]
       },
       'name': {
-        primary: { key: 'avgPercentVsTarget', label: 'Avg % vs Target', emoji: '✅' },
+        primary: { key: 'avgPercentVsTarget', label: 'Avg Score', emoji: '✅' },
         secondary: [
           { key: 'targetsHit', label: 'Targets Hit' },
           { key: 'peakPercentVsTarget', label: 'Peak % Above' },
@@ -460,7 +460,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                 {(teamMaxPercentAboveTarget).toFixed(1)}%
               </div>
               <div style={styles.summaryLabel}>Top Performance</div>
-              <div style={styles.summarySubtext}>best % above target</div>
+              <div style={styles.summarySubtext}>best avg % above</div>
             </div>
 
             <div style={styles.summaryCard}>
@@ -475,8 +475,8 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
               <div style={styles.summaryNumber}>
                 {filteredData.length > 0 ? (filteredData.filter(item => item.targetProductivity && item.actualProductivity >= (item.targetProductivity - 2)).length / filteredData.length * 100).toFixed(0) : 0}%
               </div>
-              <div style={styles.summaryLabel}>Target Hit Rate</div>
-              <div style={styles.summarySubtext}>shifts within 2 pts</div>
+              <div style={styles.summaryLabel}>Team Accuracy</div>
+              <div style={styles.summarySubtext}>target hit rate</div>
             </div>
           </div>
 

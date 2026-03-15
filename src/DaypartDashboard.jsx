@@ -1056,8 +1056,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             color: tc.text,
                             fontWeight: 'bold',
                             textAlign: 'center',
-                            margin: '0 -10px 12px -10px',
-                            padding: '10px',
+                            margin: '0 -10px 10px -10px',
+                            padding: '6px',
                             backgroundColor: tc.headerBg,
                             borderRadius: '8px 8px 0 0',
                             width: 'calc(100% + 20px)',
@@ -1075,7 +1075,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             </p>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 4fr', gap: '0px', margin: '0', padding: '10px 0 0 0', width: '100%' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '0px', margin: '0', padding: '10px 0 0 0', width: '100%' }}>
                             {/* Data Management - Left Column */}
                             <div style={{ textAlign: 'center', margin: '0', padding: '0 12px', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
                                 <h5 style={{ margin: '0 0 6px 0', color: tc.text, fontSize: '14px', fontWeight: '600', padding: '0 4px' }}>
@@ -1245,10 +1245,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             </div>
 
                             <div style={{ textAlign: 'center', margin: '0', padding: '0 6px', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
-                                <h5 style={{ margin: '0 0 6px 0', color: tc.text, fontSize: '14px', fontWeight: '600', padding: '0 0px' }}>
+                                <h5 style={{ margin: '0 0 12px 0', color: tc.text, fontSize: '14px', fontWeight: '600', padding: '0 0px' }}>
                                     Ambition Tier
                                 </h5>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0 2px', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 2px', alignItems: 'center' }}>
                                     {[
                                         { value: 'Top 50%', label: 'Top 50%' },
                                         { value: 'Top 33%', label: 'Top 33%' },
@@ -1285,7 +1285,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     fontSize: '14px', 
                                     fontWeight: '600',
                                     textAlign: 'center',
-                                    padding: '0 0px'
+                                    padding: '0 10px'
                                 }}>
                                     Operational Weights
                                 </h5>
@@ -1303,7 +1303,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                             width: '220px',
                                             maxWidth: '100%'
                                         }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                                                 <input
                                                     type="number"
                                                     value={(daypartWeights[key] * 100).toFixed(0)}
@@ -1456,7 +1456,7 @@ const dashboardStyles = {
         fontWeight: 'bold',
         textAlign: 'center',
         margin: '0',
-        padding: '12px',
+        padding: '6px',
         backgroundColor: '#2a2a2a',
         borderRadius: '6px 6px 0 0',
         width: '100%',
