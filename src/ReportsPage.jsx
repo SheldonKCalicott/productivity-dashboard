@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import apiService from './apiService'
 
 // Consolidated ReportsPage component
@@ -83,6 +83,24 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
 
     return recentAvg - olderAvg
   }
+
+  // --- Computed date range display ---
+  const dateRangeLabel = useMemo(() => {
+    const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    const today = new Date()
+    if (filterPeriod === 'last-30-days') {
+      const start = new Date(today); start.setDate(today.getDate() - 30)
+      return `${fmt(start)} – ${fmt(today)}`
+    } else if (filterPeriod === 'last-90-days') {
+      const start = new Date(today); start.setDate(today.getDate() - 90)
+      return `${fmt(start)} – ${fmt(today)}`
+    } else if (filterPeriod === 'ytd') {
+      return `${fmt(new Date(today.getFullYear(), 0, 1))} – ${fmt(today)}`
+    } else if (filterPeriod === 'custom' && customStartDate && customEndDate) {
+      return `${fmt(new Date(customStartDate + 'T00:00:00'))} – ${fmt(new Date(customEndDate + 'T00:00:00'))}`
+    }
+    return ''
+  }, [filterPeriod, customStartDate, customEndDate])
 
   // --- Effect: load data when filter changes ---
   useEffect(() => {
@@ -374,45 +392,6 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
   // --- Render ---
   return (
     <div style={styles.container}>
-      <div style={styles.instructionSection}>
-        <p style={styles.instruction}>
-          {isDemo ?
-            "This demo report tracks team achievement and individual growth using key performance metrics." :
-            "This report tracks team achievement and individual growth using key performance metrics."
-          }
-        </p>
-      </div>
-
-      <div style={styles.controls}>
-        <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>Time Period:</label>
-          <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)} style={styles.select}>
-            <option value="last-30-days">Last 30 Days</option>
-            <option value="last-90-days">Last 90 Days</option>
-            <option value="ytd">Year to Date</option>
-            <option value="custom">Custom Dates</option>
-          </select>
-        </div>
-
-        {filterPeriod === 'custom' && (
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>Date Range:</label>
-            <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} style={styles.dateInput} />
-            <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} style={styles.dateInput} />
-          </div>
-        )}
-
-        <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>Sort By:</label>
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} style={styles.select}>
-            <option value="performance">% Above Target</option>
-            <option value="targets-hit">Targets Hit</option>
-            <option value="peak-performance">Peak Performance</option>
-            <option value="improvement">Recent Improvement</option>
-            <option value="name">Name</option>
-          </select>
-        </div>
-      </div>
 
       {isLoading && (
         <div style={styles.loadingContainer}>
@@ -420,10 +399,19 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
         </div>
       )}
 
+      {filterPeriod === 'custom' && (
+        <div style={styles.customDateRow}>
+          <label style={styles.filterLabel}>Date Range:</label>
+          <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} style={styles.dateInput} />
+          <span style={{color: '#94a3b8'}}>to</span>
+          <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} style={styles.dateInput} />
+        </div>
+      )}
+
       <div style={styles.mainContentGrid}>
         <div style={styles.teamSummarySection}>
-          <h2 style={{ ...styles.sectionTitle, textAlign: 'center', fontSize: '2rem' }}>Team Summary</h2>
-          <p style={styles.sectionDescription}>Performance insights across all dayparts, measuring consistent target achievement and team growth.</p>
+          <h2 style={styles.panelTitle}>Team Summary</h2>
+          <p style={{...styles.sectionDescription, textAlign: 'center'}}>Performance insights across all dayparts, measuring consistent target achievement and team growth.</p>
 
           <div style={styles.summaryMetrics}>
             <div style={styles.summaryCard}>
@@ -438,8 +426,8 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
               <div style={styles.summaryNumber}>
                 {(teamAvgPercentVsTarget).toFixed(1)}%
               </div>
-              <div style={styles.summaryLabel}>Avg % Above Target</div>
-              <div style={styles.summarySubtext}>performance vs targets</div>
+              <div style={styles.summaryLabel}>Avg % vs Target</div>
+              <div style={styles.summarySubtext}>team average</div>
             </div>
 
             <div style={styles.summaryCard}>
@@ -457,6 +445,22 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
               <div style={styles.summaryLabel}>Top Performance</div>
               <div style={styles.summarySubtext}>best % above target</div>
             </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryNumber}>
+                {filteredData.length}
+              </div>
+              <div style={styles.summaryLabel}>Submissions</div>
+              <div style={styles.summarySubtext}>total entries</div>
+            </div>
+
+            <div style={styles.summaryCard}>
+              <div style={styles.summaryNumber}>
+                {filteredData.length > 0 ? (filteredData.filter(item => item.targetProductivity && item.actualProductivity >= (item.targetProductivity - 2)).length / filteredData.length * 100).toFixed(0) : 0}%
+              </div>
+              <div style={styles.summaryLabel}>Target Hit Rate</div>
+              <div style={styles.summarySubtext}>shifts within 2 pts</div>
+            </div>
           </div>
 
           <div style={styles.insightBox}>
@@ -471,18 +475,53 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
         </div>
 
         <div style={styles.leaderboardSection}>
-          <h2 style={styles.leaderboardTitle}>📊 Leaderboard</h2>
+          <div style={styles.leaderboardTitleRow}>
+            <div style={{flex: 1}} />
+            <h2 style={styles.panelTitle}>📊 Leaderboard</h2>
+            <div style={{flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px'}}>
+              <select 
+                value={filterPeriod} 
+                onChange={(e) => setFilterPeriod(e.target.value)} 
+                style={styles.timePeriodSelect}
+              >
+                <option value="last-30-days">Last 30 Days</option>
+                <option value="last-90-days">Last 90 Days</option>
+                <option value="ytd">Year to Date</option>
+                <option value="custom">Custom Dates</option>
+              </select>
+              {dateRangeLabel && (
+                <span style={{ fontSize: '11px', color: '#888', whiteSpace: 'nowrap' }}>{dateRangeLabel}</span>
+              )}
+            </div>
+          </div>
 
           {sortedData.length === 0 ? (
             <div style={styles.noData}>No performance data found for this date range.</div>
-          ) : (
+          ) : (() => {
+            // Column definitions — active sort moves to primary position
+            const allColumns = [
+              { key: 'performance', sortKey: 'performance', label: 'Score', render: (item) => <>{(item.avgPercentVsTarget ?? 0) >= 0 ? ((item.avgPercentVsTarget ?? 0) > 0 ? '🟢+' : '⚫') : '🔴'}{(item.avgPercentVsTarget ?? 0).toFixed(1)}%</> },
+              { key: 'targets-hit', sortKey: 'targets-hit', label: 'Targets', render: (item) => <>{item.targetsHit}/{item.count || 0}<div style={{ fontSize: '11px', opacity: 0.8 }}>({item.targetHitPercentage ? item.targetHitPercentage.toFixed(0) : 0}%)</div></> },
+              { key: 'peak-performance', sortKey: 'peak-performance', label: 'Peak', render: (item) => <>+{(item.peakPercentVsTarget ?? 0).toFixed(1)}%</> },
+              { key: 'improvement', sortKey: 'improvement', label: 'Trend', render: (item) => <>{item.count === 0 ? '--' : (item.recentTrend !== 0 ? `${item.recentTrend > 0 ? '+' : ''}${(item.recentTrend).toFixed(1)}%` : '--')}</> },
+            ]
+            const primaryCol = allColumns.find(c => c.sortKey === sortBy) || allColumns[0]
+            const secondaryCols = allColumns.filter(c => c.sortKey !== sortBy)
+
+            return (
             <>
               <div style={styles.leaderboardHeaders}>
                 <div style={styles.rankHeader}>Rank</div>
-                <div style={styles.picHeader}>Name</div>
-                <div style={styles.primaryHeader}>{columnConfig.primary.emoji} {columnConfig.primary.label}</div>
-                {columnConfig.secondary.map((col, i) => (
-                  <div key={col.key} style={i === columnConfig.secondary.length - 1 ? styles.lastSecondaryHeader : styles.secondaryHeader}>{col.label}</div>
+                <div style={{...styles.picHeader, cursor: 'pointer'}} onClick={() => setSortBy('name')}>
+                  Name {sortBy === 'name' ? '▼' : ''}
+                </div>
+                <div style={{...styles.primaryHeader, cursor: 'pointer'}} onClick={() => setSortBy(primaryCol.sortKey)}>
+                  {primaryCol.label} ▼
+                </div>
+                {secondaryCols.map((col, i) => (
+                  <div key={col.key} style={{...(i === secondaryCols.length - 1 ? styles.lastSecondaryHeader : styles.secondaryHeader), cursor: 'pointer'}} onClick={() => setSortBy(col.sortKey)}>
+                    {col.label}
+                  </div>
                 ))}
               </div>
 
@@ -494,43 +533,16 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                   return (
                     <div key={item.id} style={{ ...styles.scoreboardRow, backgroundColor }}>
                       <div style={styles.rankColumn}><div style={{ ...styles.rankNumber, color: '#ffffff' }}>#{index + 1}</div></div>
-
                       <div style={styles.picColumn}><div style={{ ...styles.picNameLarge, color: '#ffffff' }}>{item.picName}</div></div>
-
                       <div style={styles.primaryColumn}>
                         <div style={{ ...styles.primaryValue, color: '#ffffff', fontWeight: 'bold', fontSize: '18px' }}>
-                          {columnConfig.primary.key === 'avgPercentVsTarget' && (
-                            <>{(item.avgPercentVsTarget ?? 0) >= 0 ? ((item.avgPercentVsTarget ?? 0) > 0 ? '🟢+' : '⚫') : '🔴'}{(item.avgPercentVsTarget ?? 0).toFixed(1)}%</>
-                          )}
-                          {columnConfig.primary.key === 'targetsHit' && (
-                            <>{item.targetsHit ?? 0}/{item.count ?? 0} {(item.targetHitPercentage ?? 0) >= 75 ? '🟢' : (item.targetHitPercentage ?? 0) >= 50 ? '🟡' : '🔴'}
-                              <div style={{ fontSize: '11px', opacity: 0.8 }}>({(item.targetHitPercentage ?? 0).toFixed(0)}%)</div></>
-                          )}
-                          {columnConfig.primary.key === 'peakPercentVsTarget' && (
-                            <>{(item.peakPercentVsTarget ?? 0) > 10 ? '🟢' : (item.peakPercentVsTarget ?? 0) > 0 ? '🟡' : '🔴'}+{(item.peakPercentVsTarget ?? 0).toFixed(1)}%</>
-                          )}
-                          {columnConfig.primary.key === 'recentTrend' && (
-                            <>{item.count === 0 ? '--' : (item.recentTrend !== 0 ? ((item.recentTrend > 0 ? '🟢+' : '🔴') + (item.recentTrend).toFixed(1) + '%') : '--')}</>
-                          )}
+                          {primaryCol.render(item)}
                         </div>
                       </div>
-
-                      {columnConfig.secondary.map((col) => (
+                      {secondaryCols.map((col) => (
                         <div key={col.key} style={styles.secondaryColumn}>
                           <div style={{ ...styles.secondaryValue, color: '#ffffff' }}>
-                            {col.key === 'avgPercentVsTarget' && (
-                              <>{(item.avgPercentVsTarget ?? 0) >= 0 ? '+' : ''}{(item.avgPercentVsTarget ?? 0).toFixed(1)}%</>
-                            )}
-                            {col.key === 'targetsHit' && (
-                              <>{item.targetsHit}/{item.count || 0}
-                                <div style={{ fontSize: '11px', opacity: 0.8 }}>({item.targetHitPercentage ? item.targetHitPercentage.toFixed(0) : 0}%)</div></>
-                            )}
-                            {col.key === 'peakPercentVsTarget' && (
-                              <>+{(item.peakPercentVsTarget ?? 0).toFixed(1)}%</>
-                            )}
-                            {col.key === 'recentTrend' && (
-                              <>{item.count === 0 ? '--' : (item.recentTrend !== 0 ? `+${(item.recentTrend).toFixed(1)}%` : '--')}</>
-                            )}
+                            {col.render(item)}
                           </div>
                         </div>
                       ))}
@@ -539,15 +551,9 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                 })}
               </div>
             </>
-          )}
+            )
+          })()}
         </div>
-      </div>
-
-      <div style={styles.philosophySection}>
-        <h3 style={styles.philosophyTitle}>Our Philosophy</h3>
-        <p style={styles.philosophyText}>
-          This isn't about being better than each other—it's about each of us hitting our individual targets based on the unique challenges of our daypart and sales volume.
-        </p>
       </div>
     </div>
   )
@@ -637,12 +643,27 @@ const styles = {
     leaderboard: {
         marginBottom: '30px'
     },
-    leaderboardTitle: {
-        fontSize: '2rem',
-        fontWeight: '600',
-        marginBottom: '20px',
-        textAlign: 'center',
-        color: '#ffffff'
+    leaderboardTitleRow: {
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: '12px',
+        gap: '12px',
+    },
+    timePeriodSelect: {
+        padding: '6px 10px',
+        border: '1px solid #374151',
+        borderRadius: '6px',
+        backgroundColor: '#1f2937',
+        color: '#94a3b8',
+        fontSize: '13px',
+    },
+    customDateRow: {
+        display: 'flex',
+        gap: '10px',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: '16px',
     },
     noData: {
         textAlign: 'center',
@@ -754,24 +775,24 @@ const styles = {
     },
     summaryCard: {
         textAlign: 'center',
-        padding: '16px',
+        padding: '12px 8px',
         backgroundColor: '#374151',
         borderRadius: '8px'
     },
     summaryNumber: {
-        fontSize: '2rem',
+        fontSize: '1.5rem',
         fontWeight: 'bold',
         color: '#60a5fa',
-        marginBottom: '8px'
+        marginBottom: '4px'
     },
     summaryLabel: {
-        fontSize: '14px',
+        fontSize: '12px',
         color: '#94a3b8'
     },
     summarySubtext: {
-        fontSize: '12px',
+        fontSize: '11px',
         color: '#6b7280',
-        marginTop: '4px'
+        marginTop: '2px'
     },
     summaryDescription: {
         fontSize: '16px',
@@ -784,8 +805,9 @@ const styles = {
     scoreboardList: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '4px', // Reduced from 8px
-        marginTop: '8px'
+        gap: '4px',
+        marginTop: '8px',
+        flex: 1,
     },
     scoreboardRow: {
         display: 'flex',
@@ -864,17 +886,19 @@ const styles = {
     
     // Enhanced Summary Styles
     insightBox: {
-        marginTop: '24px',
-        padding: '20px',
+        marginTop: '16px',
+        padding: '12px 16px',
         backgroundColor: '#1f2937',
         borderRadius: '8px',
         border: '1px solid #374151'
     },
     insightTitle: {
-        fontSize: '16px',
+        fontSize: '15px',
         fontWeight: '600',
         color: '#fbbf24',
-        marginBottom: '12px'
+        marginBottom: '8px',
+        marginTop: '0',
+        textAlign: 'center'
     },
     insightList: {
         listStyle: 'none',
@@ -882,9 +906,9 @@ const styles = {
         margin: '0'
     },
     insightItem: {
-        fontSize: '14px',
+        fontSize: '13px',
         color: '#d1d5db',
-        marginBottom: '8px'
+        marginBottom: '4px'
     },
     
     // New layout styles
@@ -902,23 +926,31 @@ const styles = {
     mainContentGrid: {
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
-        gap: '30px',
-        marginBottom: '40px',
-        '@media (maxwidth: 1024px)': {
-            gridTemplateColumns: '1fr',
-            gap: '25px'
-        }
+        gap: '20px',
+        minHeight: 'calc(100vh - 120px)',
+        alignItems: 'stretch',
     },
     teamSummarySection: {
         backgroundColor: '#1e293b',
         borderRadius: '12px',
-        padding: '24px'
+        padding: '20px',
+        display: 'flex',
+        flexDirection: 'column',
     },
     leaderboardSection: {
         backgroundColor: '#1e293b',
         borderRadius: '12px',
-        padding: '16px', // Reduced from 24px
-        border: '2px solid #334155'
+        padding: '16px',
+        border: '2px solid #334155',
+        display: 'flex',
+        flexDirection: 'column',
+    },
+    panelTitle: {
+        fontSize: '1.4rem',
+        fontWeight: '700',
+        margin: '0 0 12px 0',
+        color: '#ffffff',
+        textAlign: 'center',
     },
     sectionTitle: {
         fontSize: '1.5rem',
@@ -934,9 +966,9 @@ const styles = {
     },
     summaryMetrics: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: '16px',
-        marginBottom: '24px'
+        gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: '12px',
+        marginBottom: '16px'
     },
     philosophySection: {
         backgroundColor: '#1e293b',

@@ -1,15 +1,63 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
+import React, { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+
+const validStores = {
+    '04680': 'Tuskawilla',
+    '00661': 'Forsyth'
+}
 
 export default function DashboardSelector() {
+    const [storeNumber, setStoreNumber] = useState('')
+    const [error, setError] = useState('')
+    const navigate = useNavigate()
+
+    const handleStoreAccess = (e) => {
+        e.preventDefault()
+        if (!storeNumber.trim()) {
+            setError('Please enter a store number')
+            return
+        }
+        const storeName = validStores[storeNumber.trim()]
+        if (storeName) {
+            navigate(`/store/${storeName}`)
+        } else {
+            setError('Invalid store number. Please contact your manager.')
+        }
+    }
+
     return (
         <div style={styles.container}>
             <div style={styles.header}>
                 <h1 style={styles.title}>Productivity Dashboard</h1>
-                <p style={styles.subtitle}>Choose your dashboard or access your store</p>
+                <p style={styles.subtitle}>Access your store dashboard or explore the demo</p>
             </div>
             
             <div style={styles.dashboardGrid}>
+                {/* Store Access - inline form */}
+                <div style={{...styles.dashboardCard, borderColor: '#10b981'}}>
+                    <div style={styles.cardContent}>
+                        <h2 style={styles.cardTitle}>🏪 Store Access</h2>
+                        <p style={styles.cardDescription}>
+                            Enter your store number to access your dashboard with live productivity tracking and performance analytics.
+                        </p>
+                        <form onSubmit={handleStoreAccess} style={styles.storeForm}>
+                            <input
+                                type="text"
+                                value={storeNumber}
+                                onChange={(e) => { setStoreNumber(e.target.value); setError('') }}
+                                style={styles.storeInput}
+                                placeholder="Enter store number"
+                                autoFocus
+                            />
+                            {error && <div style={styles.storeError}>{error}</div>}
+                            <button type="submit" style={{...styles.cardButton, backgroundColor: '#10b981', border: 'none', cursor: 'pointer', width: '100%'}}>
+                                Access Dashboard →
+                            </button>
+                        </form>
+                        <p style={styles.helpText}>Need help? Contact your manager for your store number.</p>
+                    </div>
+                </div>
+
                 <Link to="/template" style={styles.dashboardCard}
                     onMouseEnter={(e) => {
                         e.currentTarget.style.transform = 'translateY(-5px)'
@@ -25,46 +73,16 @@ export default function DashboardSelector() {
                     <div style={styles.cardContent}>
                         <h2 style={styles.cardTitle}>📊 Demo Dashboard</h2>
                         <p style={styles.cardDescription}>
-                            Explore our full productivity dashboard with sample data. Includes interactive dials, reports, and all features. Perfect for demonstrations and training.
+                            Explore our full productivity dashboard with sample data. Includes interactive dials, reports, and all features.
                         </p>
                         <div style={styles.cardFeatures}>
                             <span style={styles.feature}>• Real-time Productivity Tracking</span>
                             <span style={styles.feature}>• Sales Performance Metrics</span>
                             <span style={styles.feature}>• Interactive Charts & Dials</span>
                             <span style={styles.feature}>• Team Performance Reports</span>
-                            <span style={styles.feature}>• Export & CSV Tools</span>
                         </div>
                         <div style={styles.cardButton}>
                             Try Demo Dashboard →
-                        </div>
-                    </div>
-                </Link>
-
-                <Link to="/store-access" style={styles.dashboardCard}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-5px)'
-                        e.currentTarget.style.borderColor = '#10b981'
-                        e.currentTarget.style.boxShadow = '0 20px 40px rgba(16, 185, 129, 0.2)'
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)'
-                        e.currentTarget.style.borderColor = '#334155'
-                        e.currentTarget.style.boxShadow = 'none'
-                    }}
-                >
-                    <div style={styles.cardContent}>
-                        <h2 style={styles.cardTitle}>🏪 Store Access</h2>
-                        <p style={styles.cardDescription}>
-                            Enter your store number to access your dashboard with live productivity tracking and performance analytics.
-                        </p>
-                        <div style={styles.cardFeatures}>
-                            <span style={styles.feature}>• Direct Store Access</span>
-                            <span style={styles.feature}>• Live Performance Data</span>
-                            <span style={styles.feature}>• Store-Specific Analytics</span>
-                            <span style={styles.feature}>• Team Reports & Insights</span>
-                        </div>
-                        <div style={{...styles.cardButton, backgroundColor: '#10b981'}}>
-                            Enter Store Number →
                         </div>
                     </div>
                 </Link>
@@ -180,6 +198,38 @@ const styles = {
         textAlign: 'center',
         transition: 'background-color 0.3s ease',
         marginTop: 'auto',
+    },
+    storeForm: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        marginBottom: '15px',
+        marginTop: 'auto',
+    },
+    storeInput: {
+        padding: '12px 16px',
+        fontSize: '1rem',
+        backgroundColor: '#0f172a',
+        border: '2px solid #475569',
+        borderRadius: '8px',
+        color: '#ffffff',
+        outline: 'none',
+        textAlign: 'center',
+    },
+    storeError: {
+        backgroundColor: '#fca5a5',
+        color: '#dc2626',
+        padding: '8px',
+        borderRadius: '6px',
+        fontSize: '0.85rem',
+        textAlign: 'center',
+        fontWeight: '600',
+    },
+    helpText: {
+        fontSize: '0.8rem',
+        color: '#64748b',
+        textAlign: 'center',
+        margin: '0',
     },
     footer: {
         marginTop: 'clamp(20px, 5vw, 60px)',

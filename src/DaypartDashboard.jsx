@@ -9,11 +9,12 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     const MIN_PRODUCTIVITY = Math.max(1, targetProductivity - DIAL_RANGE/2)
     const MAX_PRODUCTIVITY = targetProductivity + DIAL_RANGE/2
     
-    // Dynamic dial size based on type
-    const dialSize = isDayNight ? 160 : 240  // EDIT HERE: Reduced daypart dial size (was 240)
-    const centerX = dialSize / 2
-    const centerY = dialSize / 2
-    const radius = (dialSize / 2) - 30      // EDIT HERE: Outer circle radius (was -30)
+    // Dynamic dial size based on type - SVG viewBox is larger to avoid tick clipping
+    const dialSize = isDayNight ? 160 : 150
+    const svgSize = dialSize + 30  // extra padding for outer tick labels
+    const centerX = svgSize / 2
+    const centerY = svgSize / 2
+    const radius = (dialSize / 2) - 20
     
     // Dial angles: 300° span from 120° to 60° (utilizing more of the gauge)
     const START_ANGLE = 120
@@ -78,9 +79,9 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
             const isMinMax = i === 0 || i === tickValues.length - 1
             
             // Different tick lengths for emphasis
-            const outerRadius = radius - (isTarget ? 1 : 1)        // EDIT HERE: Tick outer position (closer to edge for day/night)
-            const innerRadius = radius - (isTarget ? 18 : isMinMax ? 15 : 15)  
-            const labelRadius = isDayNight ? radius + 20 : radius + 20
+            const outerRadius = radius - 1
+            const innerRadius = radius - (isTarget ? 16 : 12)
+            const labelRadius = radius + 14
             
             const outerX = centerX + outerRadius * Math.cos(radians)
             const outerY = centerY + outerRadius * Math.sin(radians)
@@ -103,7 +104,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                         x={labelX}
                         y={labelY}
                         fill={isTarget ? "#fff" : "#aaa"}
-                        fontSize={isDayNight ? (isTarget ? "12" : "10") : (isTarget ? "16" : "14")}
+                        fontSize={isTarget ? "11" : "9"}
                         fontWeight={isTarget ? "bold" : "normal"}
                         textAnchor="middle"
                         dominantBaseline="middle"
@@ -218,14 +219,14 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                 flexDirection: 'column',
                 alignItems: 'center',
                 height: '100%',
-                minHeight: '240px'
+                minHeight: 0
             }}>
-                <svg width={dialSize} height={dialSize} style={dialStyles.svg}>
+                <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`} style={dialStyles.svg}>
                     {/* Background circle */}
                     <circle
                         cx={centerX}
                         cy={centerY}
-                        r={isDayNight ? radius + 5 : radius + 5}  // EDIT HERE: Background circle size
+                        r={radius + 5}
                         fill="#15161A"
                         stroke="#444"
                         strokeWidth="2"
@@ -237,28 +238,15 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     {/* Tick marks and labels */}
                     {generateTicks()}
                     
-                    {/* TARGET label positioned at bottom center of dial */}
-                    <text
-                        x={centerX}
-                        y={centerY + (radius * 0.7)}
-                        fill="#fff"
-                        fontSize={isDayNight ? "7" : "14"}
-                        fontWeight="bold"
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                    >
-                        TARGET
-                    </text>
-                    
                     {/* Actual productivity needle - conditionally rendered */}
                     {showNeedle && actualAngle !== null && (
                         <line
                             x1={centerX}
                             y1={centerY}
-                            x2={centerX + (radius - 30) * Math.cos((actualAngle * Math.PI) / 180)}
-                            y2={centerY + (radius - 30) * Math.sin((actualAngle * Math.PI) / 180)}
+                            x2={centerX + (radius - 25) * Math.cos((actualAngle * Math.PI) / 180)}
+                            y2={centerY + (radius - 25) * Math.sin((actualAngle * Math.PI) / 180)}
                             stroke={currentZone?.color || "#fff"}
-                            strokeWidth={isDayNight ? "3" : "5"}
+                            strokeWidth={isDayNight ? "3" : "4"}
                             strokeLinecap="round"
                             style={{ transition: 'all 0.3s ease-in-out' }}
                         />
@@ -268,7 +256,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     <circle
                         cx={centerX}
                         cy={centerY}
-                        r={isDayNight ? "4" : "6"}
+                        r={isDayNight ? "4" : "5"}
                         fill="#fff"
                     />
                 </svg>
@@ -897,200 +885,80 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 <div style={dashboardStyles.dialGrid}>
                     <div style={dialStyles.inputSection}>
                         <h4 style={dialStyles.daypartTitle}>Breakfast</h4>
-                        <div style={dialStyles.dialContainer}>
-                            <SimplifiedProductivityDial
-                                title="Breakfast"
-                                salesInput={breakfastSales}
-                                actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
-                                targetProductivity={calculateTargetProductivity('breakfast', getDaypartSales('breakfast'), selectedTier, daypartWeights)}
-                                salesContext="Tier-Based"
-                            />
-                        </div>
-                        <div style={dialStyles.inputGroup}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <div style={dialStyles.inputField}>
-                                    <input
-                                        type="text"
-                                        placeholder="$6,000"
-                                        value={formatCurrency(breakfastSales)}
-                                        onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))}
-                                        style={dialStyles.input}
-                                    />
-                                </div>
-                                <div style={dialStyles.inputField}>
-                                    <input
-                                        type="text"
-                                        placeholder="Productivity"
-                                        value={actualProductivity.breakfast}
-                                        onChange={(e) => setActualProductivity(prev => ({
-                                            ...prev,
-                                            breakfast: e.target.value.replace(/[^0-9.]/g, '')
-                                        }))}
-                                        style={dialStyles.input}
-                                    />
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
-                                <input
-                                    type="text"
-                                    placeholder="PIC Name"
-                                    value={picNames.breakfast}
-                                    onChange={(e) => setPicNames(prev => ({
-                                        ...prev,
-                                        breakfast: e.target.value
-                                    }))}
-                                    style={{ ...dialStyles.input, width: '70%' }}
+                        <div style={dialStyles.tileBody}>
+                            <div style={dialStyles.dialSide}>
+                                <SimplifiedProductivityDial
+                                    title="Breakfast"
+                                    salesInput={breakfastSales}
+                                    actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
+                                    targetProductivity={calculateTargetProductivity('breakfast', getDaypartSales('breakfast'), selectedTier, daypartWeights)}
+                                    salesContext="Tier-Based"
                                 />
+                            </div>
+                            <div style={dialStyles.inputSide}>
+                                <input type="text" placeholder="$ Sales" value={formatCurrency(breakfastSales)} onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))} style={dialStyles.sideInput} />
+                                <input type="text" placeholder="Productivity" value={actualProductivity.breakfast} onChange={(e) => setActualProductivity(prev => ({...prev, breakfast: e.target.value.replace(/[^0-9.]/g, '')}))} style={dialStyles.sideInput} />
+                                <input type="text" placeholder="PIC Name" value={picNames.breakfast} onChange={(e) => setPicNames(prev => ({...prev, breakfast: e.target.value}))} style={dialStyles.sideInput} />
                             </div>
                         </div>
                     </div>
 
                     <div style={dialStyles.inputSection}>
                         <h4 style={dialStyles.daypartTitle}>Lunch</h4>
-                        <div style={dialStyles.dialContainer}>
-                            <SimplifiedProductivityDial
-                                title="Lunch"
-                                salesInput={lunchSales}
-                                actualProductivity={parseFloat(actualProductivity.lunch) || 0}
-                                targetProductivity={calculateTargetProductivity('lunch', getDaypartSales('lunch'), selectedTier, daypartWeights)}
-                                salesContext="Tier-Based"
-                            />
-                        </div>
-                        <div style={dialStyles.inputGroup}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <div style={dialStyles.inputField}>
-                                    <input
-                                        type="text"
-                                        placeholder="$10,000"
-                                        value={formatCurrency(lunchSales)}
-                                        onChange={(e) => setLunchSales(parseCurrency(e.target.value))}
-                                        style={{...dialStyles.input, fontSize: '16px'}}
-                                    />
-                                </div>
-                                <div style={dialStyles.inputField}>
-                                    <input
-                                        type="text"
-                                        placeholder="Productivity"
-                                        value={actualProductivity.lunch}
-                                        onChange={(e) => setActualProductivity(prev => ({
-                                            ...prev,
-                                            lunch: e.target.value.replace(/[^0-9.]/g, '')
-                                        }))}
-                                        style={{...dialStyles.input, fontSize: '16px'}}
-                                    />
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
-                                <input
-                                    type="text"
-                                    placeholder="PIC Name"
-                                    value={picNames.lunch}
-                                    onChange={(e) => setPicNames(prev => ({
-                                        ...prev,
-                                        lunch: e.target.value
-                                    }))}
-                                    style={{ ...dialStyles.input, width: '70%', fontSize: '16px' }}
+                        <div style={dialStyles.tileBody}>
+                            <div style={dialStyles.dialSide}>
+                                <SimplifiedProductivityDial
+                                    title="Lunch"
+                                    salesInput={lunchSales}
+                                    actualProductivity={parseFloat(actualProductivity.lunch) || 0}
+                                    targetProductivity={calculateTargetProductivity('lunch', getDaypartSales('lunch'), selectedTier, daypartWeights)}
+                                    salesContext="Tier-Based"
                                 />
+                            </div>
+                            <div style={dialStyles.inputSide}>
+                                <input type="text" placeholder="$ Sales" value={formatCurrency(lunchSales)} onChange={(e) => setLunchSales(parseCurrency(e.target.value))} style={dialStyles.sideInput} />
+                                <input type="text" placeholder="Productivity" value={actualProductivity.lunch} onChange={(e) => setActualProductivity(prev => ({...prev, lunch: e.target.value.replace(/[^0-9.]/g, '')}))} style={dialStyles.sideInput} />
+                                <input type="text" placeholder="PIC Name" value={picNames.lunch} onChange={(e) => setPicNames(prev => ({...prev, lunch: e.target.value}))} style={dialStyles.sideInput} />
                             </div>
                         </div>
                     </div>
 
                     <div style={dialStyles.inputSection}>
                         <h4 style={dialStyles.daypartTitle}>Afternoon</h4>
-                        <div style={dialStyles.dialContainer}>
-                            <SimplifiedProductivityDial
-                                title="Afternoon"
-                                salesInput={afternoonSales}
-                                actualProductivity={parseFloat(actualProductivity.afternoon) || 0}
-                                targetProductivity={calculateTargetProductivity('afternoon', getDaypartSales('afternoon'), selectedTier, daypartWeights)}
-                                salesContext="Tier-Based"
-                            />
-                        </div>
-                        <div style={dialStyles.inputGroup}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <div style={dialStyles.inputField}>
-                                    <input
-                                        type="text"
-                                        placeholder="$7,000"
-                                        value={formatCurrency(afternoonSales)}
-                                        onChange={(e) => setAfternoonSales(parseCurrency(e.target.value))}
-                                        style={{...dialStyles.input, fontSize: '16px'}}
-                                    />
-                                </div>
-                                <div style={dialStyles.inputField}>
-                                    <input
-                                        type="text"
-                                        placeholder="Productivity"
-                                        value={actualProductivity.afternoon}
-                                        onChange={(e) => setActualProductivity(prev => ({
-                                            ...prev,
-                                            afternoon: e.target.value.replace(/[^0-9.]/g, '')
-                                        }))}
-                                        style={{...dialStyles.input, fontSize: '16px'}}
-                                    />
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
-                                <input
-                                    type="text"
-                                    placeholder="PIC Name"
-                                    value={picNames.afternoon}
-                                    onChange={(e) => setPicNames(prev => ({
-                                        ...prev,
-                                        afternoon: e.target.value
-                                    }))}
-                                    style={{ ...dialStyles.input, width: '70%', fontSize: '16px' }}
+                        <div style={dialStyles.tileBody}>
+                            <div style={dialStyles.dialSide}>
+                                <SimplifiedProductivityDial
+                                    title="Afternoon"
+                                    salesInput={afternoonSales}
+                                    actualProductivity={parseFloat(actualProductivity.afternoon) || 0}
+                                    targetProductivity={calculateTargetProductivity('afternoon', getDaypartSales('afternoon'), selectedTier, daypartWeights)}
+                                    salesContext="Tier-Based"
                                 />
+                            </div>
+                            <div style={dialStyles.inputSide}>
+                                <input type="text" placeholder="$ Sales" value={formatCurrency(afternoonSales)} onChange={(e) => setAfternoonSales(parseCurrency(e.target.value))} style={dialStyles.sideInput} />
+                                <input type="text" placeholder="Productivity" value={actualProductivity.afternoon} onChange={(e) => setActualProductivity(prev => ({...prev, afternoon: e.target.value.replace(/[^0-9.]/g, '')}))} style={dialStyles.sideInput} />
+                                <input type="text" placeholder="PIC Name" value={picNames.afternoon} onChange={(e) => setPicNames(prev => ({...prev, afternoon: e.target.value}))} style={dialStyles.sideInput} />
                             </div>
                         </div>
                     </div>
 
                     <div style={dialStyles.inputSection}>
                         <h4 style={dialStyles.daypartTitle}>Dinner</h4>
-                        <div style={dialStyles.dialContainer}>
-                            <SimplifiedProductivityDial
-                                title="Dinner"
-                                salesInput={dinnerSales}
-                                actualProductivity={parseFloat(actualProductivity.dinner) || 0}
-                                targetProductivity={calculateTargetProductivity('dinner', getDaypartSales('dinner'), selectedTier, daypartWeights)}
-                                salesContext="Tier-Based"
-                            />
-                        </div>
-                        <div style={dialStyles.inputGroup}>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <div style={dialStyles.inputField}>
-                                    <input
-                                        type="text"
-                                        placeholder="$9,000"
-                                        value={formatCurrency(dinnerSales)}
-                                        onChange={(e) => setDinnerSales(parseCurrency(e.target.value))}
-                                        style={{...dialStyles.input, fontSize: '16px'}}
-                                    />
-                                </div>
-                                <div style={dialStyles.inputField}>
-                                    <input
-                                        type="text"
-                                        placeholder="Productivity"
-                                        value={actualProductivity.dinner}
-                                        onChange={(e) => setActualProductivity(prev => ({
-                                            ...prev,
-                                            dinner: e.target.value.replace(/[^0-9.]/g, '')
-                                        }))}
-                                        style={{...dialStyles.input, fontSize: '16px'}}
-                                    />
-                                </div>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4px' }}>
-                                <input
-                                    type="text"
-                                    placeholder="PIC Name"
-                                    value={picNames.dinner}
-                                    onChange={(e) => setPicNames(prev => ({
-                                        ...prev,
-                                        dinner: e.target.value
-                                    }))}
-                                    style={{ ...dialStyles.input, width: '70%', fontSize: '16px' }}
+                        <div style={dialStyles.tileBody}>
+                            <div style={dialStyles.dialSide}>
+                                <SimplifiedProductivityDial
+                                    title="Dinner"
+                                    salesInput={dinnerSales}
+                                    actualProductivity={parseFloat(actualProductivity.dinner) || 0}
+                                    targetProductivity={calculateTargetProductivity('dinner', getDaypartSales('dinner'), selectedTier, daypartWeights)}
+                                    salesContext="Tier-Based"
                                 />
+                            </div>
+                            <div style={dialStyles.inputSide}>
+                                <input type="text" placeholder="$ Sales" value={formatCurrency(dinnerSales)} onChange={(e) => setDinnerSales(parseCurrency(e.target.value))} style={dialStyles.sideInput} />
+                                <input type="text" placeholder="Productivity" value={actualProductivity.dinner} onChange={(e) => setActualProductivity(prev => ({...prev, dinner: e.target.value.replace(/[^0-9.]/g, '')}))} style={dialStyles.sideInput} />
+                                <input type="text" placeholder="PIC Name" value={picNames.dinner} onChange={(e) => setPicNames(prev => ({...prev, dinner: e.target.value}))} style={dialStyles.sideInput} />
                             </div>
                         </div>
                     </div>
@@ -1151,12 +1019,12 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     {/* Controls Panel */}
                     <div style={dashboardStyles.controlsPanel}>
                         <h4 style={{
-                            fontSize: '1.2rem',
+                            fontSize: '1rem',
                             color: '#fff',
                             fontWeight: 'bold',
                             textAlign: 'center',
-                            margin: '0 -10px 22px -10px',
-                            padding: '12px',
+                            margin: '0 -10px 12px -10px',
+                            padding: '10px',
                             backgroundColor: '#2a2a2a',
                             borderRadius: '8px 8px 0 0',
                             width: 'calc(100% + 20px)',
@@ -1167,9 +1035,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         
                         <div style={{
                             textAlign: 'center',
-                            marginBottom: '30px'
+                            marginBottom: '8px'
                         }}>
-                            <p style={{ margin: '0', color: '#cccccc', fontSize: '12px', lineHeight: '1.1' }}>
+                            <p style={{ margin: '0', color: '#cccccc', fontSize: '11px', lineHeight: '1.1' }}>
                                 Tier-based targets calculated from daily sales, weighted by operational complexity
                             </p>
                         </div>
@@ -1487,11 +1355,12 @@ const dashboardStyles = {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        minHeight: 'calc(100vh - 50px)',
+        height: 'calc(100vh - 50px)',
+        maxHeight: 'calc(100vh - 50px)',
         background: '#0E0E11',
         color: 'white',
         fontFamily: 'system-ui',
-        padding: 'clamp(6px, 1vw, 12px)',
+        padding: 'clamp(4px, 0.8vw, 10px)',
         boxSizing: 'border-box',
         width: '100%',
         overflow: 'hidden',
@@ -1499,30 +1368,35 @@ const dashboardStyles = {
     mainContent: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 'clamp(8px, 1.2vw, 14px)',
+        gap: 'clamp(4px, 0.8vw, 10px)',
         maxWidth: '100%',
         width: '100%',
         alignItems: 'center',
+        flex: 1,
+        minHeight: 0,
     },
     dialGrid: {
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: 'clamp(8px, 1.2vw, 16px)',
+        gap: 'clamp(6px, 1vw, 12px)',
         width: '100%',
-        marginBottom: 'clamp(8px, 1vw, 14px)',
+        marginBottom: 'clamp(4px, 0.6vw, 8px)',
+        flex: '1 1 auto',
+        minHeight: 0,
     },
     bottomRow: {
         display: 'flex',
         justifyContent: 'space-between',
         width: '100%',
-        gap: 'clamp(10px, 1.5vw, 18px)',
-        alignItems: 'flex-start',
-        flexWrap: 'wrap',
+        gap: 'clamp(6px, 1vw, 12px)',
+        alignItems: 'stretch',
+        flexWrap: 'nowrap',
+        flex: '0 0 auto',
     },
     combinedSection: {
         display: 'flex',
-        gap: 'clamp(10px, 1.5vw, 18px)',
-        flex: '1 1 auto',
+        gap: 'clamp(6px, 1vw, 12px)',
+        flex: '0 0 auto',
         minWidth: 0,
     },
     combinedDial: {
@@ -1534,12 +1408,13 @@ const dashboardStyles = {
         border: '1px solid #333',
         padding: '0',
         minWidth: 0,
-        flex: '1 1 0',
-        maxWidth: '315px',
-        minHeight: 'clamp(280px, 35vh, 350px)',
+        flex: '0 1 200px',
+        maxWidth: '200px',
+        minHeight: 0,
+        overflow: 'hidden',
     },
     combinedTitle: {
-        fontSize: '1.2rem',
+        fontSize: 'clamp(0.85rem, 1.1vw, 1.1rem)',
         color: '#fff',
         fontWeight: 'bold',
         textAlign: 'center',
@@ -1552,20 +1427,19 @@ const dashboardStyles = {
     },
     controlsPanel: {
         background: '#1a1a1a',
-        padding: '0 10px 16px 10px',
+        padding: '0 10px 8px 10px',
         borderRadius: '8px',
         border: '1px solid #333',
         minWidth: 0,
-        flex: '1 1 auto',
-        maxWidth: '800px',
-        minHeight: 'clamp(280px, 35vh, 365px)',
-        height: 'fit-content',
+        flex: '1 1 0',
+        minHeight: 0,
+        overflow: 'hidden',
         boxSizing: 'border-box',
     },
     controlsTitle: {
-        fontSize: '1.2rem',
+        fontSize: '1.1rem',
         color: '#fff',
-        marginBottom: '14px',
+        marginBottom: '8px',
         marginTop: '0',
         fontWeight: 'bold',
         textAlign: 'center',
@@ -1586,26 +1460,66 @@ const dialStyles = {
     inputSection: {
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
         background: '#1a1a1a',
         borderRadius: '8px',
         border: '1px solid #333',
         minWidth: 0,
         width: '100%',
-        minHeight: 'clamp(280px, 35vh, 350px)',
+        minHeight: 0,
         padding: '0',
         position: 'relative',
         boxSizing: 'border-box',
+        overflow: 'hidden',
     },
     daypartTitle: {
-        fontSize: '1.2rem',
+        fontSize: 'clamp(0.85rem, 1.1vw, 1.1rem)',
         color: '#fff',
         fontWeight: 'bold',
         textAlign: 'center',
         margin: '0',
-        padding: '12px',
+        padding: '6px 8px',
         backgroundColor: '#2a2a2a',
         borderRadius: '8px 8px 0 0',
+        width: '100%',
+        boxSizing: 'border-box',
+    },
+    tileBody: {
+        display: 'flex',
+        flexDirection: 'row',
+        flex: 1,
+        minHeight: 0,
+        alignItems: 'stretch',
+    },
+    dialSide: {
+        flex: '1 1 65%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        padding: '4px',
+        minWidth: 0,
+        minHeight: 0,
+    },
+    inputSide: {
+        flex: '0 0 35%',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+        padding: '8px 6px',
+        backgroundColor: '#222',
+        borderRadius: '0 0 8px 0',
+        boxSizing: 'border-box',
+        justifyContent: 'center',
+        minWidth: 0,
+    },
+    sideInput: {
+        padding: '6px 4px',
+        fontSize: 'clamp(11px, 1vw, 14px)',
+        borderRadius: '4px',
+        border: '1px solid #444',
+        textAlign: 'center',
+        background: '#2a2a2a',
+        color: '#fff',
         width: '100%',
         boxSizing: 'border-box',
     },
@@ -1615,12 +1529,12 @@ const dialStyles = {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        padding: '12px',
-        minHeight: '280px',
+        padding: '8px',
+        minHeight: 0,
     },
     dataSection: {
         width: '100%',
-        minHeight: '80px',
+        minHeight: '60px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-start',
@@ -1655,22 +1569,22 @@ const dialStyles = {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        padding: '12px',
+        padding: '6px 8px',
         borderRadius: '6px',
         border: '2px solid',
-        margin: '8px 0',
+        margin: '4px 0',
         textAlign: 'center',
     },
     zoneName: {
-        fontSize: '14px',
+        fontSize: '11px',
         fontWeight: 'bold',
-        marginBottom: '4px',
+        marginBottom: '2px',
         textAlign: 'center',
     },
     zoneAction: {
-        fontSize: '12px',
+        fontSize: '10px',
         opacity: 0.9,
         textAlign: 'center',
-        lineHeight: '1.3',
+        lineHeight: '1.2',
     },
 }

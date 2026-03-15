@@ -4,7 +4,6 @@ import DashboardSelector from './DashboardSelector'
 import SimplifiedDashboard from './SimplifiedDashboard'
 import DaypartDashboard from './DaypartDashboard'
 import ReportsPage from './ReportsPage'
-import StoreAccess from './StoreAccess'
 
 // Global responsive styles for tablet landscape and smaller screens
 const globalStyles = `
@@ -50,25 +49,30 @@ function DashboardWrapper({ children, title, isTemplate = false, storeNumber = n
             <nav style={navStyles.nav}>
                 {isReportsPage ? (
                     <>
-                        <button 
-                            onClick={() => navigate(dashboardPath)} 
-                            style={navStyles.button}
+                        <button
+                            onClick={() => navigate('/')}
+                            style={{...navStyles.button, backgroundColor: '#6b7280'}}
                         >
-                            ← Back to Dashboard
+                            🚪 Logout
                         </button>
                         <h2 style={navStyles.title}>
                             {isTemplate ? 'Demo Reports' : `${title} Reports`}
                         </h2>
-                        <button
-                            onClick={() => navigate(dashboardPath)}
+                        <button 
+                            onClick={() => navigate(dashboardPath)} 
                             style={navStyles.button}
                         >
-                            🏠 Home
+                            ← Dashboard
                         </button>
                     </>
                 ) : (
                     <>
-                        <div style={navStyles.spacer} />
+                        <button
+                            onClick={() => navigate('/')}
+                            style={{...navStyles.button, backgroundColor: '#6b7280'}}
+                        >
+                            🚪 Logout
+                        </button>
                         <h2 style={navStyles.title}>
                             {title} {isTemplate ? '(Demo)' : 'Dashboard'}
                         </h2>
@@ -153,9 +157,6 @@ export default function App() {
                 {/* Public template dashboard */}
                 <Route path="/template" element={<TemplateWrapper />} />
                 <Route path="/template/reports" element={<TemplateWrapper />} />
-                
-                {/* Store access page - enter store number */}
-                <Route path="/store-access" element={<StoreAccess />} />
                 
                 {/* Store number routing - direct access */}
                 <Route 
