@@ -1,30 +1,29 @@
 import React from 'react'
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import DashboardSelector from './DashboardSelector'
 import SimplifiedDashboard from './SimplifiedDashboard'
 import DaypartDashboard from './DaypartDashboard'
 import ReportsPage from './ReportsPage'
 import StoreAccess from './StoreAccess'
 
-// Global styles for landscape orientation
+// Global responsive styles for tablet landscape and smaller screens
 const globalStyles = `
+  * {
+    box-sizing: border-box;
+  }
+  html, body, #root {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  @media (max-width: 1366px) {
+    html { font-size: 14px; }
+  }
+  @media (max-width: 1024px) {
+    html { font-size: 13px; }
+  }
   @media (max-width: 768px) {
-    body {
-      transform: rotate(90deg);
-      transform-origin: center center;
-      position: fixed;
-      width: 100vh;
-      height: 100vw;
-      overflow-x: hidden;
-      top: 0;
-      left: 0;
-    }
-    
-    #root {
-      width: 100vh;
-      height: 100vw;
-      overflow: hidden;
-    }
+    html { font-size: 12px; }
   }
 `
 
@@ -43,13 +42,16 @@ function DashboardWrapper({ children, title, isTemplate = false, storeNumber = n
     
     const isReportsPage = location.pathname.includes('/reports')
     
+    // Determine the dashboard (home) path for this store
+    const dashboardPath = isTemplate ? '/template' : location.pathname.replace('/reports', '')
+    
     return (
         <div>
             <nav style={navStyles.nav}>
                 {isReportsPage ? (
                     <>
                         <button 
-                            onClick={() => navigate(-1)} 
+                            onClick={() => navigate(dashboardPath)} 
                             style={navStyles.button}
                         >
                             ← Back to Dashboard
@@ -57,15 +59,16 @@ function DashboardWrapper({ children, title, isTemplate = false, storeNumber = n
                         <h2 style={navStyles.title}>
                             {isTemplate ? 'Demo Reports' : `${title} Reports`}
                         </h2>
-                        <Link to="/" style={{...navStyles.button, textDecoration: 'none'}}>
+                        <button
+                            onClick={() => navigate(dashboardPath)}
+                            style={navStyles.button}
+                        >
                             🏠 Home
-                        </Link>
+                        </button>
                     </>
                 ) : (
                     <>
-                        <Link to="/" style={{...navStyles.button, textDecoration: 'none'}}>
-                            ← Home
-                        </Link>
+                        <div style={navStyles.spacer} />
                         <h2 style={navStyles.title}>
                             {title} {isTemplate ? '(Demo)' : 'Dashboard'}
                         </h2>
@@ -74,14 +77,9 @@ function DashboardWrapper({ children, title, isTemplate = false, storeNumber = n
                                 if (isTemplate) {
                                     navigate('/template/reports')
                                 } else {
-                                    // Extract store number from current path
                                     const pathParts = window.location.pathname.split('/')
-                                        const storeNumber = pathParts[2]
-                                        let storeName = storeNumber;
-                                        if (storeNumber === '04680') storeName = 'Tuskawilla';
-                                        if (storeNumber === '00661') storeName = 'Forsyth';
-                                        navigate(`/store/${storeName}/reports`)
-                                    navigate(`/store/${storeNumber}/reports`)
+                                    const storeName = pathParts[2]
+                                    navigate(`/store/${storeName}/reports`)
                                 }
                             }} 
                             style={{...navStyles.button, backgroundColor: '#3b82f6'}}
@@ -190,36 +188,42 @@ const navStyles = {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '12px 25px',
+        padding: '8px 16px',
         backgroundColor: '#1e293b',
         borderBottom: '2px solid #3b82f6',
         color: '#ffffff',
-        minHeight: '50px'
+        minHeight: '44px',
+        width: '100%',
+        boxSizing: 'border-box',
     },
     title: {
         margin: 0,
-        fontSize: '1.8rem',
+        fontSize: 'clamp(1rem, 2.5vw, 1.6rem)',
         fontWeight: '700',
         flex: 1,
-        textAlign: 'center'
+        textAlign: 'center',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
     },
     button: {
-        padding: '8px 16px',
+        padding: '6px 12px',
         backgroundColor: '#3b82f6',
         color: '#ffffff',
         border: 'none',
         borderRadius: '6px',
-        fontSize: '14px',
+        fontSize: 'clamp(11px, 1.4vw, 14px)',
         fontWeight: '600',
         cursor: 'pointer',
         transition: 'background-color 0.2s',
-        minWidth: '100px',
+        minWidth: '80px',
         textAlign: 'center',
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        whiteSpace: 'nowrap',
     },
     spacer: {
-        minWidth: '100px'
+        minWidth: '80px'
     }
 }

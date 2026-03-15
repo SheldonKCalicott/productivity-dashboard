@@ -559,14 +559,17 @@ const styles = {
         background: '#0E0E11',
         color: '#ffffff',
         fontFamily: 'system-ui',
-        padding: '20px'
+        padding: 'clamp(10px, 2vw, 20px)',
+        boxSizing: 'border-box',
+        width: '100%',
+        overflow: 'hidden',
     },
     header: {
         textAlign: 'center',
         marginBottom: '30px'
     },
     title: {
-        fontSize: '2.5rem',
+        fontSize: 'clamp(1.5rem, 3.5vw, 2.5rem)',
         fontWeight: 'bold',
         marginBottom: '10px',
         color: '#ffffff'
@@ -649,8 +652,8 @@ const styles = {
     },
     cardGrid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-        gap: '20px'
+        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+        gap: 'clamp(12px, 1.5vw, 20px)',
     },
     performanceCard: {
         backgroundColor: '#1f2937',
@@ -746,8 +749,8 @@ const styles = {
     },
     summaryGrid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-        gap: '20px'
+        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+        gap: 'clamp(10px, 1.5vw, 20px)',
     },
     summaryCard: {
         textAlign: 'center',
