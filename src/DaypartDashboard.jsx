@@ -1063,9 +1063,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             </p>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 3fr', gap: '0px', margin: '0', padding: '10px 0 0 0', width: '100%' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr 4fr', gap: '0px', margin: '0', padding: '10px 0 0 0', width: '100%' }}>
                             {/* Data Management - Left Column */}
-                            <div style={{ textAlign: 'center', margin: '0', padding: '0 10px', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
+                            <div style={{ textAlign: 'center', margin: '0', padding: '0 12px', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
                                 <h5 style={{ margin: '0 0 6px 0', color: tc.text, fontSize: '14px', fontWeight: '600', padding: '0 4px' }}>
                                     Data Management
                                 </h5>
@@ -1108,14 +1108,16 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     onChange={(e) => handleDateChange(e.target.value)}
                                                     onClick={(e) => e.target.showPicker && e.target.showPicker()}
                                                     style={{
-                                                        width: '80%',
+                                                        width: '100%',
+                                                        maxWidth: '130px',
                                                         padding: '4px 6px',
                                                         fontSize: '11px',
                                                         backgroundColor: tc.inputBg,
                                                         color: tc.text,
                                                         border: `1px solid ${tc.inputBorder}`,
                                                         borderRadius: '3px',
-                                                        cursor: 'pointer'
+                                                        cursor: 'pointer',
+                                                        boxSizing: 'border-box'
                                                     }}
                                                 />
                                             )}
@@ -1151,6 +1153,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 onChange={(e) => setExportDateRange(e.target.value)}
                                                 style={{
                                                     width: '100%',
+                                                    maxWidth: '130px',
                                                     padding: '4px 6px',
                                                     fontSize: '11px',
                                                     backgroundColor: tc.inputBg,
@@ -1229,7 +1232,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 </div>
                             </div>
 
-                            <div style={{ textAlign: 'center', margin: '0', padding: '0 8px', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
+                            <div style={{ textAlign: 'center', margin: '0', padding: '0 6px', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
                                 <h5 style={{ margin: '0 0 6px 0', color: tc.text, fontSize: '14px', fontWeight: '600', padding: '0 0px' }}>
                                     Ambition Tier
                                 </h5>
@@ -1263,7 +1266,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             </div>
 
                             {/* Operational Weights - Right Column */}
-                            <div style={{ margin: '0', padding: '0 8px', boxSizing: 'border-box' }}>
+                            <div style={{ margin: '0', padding: '0 4px', boxSizing: 'border-box' }}>
                                 <h5 style={{ 
                                     margin: '0 0 6px 0', 
                                     color: tc.text, 
@@ -1274,7 +1277,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 }}>
                                     Operational Weights
                                 </h5>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '0 8px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '0 2px', alignItems: 'center' }}>
                                     {[
                                         { key: 'breakfast', name: 'Breakfast', desc: 'Low ticket, high prep', weight: 76 },
                                         { key: 'lunch', name: 'Lunch', desc: 'Peak volume, high throughput', weight: 124 },
