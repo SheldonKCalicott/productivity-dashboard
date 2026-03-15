@@ -1,8 +1,25 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import apiService from './apiService'
+import { useTheme } from './App'
+
+const reportThemes = {
+    dark: {
+        bg: '#0E0E11', cardBg: '#1e293b', cardBorder: '#334155', text: '#fff',
+        textMuted: '#94a3b8', inputBg: '#1e293b', inputBorder: '#4a4a4a',
+        metricBg: '#0f172a', metricBorder: '#334155', rowEven: '#1e293b',
+    },
+    light: {
+        bg: '#f0f2f5', cardBg: '#ffffff', cardBorder: '#d0d5dd', text: '#1a1a1a',
+        textMuted: '#555', inputBg: '#f8f9fa', inputBorder: '#bbb',
+        metricBg: '#f0f4ff', metricBorder: '#c8d4e8', rowEven: '#f4f6f9',
+    },
+}
 
 // Consolidated ReportsPage component
 export default function ReportsPage({ isDemo = false, storeName: propStoreName }) {
+  const { theme } = useTheme()
+  const rt = reportThemes[theme]
+  const styles = useMemo(() => getStyles(rt), [rt])
   // --- State ---
   const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'last-30-days' : 'last-30-days')
   const [sortBy, setSortBy] = useState('performance')
@@ -403,7 +420,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
         <div style={styles.customDateRow}>
           <label style={styles.filterLabel}>Date Range:</label>
           <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} style={styles.dateInput} />
-          <span style={{color: '#94a3b8'}}>to</span>
+          <span style={{color: rt.textMuted}}>to</span>
           <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} style={styles.dateInput} />
         </div>
       )}
@@ -490,7 +507,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                 <option value="custom">Custom Dates</option>
               </select>
               {dateRangeLabel && (
-                <span style={{ fontSize: '11px', color: '#888', whiteSpace: 'nowrap' }}>{dateRangeLabel}</span>
+                <span style={{ fontSize: '11px', color: rt.textMuted, whiteSpace: 'nowrap' }}>{dateRangeLabel}</span>
               )}
             </div>
           </div>
@@ -559,12 +576,12 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
   )
 }
 
-const styles = {
+const getStyles = (rt) => ({
     container: {
         height: 'calc(100vh - 50px)',
         maxHeight: 'calc(100vh - 50px)',
-        background: '#0E0E11',
-        color: '#ffffff',
+        background: rt.bg,
+        color: rt.text,
         fontFamily: 'system-ui',
         padding: 'clamp(6px, 1vw, 14px)',
         boxSizing: 'border-box',
@@ -581,11 +598,11 @@ const styles = {
         fontSize: 'clamp(1.5rem, 3.5vw, 2.5rem)',
         fontWeight: 'bold',
         marginBottom: '10px',
-        color: '#ffffff'
+        color: rt.text
     },
     subtitle: {
         fontSize: '1.2rem',
-        color: '#94a3b8',
+        color: rt.textMuted,
         maxWidth: '600px',
         margin: '0 auto'
     },
@@ -604,27 +621,27 @@ const styles = {
     filterLabel: {
         fontSize: '14px',
         fontWeight: '600',
-        color: '#e2e8f0'
+        color: rt.text
     },
     select: {
         padding: '8px 12px',
-        border: '1px solid #374151',
+        border: `1px solid ${rt.cardBorder}`,
         borderRadius: '6px',
-        backgroundColor: '#1f2937',
-        color: '#ffffff',
+        backgroundColor: rt.inputBg,
+        color: rt.text,
         fontSize: '14px'
     },
     dateInput: {
         padding: '6px 8px',
-        border: '1px solid #374151',
+        border: `1px solid ${rt.cardBorder}`,
         borderRadius: '4px',
-        backgroundColor: '#1f2937',
-        color: '#ffffff',
+        backgroundColor: rt.inputBg,
+        color: rt.text,
         fontSize: '12px',
         width: '120px'
     },
     teamMessage: {
-        backgroundColor: '#1e293b',
+        backgroundColor: rt.cardBg,
         border: '2px solid #3b82f6',
         borderRadius: '12px',
         padding: '24px',
@@ -640,7 +657,7 @@ const styles = {
     teamText: {
         fontSize: '16px',
         lineHeight: '1.6',
-        color: '#cbd5e1',
+        color: rt.textMuted,
         margin: 0
     },
     leaderboard: {
@@ -655,10 +672,10 @@ const styles = {
     },
     timePeriodSelect: {
         padding: '6px 10px',
-        border: '1px solid #374151',
+        border: `1px solid ${rt.cardBorder}`,
         borderRadius: '6px',
-        backgroundColor: '#1f2937',
-        color: '#94a3b8',
+        backgroundColor: rt.inputBg,
+        color: rt.textMuted,
         fontSize: '13px',
     },
     customDateRow: {
@@ -671,7 +688,7 @@ const styles = {
     noData: {
         textAlign: 'center',
         padding: '40px',
-        color: '#94a3b8',
+        color: rt.textMuted,
         fontSize: '18px'
     },
     cardGrid: {
@@ -680,10 +697,10 @@ const styles = {
         gap: 'clamp(12px, 1.5vw, 20px)',
     },
     performanceCard: {
-        backgroundColor: '#1f2937',
+        backgroundColor: rt.inputBg,
         borderRadius: '12px',
         padding: '20px',
-        border: '1px solid #374151',
+        border: `1px solid ${rt.cardBorder}`,
         position: 'relative'
     },
     cardHeader: {
@@ -709,11 +726,11 @@ const styles = {
         fontSize: '20px',
         fontWeight: '600',
         marginBottom: '8px',
-        color: '#ffffff'
+        color: rt.text
     },
     daypartInfo: {
         fontSize: '14px',
-        color: '#94a3b8',
+        color: rt.textMuted,
         marginBottom: '16px'
     },
     metrics: {
@@ -726,18 +743,18 @@ const styles = {
     },
     metricLabel: {
         fontSize: '14px',
-        color: '#94a3b8'
+        color: rt.textMuted
     },
     metricValue: {
         fontSize: '14px',
         fontWeight: '600',
-        color: '#e2e8f0'
+        color: rt.text
     },
     performanceScore: {
         textAlign: 'center',
         marginTop: '16px',
         paddingTop: '16px',
-        borderTop: '1px solid #374151'
+        borderTop: `1px solid ${rt.cardBorder}`
     },
     scoreValue: {
         fontSize: '24px',
@@ -745,7 +762,7 @@ const styles = {
     },
     scoreLabel: {
         fontSize: '12px',
-        color: '#94a3b8',
+        color: rt.textMuted,
         marginTop: '4px'
     },
     successBanner: {
@@ -760,7 +777,7 @@ const styles = {
         fontWeight: '600'
     },
     summary: {
-        backgroundColor: '#1e293b',
+        backgroundColor: rt.cardBg,
         borderRadius: '12px',
         padding: '24px'
     },
@@ -769,7 +786,7 @@ const styles = {
         fontWeight: '600',
         marginBottom: '20px',
         textAlign: 'center',
-        color: '#ffffff'
+        color: rt.text
     },
     summaryGrid: {
         display: 'grid',
@@ -779,7 +796,7 @@ const styles = {
     summaryCard: {
         textAlign: 'center',
         padding: '12px 8px',
-        backgroundColor: '#374151',
+        backgroundColor: rt.metricBg,
         borderRadius: '8px'
     },
     summaryNumber: {
@@ -790,16 +807,16 @@ const styles = {
     },
     summaryLabel: {
         fontSize: '12px',
-        color: '#94a3b8'
+        color: rt.textMuted
     },
     summarySubtext: {
         fontSize: '11px',
-        color: '#6b7280',
+        color: rt.textMuted,
         marginTop: '2px'
     },
     summaryDescription: {
         fontSize: '16px',
-        color: '#d1d5db',
+        color: rt.textMuted,
         marginBottom: '20px',
         textAlign: 'center'
     },
@@ -815,11 +832,11 @@ const styles = {
     scoreboardRow: {
         display: 'flex',
         alignItems: 'center',
-        padding: '8px 12px', // Reduced from 16px
-        borderRadius: '6px', // Reduced from 8px
-        border: '1px solid #374151',
+        padding: '8px 12px',
+        borderRadius: '6px',
+        border: `1px solid ${rt.cardBorder}`,
         transition: 'all 0.2s ease',
-        minHeight: '45px' // Reduced height
+        minHeight: '45px'
     },
     
     // Header styles
@@ -827,16 +844,16 @@ const styles = {
         display: 'flex',
         alignItems: 'center',
         padding: '8px 12px',
-        borderBottom: '2px solid #374151',
+        borderBottom: `2px solid ${rt.cardBorder}`,
         marginBottom: '8px',
         fontSize: '12px',
         fontWeight: '600',
-        color: '#94a3b8',
+        color: rt.textMuted,
         textTransform: 'uppercase'
     },
     rankHeader: { minWidth: '50px', marginRight: '10px', textAlign: 'center', fontWeight: 'bold', fontSize: '12px' },
     picHeader: { minWidth: '120px', marginRight: '15px', textAlign: 'left', fontWeight: 'bold', fontSize: '12px' },
-    primaryHeader: { minWidth: '120px', marginRight: '15px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#1d4ed8' },
+    primaryHeader: { minWidth: '120px', marginRight: '15px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#3b82f6' },
     secondaryHeader: { minWidth: '85px', marginRight: '12px', textAlign: 'center', fontWeight: 'normal', fontSize: '11px' },
     lastSecondaryHeader: { minWidth: '85px', textAlign: 'center', fontWeight: 'normal', fontSize: '11px' },
     
@@ -849,7 +866,7 @@ const styles = {
         marginRight: '12px'
     },
     rankNumber: {
-        fontSize: '16px', // Reduced from 18px
+        fontSize: '16px',
         fontWeight: '700',
         color: '#fbbf24'
     },
@@ -858,9 +875,9 @@ const styles = {
         marginRight: '12px'
     },
     picNameLarge: {
-        fontSize: '14px', // Reduced from 18px
+        fontSize: '14px',
         fontWeight: '600',
-        color: '#e2e8f0', // Better contrast
+        color: rt.text,
         lineHeight: '1.2'
     },
     daypartColumn: {
@@ -868,9 +885,9 @@ const styles = {
         marginRight: '12px'
     },
     daypartBadge: {
-        fontSize: '11px', // Reduced from 12px
-        padding: '3px 8px', // Reduced padding
-        backgroundColor: '#6b7280', // Gray instead of blue
+        fontSize: '11px',
+        padding: '3px 8px',
+        backgroundColor: '#6b7280',
         color: '#ffffff',
         borderRadius: '8px',
         fontWeight: '500',
@@ -891,9 +908,9 @@ const styles = {
     insightBox: {
         marginTop: '16px',
         padding: '12px 16px',
-        backgroundColor: '#1f2937',
+        backgroundColor: rt.inputBg,
         borderRadius: '8px',
-        border: '1px solid #374151'
+        border: `1px solid ${rt.cardBorder}`
     },
     insightTitle: {
         fontSize: '15px',
@@ -910,7 +927,7 @@ const styles = {
     },
     insightItem: {
         fontSize: '13px',
-        color: '#d1d5db',
+        color: rt.textMuted,
         marginBottom: '4px'
     },
     
@@ -922,7 +939,7 @@ const styles = {
     },
     instruction: {
         fontSize: '16px',
-        color: '#94a3b8',
+        color: rt.textMuted,
         margin: '0',
         fontWeight: '500'
     },
@@ -935,7 +952,7 @@ const styles = {
         alignItems: 'stretch',
     },
     teamSummarySection: {
-        backgroundColor: '#1e293b',
+        backgroundColor: rt.cardBg,
         borderRadius: '12px',
         padding: '14px',
         display: 'flex',
@@ -943,10 +960,10 @@ const styles = {
         overflow: 'hidden',
     },
     leaderboardSection: {
-        backgroundColor: '#1e293b',
+        backgroundColor: rt.cardBg,
         borderRadius: '12px',
         padding: '12px',
-        border: '2px solid #334155',
+        border: `2px solid ${rt.cardBorder}`,
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -955,18 +972,18 @@ const styles = {
         fontSize: '1.4rem',
         fontWeight: '700',
         margin: '0 0 12px 0',
-        color: '#ffffff',
+        color: rt.text,
         textAlign: 'center',
     },
     sectionTitle: {
         fontSize: '1.5rem',
         fontWeight: '600',
         marginBottom: '12px',
-        color: '#ffffff'
+        color: rt.text
     },
     sectionDescription: {
         fontSize: '13px',
-        color: '#94a3b8',
+        color: rt.textMuted,
         marginBottom: '10px',
         lineHeight: '1.3'
     },
@@ -977,7 +994,7 @@ const styles = {
         marginBottom: '16px'
     },
     philosophySection: {
-        backgroundColor: '#1e293b',
+        backgroundColor: rt.cardBg,
         border: '2px solid #3b82f6',
         borderRadius: '12px',
         padding: '24px',
@@ -992,7 +1009,7 @@ const styles = {
     philosophyText: {
         fontSize: '16px',
         lineHeight: '1.6',
-        color: '#cbd5e1',
+        color: rt.textMuted,
         margin: '0 0 16px 0'
     },
     loadingContainer: {
@@ -1000,14 +1017,14 @@ const styles = {
         justifyContent: 'center',
         alignItems: 'center',
         padding: '48px 24px',
-        backgroundColor: '#1e293b',
+        backgroundColor: rt.cardBg,
         borderRadius: '12px',
-        border: '2px solid #334155',
+        border: `2px solid ${rt.cardBorder}`,
         margin: '24px 0'
     },
     loadingText: {
         fontSize: '18px',
-        color: '#94a3b8',
+        color: rt.textMuted,
         fontWeight: '500'
     }
-}
+})

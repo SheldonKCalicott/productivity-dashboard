@@ -1,9 +1,25 @@
 
 import React, { useState, useEffect } from "react"
 import { calculateTargetProductivity } from "./utils/targetUtils"
+import { useTheme } from "./App"
+
+// Light/dark theme color palettes
+const themes = {
+    dark: {
+        bg: '#0E0E11', cardBg: '#1a1a1a', cardBorder: '#333', inputBg: '#2a2a2a',
+        inputBorder: '#444', text: '#fff', textMuted: '#888', textSubtle: '#cccccc',
+        headerBg: '#2a2a2a', dialBg: '#15161A', dialStroke: '#444',
+    },
+    light: {
+        bg: '#f0f2f5', cardBg: '#ffffff', cardBorder: '#d0d5dd', inputBg: '#f8f9fa',
+        inputBorder: '#bbb', text: '#1a1a1a', textMuted: '#666', textSubtle: '#555',
+        headerBg: '#e8eaed', dialBg: '#f0f0f3', dialStroke: '#aaa',
+    },
+}
 
 // Simplified Productivity Dial - focused on ONE job: actual vs target
-function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, noDataMessage = "Enter sales and actual productivity below" }) {
+function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, noDataMessage = "Enter sales and actual productivity below", themeColors = null }) {
+    const tc = themeColors || themes.dark
     // Sales-driven dial configuration - focused range for granular measurement
     const DIAL_RANGE = 20  // +/- 10 points from target for precise measurement
     const MIN_PRODUCTIVITY = Math.max(1, targetProductivity - DIAL_RANGE/2)
@@ -227,8 +243,8 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                         cx={centerX}
                         cy={centerY}
                         r={radius + 5}
-                        fill="#15161A"
-                        stroke="#444"
+                        fill={tc.dialBg}
+                        stroke={tc.dialStroke}
                         strokeWidth="2"
                     />
                     
@@ -292,7 +308,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
 }
 
 // Day/Night Combined Productivity Dial
-function CombinedProductivityDial({ title, combinedSales, combinedActual, targetProductivity, daypart1Prod, daypart2Prod, isDayNight = false, showNeedle = true, noDataMessage = "Enter productivity data" }) {
+function CombinedProductivityDial({ title, combinedSales, combinedActual, targetProductivity, daypart1Prod, daypart2Prod, isDayNight = false, showNeedle = true, noDataMessage = "Enter productivity data", themeColors = null }) {
     const salesValue = combinedSales || 0
     
     // Only show actual productivity if both dayparts have data
@@ -357,6 +373,7 @@ function CombinedProductivityDial({ title, combinedSales, combinedActual, target
                 showNeedle={showNeedle}
                 enhancedActionMessage={getEnhancedActionMessage()}
                 noDataMessage={noDataMessage}
+                themeColors={themeColors}
             />
         </div>
     )
@@ -364,6 +381,8 @@ function CombinedProductivityDial({ title, combinedSales, combinedActual, target
 
 // Main Dashboard Component
 export default function DaypartDashboard({ onNavigateToReports, storeNumber = null, storeName = null }) {
+    const { theme } = useTheme()
+    const tc = themes[theme]
     // Store-specific configuration  
     const effectiveStoreName = storeName || storeNumber || 'simplified';
     const isDemo = !effectiveStoreName || effectiveStoreName === 'demo';
@@ -834,8 +853,16 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return isNaN(numValue) ? '' : numValue.toString()
     }
 
+    // Theme-overridden styles
+    const tInputSection = {...dialStyles.inputSection, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
+    const tDaypartTitle = {...dialStyles.daypartTitle, backgroundColor: tc.headerBg, color: tc.text}
+    const tRowInput = {...dialStyles.rowInput, background: tc.inputBg, border: `1px solid ${tc.inputBorder}`, color: tc.text}
+    const tCombinedDial = {...dashboardStyles.combinedDial, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
+    const tCombinedTitle = {...dashboardStyles.combinedTitle, backgroundColor: tc.headerBg, color: tc.text}
+    const tControlsPanel = {...dashboardStyles.controlsPanel, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
+    
     return (
-        <div style={dashboardStyles.container}>
+        <div style={{...dashboardStyles.container, background: tc.bg, color: tc.text}}>
             <div style={dashboardStyles.mainContent}>
                 {/* Demo Banner - Only show in demo mode */}
                 {isDemo && showDemoBanner && (
@@ -879,8 +906,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 
                 {/* Four Main Daypart Dials */}
                 <div style={dashboardStyles.dialGrid}>
-                    <div style={dialStyles.inputSection}>
-                        <h4 style={dialStyles.daypartTitle}>Breakfast</h4>
+                    <div style={tInputSection}>
+                        <h4 style={tDaypartTitle}>Breakfast</h4>
                         <div style={dialStyles.dialContainer}>
                             <SimplifiedProductivityDial
                                 title="Breakfast"
@@ -888,17 +915,18 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
                                 targetProductivity={calculateTargetProductivity('breakfast', getDaypartSales('breakfast'), selectedTier, daypartWeights)}
                                 salesContext="Tier-Based"
+                                themeColors={tc}
                             />
                         </div>
                         <div style={dialStyles.inputRow}>
-                            <input type="text" placeholder="$ Sales" value={formatCurrency(breakfastSales)} onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))} style={dialStyles.rowInput} />
-                            <input type="text" placeholder="Prod" value={actualProductivity.breakfast} onChange={(e) => setActualProductivity(prev => ({...prev, breakfast: e.target.value.replace(/[^0-9.]/g, '')}))} style={dialStyles.rowInput} />
-                            <input type="text" placeholder="PIC" value={picNames.breakfast} onChange={(e) => setPicNames(prev => ({...prev, breakfast: e.target.value}))} style={dialStyles.rowInput} />
+                            <input type="text" placeholder="$ Sales" value={formatCurrency(breakfastSales)} onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))} style={tRowInput} />
+                            <input type="text" placeholder="Prod" value={actualProductivity.breakfast} onChange={(e) => setActualProductivity(prev => ({...prev, breakfast: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
+                            <input type="text" placeholder="PIC" value={picNames.breakfast} onChange={(e) => setPicNames(prev => ({...prev, breakfast: e.target.value}))} style={tRowInput} />
                         </div>
                     </div>
 
-                    <div style={dialStyles.inputSection}>
-                        <h4 style={dialStyles.daypartTitle}>Lunch</h4>
+                    <div style={tInputSection}>
+                        <h4 style={tDaypartTitle}>Lunch</h4>
                         <div style={dialStyles.dialContainer}>
                             <SimplifiedProductivityDial
                                 title="Lunch"
@@ -906,17 +934,18 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 actualProductivity={parseFloat(actualProductivity.lunch) || 0}
                                 targetProductivity={calculateTargetProductivity('lunch', getDaypartSales('lunch'), selectedTier, daypartWeights)}
                                 salesContext="Tier-Based"
+                                themeColors={tc}
                             />
                         </div>
                         <div style={dialStyles.inputRow}>
-                            <input type="text" placeholder="$ Sales" value={formatCurrency(lunchSales)} onChange={(e) => setLunchSales(parseCurrency(e.target.value))} style={dialStyles.rowInput} />
-                            <input type="text" placeholder="Prod" value={actualProductivity.lunch} onChange={(e) => setActualProductivity(prev => ({...prev, lunch: e.target.value.replace(/[^0-9.]/g, '')}))} style={dialStyles.rowInput} />
-                            <input type="text" placeholder="PIC" value={picNames.lunch} onChange={(e) => setPicNames(prev => ({...prev, lunch: e.target.value}))} style={dialStyles.rowInput} />
+                            <input type="text" placeholder="$ Sales" value={formatCurrency(lunchSales)} onChange={(e) => setLunchSales(parseCurrency(e.target.value))} style={tRowInput} />
+                            <input type="text" placeholder="Prod" value={actualProductivity.lunch} onChange={(e) => setActualProductivity(prev => ({...prev, lunch: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
+                            <input type="text" placeholder="PIC" value={picNames.lunch} onChange={(e) => setPicNames(prev => ({...prev, lunch: e.target.value}))} style={tRowInput} />
                         </div>
                     </div>
 
-                    <div style={dialStyles.inputSection}>
-                        <h4 style={dialStyles.daypartTitle}>Afternoon</h4>
+                    <div style={tInputSection}>
+                        <h4 style={tDaypartTitle}>Afternoon</h4>
                         <div style={dialStyles.dialContainer}>
                             <SimplifiedProductivityDial
                                 title="Afternoon"
@@ -924,17 +953,18 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 actualProductivity={parseFloat(actualProductivity.afternoon) || 0}
                                 targetProductivity={calculateTargetProductivity('afternoon', getDaypartSales('afternoon'), selectedTier, daypartWeights)}
                                 salesContext="Tier-Based"
+                                themeColors={tc}
                             />
                         </div>
                         <div style={dialStyles.inputRow}>
-                            <input type="text" placeholder="$ Sales" value={formatCurrency(afternoonSales)} onChange={(e) => setAfternoonSales(parseCurrency(e.target.value))} style={dialStyles.rowInput} />
-                            <input type="text" placeholder="Prod" value={actualProductivity.afternoon} onChange={(e) => setActualProductivity(prev => ({...prev, afternoon: e.target.value.replace(/[^0-9.]/g, '')}))} style={dialStyles.rowInput} />
-                            <input type="text" placeholder="PIC" value={picNames.afternoon} onChange={(e) => setPicNames(prev => ({...prev, afternoon: e.target.value}))} style={dialStyles.rowInput} />
+                            <input type="text" placeholder="$ Sales" value={formatCurrency(afternoonSales)} onChange={(e) => setAfternoonSales(parseCurrency(e.target.value))} style={tRowInput} />
+                            <input type="text" placeholder="Prod" value={actualProductivity.afternoon} onChange={(e) => setActualProductivity(prev => ({...prev, afternoon: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
+                            <input type="text" placeholder="PIC" value={picNames.afternoon} onChange={(e) => setPicNames(prev => ({...prev, afternoon: e.target.value}))} style={tRowInput} />
                         </div>
                     </div>
 
-                    <div style={dialStyles.inputSection}>
-                        <h4 style={dialStyles.daypartTitle}>Dinner</h4>
+                    <div style={tInputSection}>
+                        <h4 style={tDaypartTitle}>Dinner</h4>
                         <div style={dialStyles.dialContainer}>
                             <SimplifiedProductivityDial
                                 title="Dinner"
@@ -942,12 +972,13 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 actualProductivity={parseFloat(actualProductivity.dinner) || 0}
                                 targetProductivity={calculateTargetProductivity('dinner', getDaypartSales('dinner'), selectedTier, daypartWeights)}
                                 salesContext="Tier-Based"
+                                themeColors={tc}
                             />
                         </div>
                         <div style={dialStyles.inputRow}>
-                            <input type="text" placeholder="$ Sales" value={formatCurrency(dinnerSales)} onChange={(e) => setDinnerSales(parseCurrency(e.target.value))} style={dialStyles.rowInput} />
-                            <input type="text" placeholder="Prod" value={actualProductivity.dinner} onChange={(e) => setActualProductivity(prev => ({...prev, dinner: e.target.value.replace(/[^0-9.]/g, '')}))} style={dialStyles.rowInput} />
-                            <input type="text" placeholder="PIC" value={picNames.dinner} onChange={(e) => setPicNames(prev => ({...prev, dinner: e.target.value}))} style={dialStyles.rowInput} />
+                            <input type="text" placeholder="$ Sales" value={formatCurrency(dinnerSales)} onChange={(e) => setDinnerSales(parseCurrency(e.target.value))} style={tRowInput} />
+                            <input type="text" placeholder="Prod" value={actualProductivity.dinner} onChange={(e) => setActualProductivity(prev => ({...prev, dinner: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
+                            <input type="text" placeholder="PIC" value={picNames.dinner} onChange={(e) => setPicNames(prev => ({...prev, dinner: e.target.value}))} style={tRowInput} />
                         </div>
                     </div>
                 </div>
@@ -958,8 +989,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     {/* Combined Dials - Day and Night - Always visible */}
                     <div style={dashboardStyles.combinedSection}>
                         {/* Day Dial - Always show container */}
-                        <div style={dashboardStyles.combinedDial}>
-                            <h4 style={dashboardStyles.combinedTitle}>Day</h4>
+                        <div style={tCombinedDial}>
+                            <h4 style={tCombinedTitle}>Day</h4>
                             <div style={dialStyles.dialContainer}>
                                 <CombinedProductivityDial
                                     title="Breakfast + Lunch"
@@ -976,13 +1007,14 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                              parseFloat(actualProductivity.breakfast) > 0 &&
                                              parseFloat(actualProductivity.lunch) > 0}
                                     noDataMessage="Complete breakfast & lunch data to view combined performance"
+                                    themeColors={tc}
                                 />
                             </div>
                         </div>
                         
                         {/* Night Dial - Always show container */}
-                        <div style={dashboardStyles.combinedDial}>
-                            <h4 style={dashboardStyles.combinedTitle}>Night</h4>
+                        <div style={tCombinedDial}>
+                            <h4 style={tCombinedTitle}>Night</h4>
                             <div style={dialStyles.dialContainer}>
                                 <CombinedProductivityDial
                                     title="Afternoon + Dinner"
@@ -999,21 +1031,22 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                              parseFloat(actualProductivity.afternoon) > 0 &&
                                              parseFloat(actualProductivity.dinner) > 0}
                                     noDataMessage="Complete afternoon & dinner data to view combined performance"
+                                    themeColors={tc}
                                 />
                             </div>
                         </div>
                     </div>
 
                     {/* Controls Panel */}
-                    <div style={dashboardStyles.controlsPanel}>
+                    <div style={tControlsPanel}>
                         <h4 style={{
                             fontSize: '1rem',
-                            color: '#fff',
+                            color: tc.text,
                             fontWeight: 'bold',
                             textAlign: 'center',
                             margin: '0 -10px 12px -10px',
                             padding: '10px',
-                            backgroundColor: '#2a2a2a',
+                            backgroundColor: tc.headerBg,
                             borderRadius: '8px 8px 0 0',
                             width: 'calc(100% + 20px)',
                             boxSizing: 'border-box'
@@ -1025,15 +1058,15 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             textAlign: 'center',
                             marginBottom: '8px'
                         }}>
-                            <p style={{ margin: '0', color: '#cccccc', fontSize: '11px', lineHeight: '1.1' }}>
+                            <p style={{ margin: '0', color: tc.textSubtle, fontSize: '11px', lineHeight: '1.1' }}>
                                 Tier-based targets calculated from daily sales, weighted by operational complexity
                             </p>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '0px', margin: '0', padding: '8px 0 0 0', width: '100%' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 3fr', gap: '0px', margin: '0', padding: '8px 0 0 0', width: '100%' }}>
                             {/* Data Management - Left Column */}
-                            <div style={{ textAlign: 'center', margin: '0', padding: '0', borderRight: '1px solid #333', boxSizing: 'border-box' }}>
-                                <h5 style={{ margin: '0 0 6px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600', padding: '0 4px' }}>
+                            <div style={{ textAlign: 'center', margin: '0', padding: '0 6px', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
+                                <h5 style={{ margin: '0 0 6px 0', color: tc.text, fontSize: '14px', fontWeight: '600', padding: '0 4px' }}>
                                     Data Management
                                 </h5>
                                 
@@ -1055,7 +1088,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 
                                 {/* Save Data Section */}
                                 <div style={{ marginBottom: '10px', padding: '0 4px' }}>
-                                    <h6 style={{ margin: '0 0 4px 0', color: '#ffffff', fontSize: '12px', fontWeight: '600' }}>
+                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600' }}>
                                         Save Data
                                     </h6>
                                     <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', marginBottom: '6px' }}>
@@ -1078,9 +1111,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                         width: '80%',
                                                         padding: '4px 6px',
                                                         fontSize: '11px',
-                                                        backgroundColor: '#1a1a1a',
-                                                        color: '#ffffff',
-                                                        border: '1px solid #4a4a4a',
+                                                        backgroundColor: tc.inputBg,
+                                                        color: tc.text,
+                                                        border: `1px solid ${tc.inputBorder}`,
                                                         borderRadius: '3px',
                                                         cursor: 'pointer'
                                                     }}
@@ -1108,7 +1141,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 
                                 {/* Export Data Section */}
                                 <div style={{ padding: '8px 4px' }}>
-                                    <h6 style={{ margin: '0 0 4px 0', color: '#ffffff', fontSize: '12px', fontWeight: '600' }}>
+                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600' }}>
                                         Export Data
                                     </h6>
                                     <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', marginBottom: '6px' }}>
@@ -1120,9 +1153,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     width: '80%',
                                                     padding: '4px 6px',
                                                     fontSize: '11px',
-                                                    backgroundColor: '#1a1a1a',
-                                                    color: '#ffffff',
-                                                    border: '1px solid #4a4a4a',
+                                                    backgroundColor: tc.inputBg,
+                                                    color: tc.text,
+                                                    border: `1px solid ${tc.inputBorder}`,
                                                     borderRadius: '3px'
                                                 }}>
                                                 <option value="this-week">This Week</option>
@@ -1163,9 +1196,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                         width: '100%',
                                                         padding: '4px 6px',
                                                         fontSize: '11px',
-                                                        backgroundColor: '#1a1a1a',
-                                                        color: '#ffffff',
-                                                        border: '1px solid #4a4a4a',
+                                                        backgroundColor: tc.inputBg,
+                                                        color: tc.text,
+                                                        border: `1px solid ${tc.inputBorder}`,
                                                         borderRadius: '3px',
                                                         boxSizing: 'border-box',
                                                         cursor: 'pointer'
@@ -1181,9 +1214,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                         width: '100%',
                                                         padding: '4px 6px',
                                                         fontSize: '11px',
-                                                        backgroundColor: '#1a1a1a',
-                                                        color: '#ffffff',
-                                                        border: '1px solid #4a4a4a',
+                                                        backgroundColor: tc.inputBg,
+                                                        color: tc.text,
+                                                        border: `1px solid ${tc.inputBorder}`,
                                                         borderRadius: '3px',
                                                         boxSizing: 'border-box',
                                                         cursor: 'pointer'
@@ -1195,8 +1228,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 </div>
                             </div>
 
-                            <div style={{ textAlign: 'center', margin: '0', padding: '0', borderRight: '1px solid #333', boxSizing: 'border-box' }}>
-                                <h5 style={{ margin: '0 0 6px 0', color: '#ffffff', fontSize: '14px', fontWeight: '600', padding: '0 0px' }}>
+                            <div style={{ textAlign: 'center', margin: '0', padding: '0', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
+                                <h5 style={{ margin: '0 0 6px 0', color: tc.text, fontSize: '14px', fontWeight: '600', padding: '0 0px' }}>
                                     Ambition Tier
                                 </h5>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', padding: '0 2px', alignItems: 'center' }}>
@@ -1210,7 +1243,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                             display: 'flex',
                                             alignItems: 'center',
                                             gap: '4px',
-                                            color: '#cccccc',
+                                            color: tc.textSubtle,
                                             fontSize: '12px',
                                             cursor: 'pointer'
                                         }}>
@@ -1232,7 +1265,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             <div style={{ margin: '0', padding: '0', boxSizing: 'border-box' }}>
                                 <h5 style={{ 
                                     margin: '0 0 6px 0', 
-                                    color: '#ffffff', 
+                                    color: tc.text, 
                                     fontSize: '14px', 
                                     fontWeight: '600',
                                     textAlign: 'center',
@@ -1240,21 +1273,20 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 }}>
                                     Operational Weights
                                 </h5>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', padding: '0 4px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', padding: '0 4px', alignItems: 'flex-start' }}>
                                     {[
-                                        { key: 'breakfast', name: 'Breakfast', desc: 'Low ticket, high prep, stock for lunch', weight: 76 },
+                                        { key: 'breakfast', name: 'Breakfast', desc: 'Low ticket, high prep', weight: 76 },
                                         { key: 'lunch', name: 'Lunch', desc: 'Peak volume, high throughput', weight: 124 },
-                                        { key: 'afternoon', name: 'Afternoon', desc: 'Post-lunch cleanup + dinner prep', weight: 106 },
-                                        { key: 'dinner', name: 'Dinner', desc: 'Peak volume + close-down inefficiency', weight: 94 }
+                                        { key: 'afternoon', name: 'Afternoon', desc: 'Cleanup + dinner prep', weight: 106 },
+                                        { key: 'dinner', name: 'Dinner', desc: 'Peak volume + close-down', weight: 94 }
                                     ].map(({ key, name, desc, weight }) => (
                                         <div key={key} style={{
                                             display: 'flex',
                                             alignItems: 'center',
-                                            justifyContent: 'center',
                                             padding: '0',
                                             width: '100%'
                                         }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', minWidth: '55px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
                                                 <input
                                                     type="number"
                                                     value={(daypartWeights[key] * 100).toFixed(0)}
@@ -1273,25 +1305,25 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                         width: '40px',
                                                         padding: '2px 3px',
                                                         fontSize: '13px',
-                                                        backgroundColor: '#1a1a1a',
-                                                        color: '#ffffff',
-                                                        border: '1px solid #4a4a4a',
+                                                        backgroundColor: tc.inputBg,
+                                                        color: tc.text,
+                                                        border: `1px solid ${tc.inputBorder}`,
                                                         borderRadius: '3px',
                                                         textAlign: 'center'
                                                     }}
                                                 />
-                                                <span style={{ color: '#888', fontSize: '13px' }}>%</span>
+                                                <span style={{ color: tc.textMuted, fontSize: '13px' }}>%</span>
                                             </div>
-                                            <div style={{ marginLeft: '0px' }}>
+                                            <div style={{ marginLeft: '4px', minWidth: 0 }}>
                                                 <div style={{
-                                                    color: '#ffffff',
+                                                    color: tc.text,
                                                     fontSize: '13px',
                                                     fontWeight: '600'
                                                 }}>
                                                     {name}
                                                 </div>
                                                 <div style={{
-                                                    color: '#888',
+                                                    color: tc.textMuted,
                                                     fontSize: '11px'
                                                 }}>
                                                     {desc}
@@ -1302,14 +1334,14 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     
                                     {/* Partition line and average */}
                                     <div style={{
-                                        borderTop: '1px solid #444',
+                                        borderTop: `1px solid ${tc.inputBorder}`,
                                         marginTop: '8px',
                                         paddingTop: '6px',
                                         padding: '6px 0px 0 4px'
                                     }}>
                                         <div style={{
                                             textAlign: 'center',
-                                            color: '#ffffff',
+                                            color: tc.text,
                                             fontSize: '13px',
                                             fontWeight: '600'
                                         }}>
@@ -1320,7 +1352,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                         </div>
                                         <div style={{
                                             textAlign: 'center',
-                                            color: '#888',
+                                            color: tc.textMuted,
                                             fontSize: '11px',
                                             marginTop: '2px'
                                         }}>
@@ -1481,8 +1513,8 @@ const dialStyles = {
     },
     rowInput: {
         flex: 1,
-        padding: '4px 3px',
-        fontSize: 'clamp(10px, 0.9vw, 13px)',
+        padding: '5px 2px',
+        fontSize: 'clamp(10px, 0.9vw, 12px)',
         borderRadius: '4px',
         border: '1px solid #444',
         textAlign: 'center',
