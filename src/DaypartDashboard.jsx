@@ -113,13 +113,13 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                         y1={outerY}
                         x2={innerX}
                         y2={innerY}
-                        stroke={isTarget ? "#fff" : "#666"}
+                        stroke={isTarget ? tc.text : tc.textMuted}
                         strokeWidth={isTarget ? "3" : "2"}
                     />
                     <text
                         x={labelX}
                         y={labelY}
-                        fill={isTarget ? "#fff" : "#aaa"}
+                        fill={isTarget ? tc.text : tc.textSubtle}
                         fontSize={isTarget ? "11" : "9"}
                         fontWeight={isTarget ? "bold" : "normal"}
                         textAnchor="middle"
@@ -273,7 +273,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                         cx={centerX}
                         cy={centerY}
                         r={isDayNight ? "4" : "5"}
-                        fill="#fff"
+                        fill={tc.text}
                     />
                 </svg>
 
@@ -920,7 +920,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         </div>
                         <div style={dialStyles.inputRow}>
                             <input type="text" placeholder="$ Sales" value={formatCurrency(breakfastSales)} onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))} style={tRowInput} />
-                            <input type="text" placeholder="Prod" value={actualProductivity.breakfast} onChange={(e) => setActualProductivity(prev => ({...prev, breakfast: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
+                            <input type="text" placeholder="Productivity" value={actualProductivity.breakfast} onChange={(e) => setActualProductivity(prev => ({...prev, breakfast: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
                             <input type="text" placeholder="PIC" value={picNames.breakfast} onChange={(e) => setPicNames(prev => ({...prev, breakfast: e.target.value}))} style={tRowInput} />
                         </div>
                     </div>
@@ -939,7 +939,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         </div>
                         <div style={dialStyles.inputRow}>
                             <input type="text" placeholder="$ Sales" value={formatCurrency(lunchSales)} onChange={(e) => setLunchSales(parseCurrency(e.target.value))} style={tRowInput} />
-                            <input type="text" placeholder="Prod" value={actualProductivity.lunch} onChange={(e) => setActualProductivity(prev => ({...prev, lunch: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
+                            <input type="text" placeholder="Productivity" value={actualProductivity.lunch} onChange={(e) => setActualProductivity(prev => ({...prev, lunch: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
                             <input type="text" placeholder="PIC" value={picNames.lunch} onChange={(e) => setPicNames(prev => ({...prev, lunch: e.target.value}))} style={tRowInput} />
                         </div>
                     </div>
@@ -958,7 +958,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         </div>
                         <div style={dialStyles.inputRow}>
                             <input type="text" placeholder="$ Sales" value={formatCurrency(afternoonSales)} onChange={(e) => setAfternoonSales(parseCurrency(e.target.value))} style={tRowInput} />
-                            <input type="text" placeholder="Prod" value={actualProductivity.afternoon} onChange={(e) => setActualProductivity(prev => ({...prev, afternoon: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
+                            <input type="text" placeholder="Productivity" value={actualProductivity.afternoon} onChange={(e) => setActualProductivity(prev => ({...prev, afternoon: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
                             <input type="text" placeholder="PIC" value={picNames.afternoon} onChange={(e) => setPicNames(prev => ({...prev, afternoon: e.target.value}))} style={tRowInput} />
                         </div>
                     </div>
@@ -977,7 +977,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         </div>
                         <div style={dialStyles.inputRow}>
                             <input type="text" placeholder="$ Sales" value={formatCurrency(dinnerSales)} onChange={(e) => setDinnerSales(parseCurrency(e.target.value))} style={tRowInput} />
-                            <input type="text" placeholder="Prod" value={actualProductivity.dinner} onChange={(e) => setActualProductivity(prev => ({...prev, dinner: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
+                            <input type="text" placeholder="Productivity" value={actualProductivity.dinner} onChange={(e) => setActualProductivity(prev => ({...prev, dinner: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
                             <input type="text" placeholder="PIC" value={picNames.dinner} onChange={(e) => setPicNames(prev => ({...prev, dinner: e.target.value}))} style={tRowInput} />
                         </div>
                     </div>
@@ -1063,9 +1063,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             </p>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 3fr', gap: '0px', margin: '0', padding: '8px 0 0 0', width: '100%' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 3fr', gap: '0px', margin: '0', padding: '10px 0 0 0', width: '100%' }}>
                             {/* Data Management - Left Column */}
-                            <div style={{ textAlign: 'center', margin: '0', padding: '0 6px', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
+                            <div style={{ textAlign: 'center', margin: '0', padding: '0 10px', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
                                 <h5 style={{ margin: '0 0 6px 0', color: tc.text, fontSize: '14px', fontWeight: '600', padding: '0 4px' }}>
                                     Data Management
                                 </h5>
@@ -1092,7 +1092,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                         Save Data
                                     </h6>
                                     <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', marginBottom: '6px' }}>
-                                        <div style={{ flex: 1 }}>
+                                        <div style={{ flex: '1 1 0', minWidth: 0 }}>
                                             {isDemo ? (
                                                 <span style={{
                                                     fontSize: '11px',
@@ -1145,18 +1145,19 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                         Export Data
                                     </h6>
                                     <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', marginBottom: '6px' }}>
-                                        <div style={{ flex: 1 }}>
+                                        <div style={{ flex: '1 1 0', minWidth: 0 }}>
                                             <select 
                                                 value={exportDateRange}
                                                 onChange={(e) => setExportDateRange(e.target.value)}
                                                 style={{
-                                                    width: '80%',
+                                                    width: '100%',
                                                     padding: '4px 6px',
                                                     fontSize: '11px',
                                                     backgroundColor: tc.inputBg,
                                                     color: tc.text,
                                                     border: `1px solid ${tc.inputBorder}`,
-                                                    borderRadius: '3px'
+                                                    borderRadius: '3px',
+                                                    boxSizing: 'border-box'
                                                 }}>
                                                 <option value="this-week">This Week</option>
                                                 <option value="this-month">This Month</option>
@@ -1228,7 +1229,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 </div>
                             </div>
 
-                            <div style={{ textAlign: 'center', margin: '0', padding: '0', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
+                            <div style={{ textAlign: 'center', margin: '0', padding: '0 8px', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
                                 <h5 style={{ margin: '0 0 6px 0', color: tc.text, fontSize: '14px', fontWeight: '600', padding: '0 0px' }}>
                                     Ambition Tier
                                 </h5>
@@ -1262,7 +1263,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             </div>
 
                             {/* Operational Weights - Right Column */}
-                            <div style={{ margin: '0', padding: '0', boxSizing: 'border-box' }}>
+                            <div style={{ margin: '0', padding: '0 8px', boxSizing: 'border-box' }}>
                                 <h5 style={{ 
                                     margin: '0 0 6px 0', 
                                     color: tc.text, 
@@ -1273,7 +1274,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 }}>
                                     Operational Weights
                                 </h5>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', padding: '0 4px', alignItems: 'flex-start' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '0 8px', alignItems: 'center' }}>
                                     {[
                                         { key: 'breakfast', name: 'Breakfast', desc: 'Low ticket, high prep', weight: 76 },
                                         { key: 'lunch', name: 'Lunch', desc: 'Peak volume, high throughput', weight: 124 },
@@ -1284,7 +1285,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                             display: 'flex',
                                             alignItems: 'center',
                                             padding: '0',
-                                            width: '100%'
+                                            width: '220px',
+                                            maxWidth: '100%'
                                         }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
                                                 <input
@@ -1302,8 +1304,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     max="150"
                                                     step="1"
                                                     style={{
-                                                        width: '40px',
-                                                        padding: '2px 3px',
+                                                        width: '48px',
+                                                        padding: '3px 4px',
                                                         fontSize: '13px',
                                                         backgroundColor: tc.inputBg,
                                                         color: tc.text,
