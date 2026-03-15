@@ -561,14 +561,17 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
 
 const styles = {
     container: {
-        minHeight: '100vh',
+        height: 'calc(100vh - 50px)',
+        maxHeight: 'calc(100vh - 50px)',
         background: '#0E0E11',
         color: '#ffffff',
         fontFamily: 'system-ui',
-        padding: 'clamp(10px, 2vw, 20px)',
+        padding: 'clamp(6px, 1vw, 14px)',
         boxSizing: 'border-box',
         width: '100%',
         overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
     },
     header: {
         textAlign: 'center',
@@ -926,24 +929,27 @@ const styles = {
     mainContentGrid: {
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
-        gap: '20px',
-        minHeight: 'calc(100vh - 120px)',
+        gap: '12px',
+        flex: 1,
+        minHeight: 0,
         alignItems: 'stretch',
     },
     teamSummarySection: {
         backgroundColor: '#1e293b',
         borderRadius: '12px',
-        padding: '20px',
+        padding: '14px',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
     },
     leaderboardSection: {
         backgroundColor: '#1e293b',
         borderRadius: '12px',
-        padding: '16px',
+        padding: '12px',
         border: '2px solid #334155',
         display: 'flex',
         flexDirection: 'column',
+        overflow: 'hidden',
     },
     panelTitle: {
         fontSize: '1.4rem',
@@ -959,10 +965,10 @@ const styles = {
         color: '#ffffff'
     },
     sectionDescription: {
-        fontSize: '14px',
+        fontSize: '13px',
         color: '#94a3b8',
-        marginBottom: '20px',
-        lineHeight: '1.5'
+        marginBottom: '10px',
+        lineHeight: '1.3'
     },
     summaryMetrics: {
         display: 'grid',
