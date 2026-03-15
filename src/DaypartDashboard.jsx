@@ -1088,10 +1088,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 
                                 {/* Save Data Section */}
                                 <div style={{ marginBottom: '10px', padding: '0 4px' }}>
-                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600' }}>
+                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600', textAlign: 'left' }}>
                                         Save Data
                                     </h6>
-                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', marginBottom: '6px' }}>
+                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '6px' }}>
                                         <div style={{ flex: '1 1 0', minWidth: 0 }}>
                                             {isDemo ? (
                                                 <span style={{
@@ -1143,10 +1143,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 
                                 {/* Export Data Section */}
                                 <div style={{ padding: '8px 4px' }}>
-                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600' }}>
+                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600', textAlign: 'left' }}>
                                         Export Data
                                     </h6>
-                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'flex-end', marginBottom: '6px' }}>
+                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '6px' }}>
                                         <div style={{ flex: '1 1 0', minWidth: 0 }}>
                                             <select 
                                                 value={exportDateRange}
