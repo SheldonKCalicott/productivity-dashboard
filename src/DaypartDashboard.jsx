@@ -455,18 +455,24 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
 
     // Store-aware data management functions
     const [showDataBanner, setShowDataBanner] = useState(false)
+    const [bannerMessage, setBannerMessage] = useState({ text: 'Data saved successfully!', isError: false })
     
     const showMessage = (type) => {
         if (type === 'demo') {
             setShowDemoBanner(true)
             setTimeout(() => setShowDemoBanner(false), 3000)
         } else if (type === 'data') {
+            setBannerMessage({ text: 'Data saved successfully!', isError: false })
             setShowDataBanner(true)
             setTimeout(() => setShowDataBanner(false), 3000)
+        } else if (type === 'error') {
+            setBannerMessage({ text: 'Save failed — check connection', isError: true })
+            setShowDataBanner(true)
+            setTimeout(() => setShowDataBanner(false), 4000)
         }
     }
     
-    const handleDataAction = () => {
+    const handleDataAction = async () => {
         if (isDemo) {
             showMessage('demo')
         } else {
@@ -483,16 +489,16 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 manualSave: true
             }
             
-            // Save to database
-            saveToDatabase(storeData)
+            // Save to database (upserts — overwrites existing data for the same date)
+            const success = await saveToDatabase(storeData)
             
-            showMessage('data')
+            showMessage(success ? 'data' : 'error')
             
             // Note: Manual save does NOT clear input fields
         }
     }
     
-    // Save productivity data to database
+    // Save productivity data to database (upserts — overwrites existing date)
     const saveToDatabase = async (data) => {
         try {
             const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
@@ -533,14 +539,20 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 ambitionTier: data.selectedTier || selectedTier
             };
 
-            await fetch(`${apiBase}/productivity`, {
+            const resp = await fetch(`${apiBase}/productivity`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.message || `HTTP ${resp.status}`);
+            }
             console.log(`✅ Data saved to database for ${dataDate}`);
+            return true;
         } catch (error) {
-            console.warn('Database save failed (offline mode):', error.message);
+            console.warn('Database save failed:', error.message);
+            return false;
         }
     }
     
@@ -884,14 +896,14 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     </div>
                 )}
                 
-                {/* Data Saved Banner - Only show for real stores */}
+                {/* Data Saved/Error Banner - Only show for real stores */}
                 {!isDemo && showDataBanner && (
                     <div style={{
                         position: 'fixed',
                         top: '50%',
                         left: '50%',
                         transform: 'translate(-50%, -50%)',
-                        backgroundColor: '#10b981',
+                        backgroundColor: bannerMessage.isError ? '#ef4444' : '#10b981',
                         color: '#fff',
                         padding: '16px 24px',
                         borderRadius: '8px',
@@ -900,7 +912,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         fontWeight: 'bold',
                         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
                     }}>
-                        Data saved successfully!
+                        {bannerMessage.text}
                     </div>
                 )}
                 
@@ -1073,7 +1085,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 {/* Save Banner */}
                                 {!isDemo && showDataBanner && (
                                     <div style={{
-                                        backgroundColor: '#10b981',
+                                        backgroundColor: bannerMessage.isError ? '#ef4444' : '#10b981',
                                         color: '#fff',
                                         padding: '4px 8px',
                                         borderRadius: '3px',
@@ -1082,7 +1094,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                         fontSize: '11px',
                                         fontWeight: '600'
                                     }}>
-                                        Data Saved!
+                                        {bannerMessage.isError ? 'Save Failed!' : 'Data Saved!'}
                                     </div>
                                 )}
                                 
