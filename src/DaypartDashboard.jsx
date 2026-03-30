@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react"
 import { calculateTargetProductivity } from "./utils/targetUtils"
 import { useTheme } from "./App"
@@ -393,11 +392,24 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     
     // Adjustable daypart weights
     const [daypartWeights, setDaypartWeights] = useState({
-        'breakfast': 0.76,   // Low ticket, high prep, stock for lunch
-        'lunch': 1.24,       // Peak volume, high throughput
-        'afternoon': 1.06,   // Post-lunch cleanup + dinner prep
-        'dinner': 0.94       // Peak volume + close-down inefficiency
+        'breakfast': 0.84,   // Low ticket, high prep, stock for lunch
+        'lunch': 1.21,       // Peak volume, high throughput
+        'afternoon': 1.09,   // Post-lunch cleanup + dinner prep
+        'dinner': 0.86       // Peak volume + close-down inefficiency
     });
+
+    // Guard: fix weights if any are out of range (e.g., 84 instead of 0.84)
+    useEffect(() => {
+        const fixed = { ...daypartWeights };
+        let changed = false;
+        for (const k of ['breakfast', 'lunch', 'afternoon', 'dinner']) {
+            if (typeof fixed[k] !== 'number' || isNaN(fixed[k]) || fixed[k] < 0.3 || fixed[k] > 2) {
+                fixed[k] = { breakfast: 0.84, lunch: 1.21, afternoon: 1.09, dinner: 0.86 }[k];
+                changed = true;
+            }
+        }
+        if (changed) setDaypartWeights(fixed);
+    }, [daypartWeights]);
     
     // Sales inputs
     const [breakfastSales, setBreakfastSales] = useState('')
@@ -658,6 +670,67 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         }
     }
     
+    // Auto-weight loading state
+    const [isAutoWeighting, setIsAutoWeighting] = useState(false)
+
+    // Performance-based auto-weighting: analyze last 30 days and recalculate weights
+    const autoWeightFromPerformance = async () => {
+        if (isDemo) { showMessage('demo'); return; }
+        setIsAutoWeighting(true)
+        try {
+            const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+            const today = new Date()
+            const start = new Date(today)
+            start.setDate(today.getDate() - 30)
+            const fmt = (d) => d.toISOString().split('T')[0]
+            const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/range/${fmt(start)}/${fmt(today)}`)
+            if (!response.ok) throw new Error(`HTTP ${response.status}`)
+            const records = await response.json()
+
+            if (!records || records.length === 0) {
+                showMessage('error')
+                return
+            }
+
+            // Group by daypart and compute avg actual/target ratio
+            const dayparts = ['breakfast', 'lunch', 'afternoon', 'dinner']
+            const ratios = {}
+            dayparts.forEach(dp => {
+                const dpRecords = records.filter(r => r.daypart === dp && r.actual_productivity && r.target_productivity)
+                if (dpRecords.length === 0) {
+                    ratios[dp] = 1.0
+                } else {
+                    const avgRatio = dpRecords.reduce((sum, r) => {
+                        return sum + (Number(r.actual_productivity) / Number(r.target_productivity))
+                    }, 0) / dpRecords.length
+                    ratios[dp] = avgRatio
+                }
+            })
+
+            // Invert ratios: dayparts where actual < target need lower weight (easier target)
+            // dayparts where actual > target can handle higher weight (harder target)
+            const invertedRatios = {}
+            dayparts.forEach(dp => { invertedRatios[dp] = ratios[dp] })
+
+            // Normalize so total = 4.0 (average = 1.0)
+            const totalRaw = dayparts.reduce((s, dp) => s + invertedRatios[dp], 0)
+            const newWeights = {}
+            dayparts.forEach(dp => {
+                newWeights[dp] = parseFloat(((invertedRatios[dp] / totalRaw) * 4.0).toFixed(2))
+            })
+
+            setDaypartWeights(newWeights)
+            setBannerMessage({ text: 'Weights recalculated from 30-day performance!', isError: false })
+            setShowDataBanner(true)
+            setTimeout(() => setShowDataBanner(false), 3000)
+        } catch (error) {
+            console.warn('Auto-weighting failed:', error.message)
+            showMessage('error')
+        } finally {
+            setIsAutoWeighting(false)
+        }
+    }
+
     // Backward compatibility with demo functions
     const showDemoMessage = () => showMessage('demo')
     const handleDemoAction = () => handleDataAction()
@@ -854,9 +927,32 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return () => clearTimeout(timer)
     }, [dataDate, isDemo])
     
-    // Load data for current date on component mount
+    // Load store settings (weights, tier) and data for current date on component mount
     useEffect(() => {
-        loadDataForDate(dataDate)
+        const loadStoreSettings = async () => {
+            if (isDemo) return;
+            try {
+                const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+                const response = await fetch(`${apiBase}/store/${effectiveStoreName}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const storeInfo = await response.json();
+                if (storeInfo.weights) {
+                    setDaypartWeights({
+                        breakfast: storeInfo.weights.breakfast ?? 0.84,
+                        lunch: storeInfo.weights.lunch ?? 1.21,
+                        afternoon: storeInfo.weights.afternoon ?? 1.09,
+                        dinner: storeInfo.weights.dinner ?? 0.86
+                    });
+                }
+                if (storeInfo.settings?.ambition_tier) {
+                    setSelectedTier(storeInfo.settings.ambition_tier);
+                }
+            } catch (error) {
+                console.warn('Failed to load store settings:', error.message);
+            }
+        };
+        loadStoreSettings();
+        loadDataForDate(dataDate);
     }, [storeNumber, isDemo])
 
     const parseCurrency = (value) => {
@@ -1289,94 +1385,135 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 }}>
                                     Operational Weights
                                 </h5>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '0 2px', alignItems: 'center' }}>
+                                {(() => {
+                                    const totalWeight = daypartWeights.breakfast + daypartWeights.lunch + daypartWeights.afternoon + daypartWeights.dinner;
+                                    const avgWeight = totalWeight / 4;
+                                    const isBalanced = avgWeight === 1.0 || (Math.round(avgWeight * 100) === 100);
+                                    const isAbove = avgWeight > 1.0 && !isBalanced;
+                                    const balanceColor = isBalanced ? '#22c55e' : isAbove ? '#f59e0b' : '#ef4444';
+                                    const balanceLabel = isBalanced ? '✓ Balanced' : isAbove ? 'Above target — reduce weights' : 'Below target — increase weights';
+                                    // Map avgWeight onto a 0-100 bar where 100% target is at the center (50%)
+                                    // Range: 0.50 = left edge, 1.0 = center, 1.50 = right edge
+                                    const barPercent = Math.min(Math.max(((avgWeight - 0.5) / 1.0) * 100, 0), 100);
+
+                                    return (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 2px' }}>
                                     {[
-                                        { key: 'breakfast', name: 'Breakfast', desc: 'Low ticket, high prep', weight: 76 },
-                                        { key: 'lunch', name: 'Lunch', desc: 'Peak volume, high throughput', weight: 124 },
-                                        { key: 'afternoon', name: 'Afternoon', desc: 'Cleanup + dinner prep', weight: 106 },
-                                        { key: 'dinner', name: 'Dinner', desc: 'Peak volume + close-down', weight: 94 }
-                                    ].map(({ key, name, desc, weight }) => (
-                                        <div key={key} style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            padding: '0',
-                                            width: '220px',
-                                            maxWidth: '100%'
-                                        }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                                        { key: 'breakfast', name: 'Breakfast', desc: 'Low ticket, complex prep, stocking for lunch' },
+                                        { key: 'lunch', name: 'Lunch', desc: 'Peak volume, highest sales, drives productivity' },
+                                        { key: 'afternoon', name: 'Afternoon', desc: 'Post-lunch cleanup, dinner prep, moderate sales' },
+                                        { key: 'dinner', name: 'Dinner', desc: 'Strong volume, end-of-day cleaning & stocking' }
+                                    ].map(({ key, name, desc }) => {
+                                        const weight = daypartWeights[key];
+                                        const deviation = ((weight - 1.0) * 100);
+                                        const devSign = deviation > 0 ? '+' : '';
+                                        return (
+                                        <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                                <span style={{ color: tc.text, fontSize: '12px', fontWeight: '600' }}>{name}</span>
+                                                <span style={{ fontSize: '12px', fontWeight: '700', color: tc.text }}>
+                                                    {(weight * 100).toFixed(0)}% <span style={{ fontSize: '10px', fontWeight: '500', color: tc.textMuted }}>({devSign}{deviation.toFixed(0)}%)</span>
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                                 <input
-                                                    type="number"
-                                                    value={(daypartWeights[key] * 100).toFixed(0)}
-                                                    placeholder={weight.toString()}
-                                                    onChange={(e) => {
-                                                        const newWeight = parseFloat(e.target.value) / 100;
-                                                        setDaypartWeights(prev => ({
-                                                            ...prev,
-                                                            [key]: newWeight
-                                                        }));
-                                                    }}
+                                                    type="range"
                                                     min="50"
                                                     max="150"
                                                     step="1"
+                                                    value={Math.round((weight || 0.84) * 100)}
+                                                    onChange={(e) => {
+                                                        let val = parseFloat(e.target.value);
+                                                        if (isNaN(val)) val = 84;
+                                                        const newWeight = val / 100;
+                                                        setDaypartWeights(prev => ({ ...prev, [key]: newWeight }));
+                                                    }}
                                                     style={{
-                                                        width: '48px',
-                                                        padding: '3px 4px',
-                                                        fontSize: '13px',
-                                                        backgroundColor: tc.inputBg,
-                                                        color: tc.text,
-                                                        border: `1px solid ${tc.inputBorder}`,
-                                                        borderRadius: '3px',
-                                                        textAlign: 'center'
+                                                        flex: 1,
+                                                        height: '4px',
+                                                        accentColor: '#3b82f6',
+                                                        cursor: 'pointer',
                                                     }}
                                                 />
-                                                <span style={{ color: tc.textMuted, fontSize: '13px' }}>%</span>
                                             </div>
-                                            <div style={{ marginLeft: '4px', minWidth: 0 }}>
-                                                <div style={{
-                                                    color: tc.text,
-                                                    fontSize: '13px',
-                                                    fontWeight: '600'
-                                                }}>
-                                                    {name}
-                                                </div>
-                                                <div style={{
-                                                    color: tc.textMuted,
-                                                    fontSize: '11px'
-                                                }}>
-                                                    {desc}
-                                                </div>
-                                            </div>
+                                            <div style={{ color: tc.textMuted, fontSize: '10px', lineHeight: '1.2' }}>{desc}</div>
                                         </div>
-                                    ))}
-                                    
-                                    {/* Partition line and average */}
+                                        );
+                                    })}
+
+                                    {/* Total Weight Balance Indicator */}
                                     <div style={{
                                         borderTop: `1px solid ${tc.inputBorder}`,
-                                        marginTop: '8px',
+                                        marginTop: '4px',
                                         paddingTop: '6px',
-                                        padding: '6px 0px 0 4px'
                                     }}>
-                                        <div style={{
-                                            textAlign: 'center',
-                                            color: tc.text,
-                                            fontSize: '13px',
-                                            fontWeight: '600'
-                                        }}>
-                                            Total Average: {(
-                                                (daypartWeights.breakfast + daypartWeights.lunch + daypartWeights.afternoon + daypartWeights.dinner) 
-                                                / 4 * 100
-                                            ).toFixed(0)}%
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                                            <span style={{ color: tc.text, fontSize: '12px', fontWeight: '600' }}>Total Avg</span>
+                                            <span style={{ color: balanceColor, fontSize: '12px', fontWeight: '700' }}>
+                                                {isNaN(avgWeight) ? '0%' : (avgWeight * 100).toFixed(0) + '%'}
+                                            </span>
                                         </div>
-                                        <div style={{
-                                            textAlign: 'center',
-                                            color: tc.textMuted,
-                                            fontSize: '11px',
-                                            marginTop: '2px'
-                                        }}>
-                                            Weighted operational complexity
+                                        {/* Bar with centered 100% tick mark */}
+                                        <div style={{ position: 'relative', width: '100%', height: '14px' }}>
+                                            <div style={{
+                                                width: '100%',
+                                                height: '6px',
+                                                backgroundColor: tc.inputBg,
+                                                borderRadius: '3px',
+                                                overflow: 'hidden',
+                                                border: `1px solid ${tc.inputBorder}`,
+                                                position: 'absolute',
+                                                top: '4px',
+                                            }}>
+                                                <div style={{
+                                                    width: `${barPercent}%`,
+                                                    height: '100%',
+                                                    backgroundColor: balanceColor,
+                                                    borderRadius: '3px',
+                                                    transition: 'width 0.2s, background-color 0.2s',
+                                                }} />
+                                            </div>
+                                            {/* Center tick mark at 100% (50% of bar) */}
+                                            <div style={{
+                                                position: 'absolute',
+                                                left: '50%',
+                                                top: '0',
+                                                transform: 'translateX(-50%)',
+                                                width: '2px',
+                                                height: '14px',
+                                                backgroundColor: '#22c55e',
+                                                borderRadius: '1px',
+                                                zIndex: 1,
+                                            }} />
+                                        </div>
+                                        <div style={{ textAlign: 'center', color: balanceColor, fontSize: '10px', marginTop: '2px', fontWeight: '500' }}>
+                                            {balanceLabel}
                                         </div>
                                     </div>
+
+                                    {/* Auto-Weight Button */}
+                                    <button
+                                        onClick={autoWeightFromPerformance}
+                                        disabled={isAutoWeighting}
+                                        style={{
+                                            marginTop: '4px',
+                                            padding: '5px 10px',
+                                            backgroundColor: isAutoWeighting ? '#475569' : '#6366f1',
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            fontSize: '11px',
+                                            fontWeight: '600',
+                                            cursor: isAutoWeighting ? 'wait' : 'pointer',
+                                            width: '100%',
+                                            transition: 'background-color 0.2s',
+                                        }}
+                                    >
+                                        {isAutoWeighting ? 'Analyzing...' : 'Auto calculate from past data'}
+                                    </button>
                                 </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>

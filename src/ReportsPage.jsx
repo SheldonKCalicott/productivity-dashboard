@@ -15,17 +15,51 @@ const reportThemes = {
     },
 }
 
+// --- Demo data for showcase ---
+const DEMO_REPORT_DATA = [
+  {
+    id: 1, picName: 'Alex Rivera', daypart: 'Breakfast', date: '2026-03-01', actualSales: 1200, actualProductivity: 32, targetProductivity: 30, performanceScore: 106.7, tier: 'Top 20%', improvement: 4.2
+  },
+  {
+    id: 2, picName: 'Morgan Lee', daypart: 'Lunch', date: '2026-03-02', actualSales: 2100, actualProductivity: 29, targetProductivity: 28, performanceScore: 103.6, tier: 'Top 20%', improvement: 2.1
+  },
+  {
+    id: 3, picName: 'Jamie Chen', daypart: 'Dinner', date: '2026-03-03', actualSales: 1800, actualProductivity: 27, targetProductivity: 26, performanceScore: 103.8, tier: 'Top 20%', improvement: 3.7
+  },
+  {
+    id: 4, picName: 'Taylor Smith', daypart: 'Lunch', date: '2026-03-04', actualSales: 1950, actualProductivity: 25, targetProductivity: 28, performanceScore: 89.3, tier: 'Top 50%', improvement: -1.2
+  },
+  {
+    id: 5, picName: 'Jordan Patel', daypart: 'Breakfast', date: '2026-03-05', actualSales: 1100, actualProductivity: 31, targetProductivity: 30, performanceScore: 103.3, tier: 'Top 20%', improvement: 1.8
+  },
+  {
+    id: 6, picName: 'Casey Nguyen', daypart: 'Dinner', date: '2026-03-06', actualSales: 1700, actualProductivity: 24, targetProductivity: 26, performanceScore: 92.3, tier: 'Top 50%', improvement: 0.5
+  },
+  {
+    id: 7, picName: 'Riley Kim', daypart: 'Lunch', date: '2026-03-07', actualSales: 2050, actualProductivity: 30, targetProductivity: 28, performanceScore: 107.1, tier: 'Top 20%', improvement: 2.9
+  },
+  {
+    id: 8, picName: 'Sam Jordan', daypart: 'Breakfast', date: '2026-03-08', actualSales: 1250, actualProductivity: 29, targetProductivity: 30, performanceScore: 96.7, tier: 'Top 50%', improvement: 0.0
+  },
+  {
+    id: 9, picName: 'Drew Parker', daypart: 'Dinner', date: '2026-03-09', actualSales: 1600, actualProductivity: 28, targetProductivity: 26, performanceScore: 107.7, tier: 'Top 20%', improvement: 3.1
+  },
+  {
+    id: 10, picName: 'Avery Brooks', daypart: 'Lunch', date: '2026-03-10', actualSales: 2000, actualProductivity: 27, targetProductivity: 28, performanceScore: 96.4, tier: 'Top 50%', improvement: 1.2
+  },
+]
+
 // Consolidated ReportsPage component
 export default function ReportsPage({ isDemo = false, storeName: propStoreName }) {
   const { theme } = useTheme()
   const rt = reportThemes[theme]
   const styles = useMemo(() => getStyles(rt), [rt])
   // --- State ---
-  const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'last-30-days' : 'last-30-days')
+  const [filterPeriod, setFilterPeriod] = useState(isDemo ? 'demo' : 'last-30-days')
   const [sortBy, setSortBy] = useState('performance')
   const [customStartDate, setCustomStartDate] = useState('')
   const [customEndDate, setCustomEndDate] = useState('')
-  const [reportData, setReportData] = useState([]) // loaded records
+  const [reportData, setReportData] = useState(isDemo ? DEMO_REPORT_DATA : []) // loaded records
   const [isLoading, setIsLoading] = useState(false)
 
   // --- Helpers: store name and local fallback (unchanged logic) ---
@@ -42,9 +76,12 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
     return 'simplified';
   }
 
-  // --- Load data from API ---
+  // --- Load data from API or demo ---
   const loadReportData = async (startDate, endDate) => {
-    if (isDemo) return
+    if (isDemo || filterPeriod === 'demo') {
+      setReportData(DEMO_REPORT_DATA)
+      return
+    }
     setIsLoading(true)
     try {
       const storeName = getStoreNameFromPath()
@@ -121,7 +158,10 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
 
   // --- Effect: load data when filter changes ---
   useEffect(() => {
-    if (filterPeriod === 'example-data' || isDemo) return
+    if (filterPeriod === 'demo' || isDemo) {
+      setReportData(DEMO_REPORT_DATA)
+      return
+    }
 
     const formatDate = (d) => {
       const year = d.getFullYear()
@@ -497,10 +537,11 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
             <h2 style={styles.panelTitle}>📊 Leaderboard</h2>
             <div style={{flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px'}}>
               <select 
-                value={filterPeriod} 
+                value={filterPeriod}
                 onChange={(e) => setFilterPeriod(e.target.value)} 
                 style={styles.timePeriodSelect}
               >
+                <option value="demo">Demo Data</option>
                 <option value="last-30-days">Last 30 Days</option>
                 <option value="last-90-days">Last 90 Days</option>
                 <option value="ytd">Year to Date</option>
@@ -512,6 +553,11 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
             </div>
           </div>
 
+          {filterPeriod === 'demo' && (
+            <div style={{ color: '#3b82f6', fontWeight: 'bold', marginBottom: 8, textAlign: 'center' }}>
+              Showing demo data for visitors
+            </div>
+          )}
           {sortedData.length === 0 ? (
             <div style={styles.noData}>No performance data found for this date range.</div>
           ) : (() => {
@@ -542,10 +588,32 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                 ))}
               </div>
 
-              <div style={styles.scoreboardList}>
-                {sortedData.slice(0, 10).map((item, index) => {
-                  const blueShades = ['#3b82f6', '#2563eb', '#1d4ed8', '#1e40af', '#1e3a8a', '#172b69', '#0f1f47']
-                  const backgroundColor = blueShades[index] || '#1e293b'
+              <div style={{...styles.scoreboardList, maxHeight: 580, overflowY: 'auto', borderRadius: 8, border: `1px solid ${rt.cardBorder}`, background: rt.cardBg}}>
+                {sortedData.map((item, index) => {
+                  // Expanded blue gradient for up to 20 rows, not lighter than #3b82f6
+                  const blueShades = [
+                    '#3b82f6', // 1 - lightest (keep as-is)
+                    '#3576e6', // 2
+                    '#316ad6', // 3
+                    '#2d5ec6', // 4
+                    '#2952b6', // 5
+                    '#2546a6', // 6
+                    '#213a96', // 7
+                    '#1d2e86', // 8
+                    '#192276', // 9
+                    '#151866', // 10
+                    '#13205a', // 11
+                    '#11184e', // 12
+                    '#101242', // 13
+                    '#0e0c36', // 14
+                    '#0c082a', // 15
+                    '#0a061e', // 16
+                    '#090414', // 17
+                    '#08030c', // 18
+                    '#070208', // 19
+                    '#060106'  // 20 - darkest
+                  ]
+                  const backgroundColor = blueShades[index < blueShades.length ? index : blueShades.length - 1]
 
                   return (
                     <div key={item.id} style={{ ...styles.scoreboardRow, backgroundColor }}>
@@ -851,19 +919,19 @@ const getStyles = (rt) => ({
         color: rt.textMuted,
         textTransform: 'uppercase'
     },
-    rankHeader: { minWidth: '50px', marginRight: '10px', textAlign: 'center', fontWeight: 'bold', fontSize: '12px' },
-    picHeader: { minWidth: '120px', marginRight: '15px', textAlign: 'left', fontWeight: 'bold', fontSize: '12px' },
-    primaryHeader: { minWidth: '120px', marginRight: '15px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#3b82f6' },
-    secondaryHeader: { minWidth: '85px', marginRight: '12px', textAlign: 'center', fontWeight: 'normal', fontSize: '11px' },
-    lastSecondaryHeader: { minWidth: '85px', textAlign: 'center', fontWeight: 'normal', fontSize: '11px' },
+    rankHeader: { width: '8%', textAlign: 'center', fontWeight: 'bold', fontSize: '12px' },
+    picHeader: { width: '22%', textAlign: 'left', fontWeight: 'bold', fontSize: '12px' },
+    primaryHeader: { width: '20%', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#3b82f6' },
+    secondaryHeader: { width: '16%', textAlign: 'center', fontWeight: 'normal', fontSize: '11px' },
+    lastSecondaryHeader: { width: '16%', textAlign: 'center', fontWeight: 'normal', fontSize: '11px' },
     
     // Column styles
     rankColumn: {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        minWidth: '50px',
-        marginRight: '12px'
+        width: '8%',
+        flexShrink: 0,
     },
     rankNumber: {
         fontSize: '16px',
@@ -871,8 +939,8 @@ const getStyles = (rt) => ({
         color: '#fbbf24'
     },
     picColumn: {
-        flex: '2',
-        marginRight: '12px'
+        width: '22%',
+        flexShrink: 0,
     },
     picNameLarge: {
         fontSize: '14px',
@@ -893,8 +961,8 @@ const getStyles = (rt) => ({
         fontWeight: '500',
         display: 'inline-block'
     },
-    primaryColumn: { minWidth: '120px', marginRight: '15px', textAlign: 'center' },
-    secondaryColumn: { minWidth: '85px', marginRight: '12px', textAlign: 'center' },
+    primaryColumn: { width: '20%', textAlign: 'center', flexShrink: 0 },
+    secondaryColumn: { width: '16%', textAlign: 'center', flexShrink: 0 },
     
     primaryValue: { fontSize: '16px', fontWeight: 'bold' },
     secondaryValue: { fontSize: '14px' },
@@ -945,7 +1013,7 @@ const getStyles = (rt) => ({
     },
     mainContentGrid: {
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
+        gridTemplateColumns: '1fr 2fr',
         gap: '12px',
         flex: 1,
         minHeight: 0,
@@ -984,13 +1052,13 @@ const getStyles = (rt) => ({
     sectionDescription: {
         fontSize: '13px',
         color: rt.textMuted,
-        marginBottom: '10px',
+        marginBottom: '35px',
         lineHeight: '1.3'
     },
     summaryMetrics: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: '12px',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: '10px',
         marginBottom: '16px'
     },
     philosophySection: {

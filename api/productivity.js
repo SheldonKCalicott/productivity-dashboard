@@ -40,7 +40,7 @@ async function getStoreId(storeName = 'simplified') {
             try {
                 await pool.query(
                     'INSERT INTO operational_weights (store_id, breakfast, lunch, afternoon, dinner) VALUES ($1, $2, $3, $4, $5)',
-                    [storeId, 0.76, 1.24, 1.06, 0.94]
+                    [storeId, 0.84, 1.21, 1.09, 0.86]
                 );
             } catch (weightError) {
                 console.log('Warning: Could not insert operational weights:', weightError.message);
@@ -124,7 +124,7 @@ module.exports = async function handler(req, res) {
 
             for (const [dp, data] of Object.entries(daypartsData)) {
                 if (data.sales || data.actualProductivity || data.picName) {
-                    const daypartWeights = data.daypartWeights || operationalWeights || { breakfast: 0.76, lunch: 1.24, afternoon: 1.06, dinner: 0.94 };
+                    const daypartWeights = data.daypartWeights || operationalWeights || { breakfast: 0.84, lunch: 1.21, afternoon: 1.09, dinner: 0.86 };
                     const tier = data.selectedTier || ambitionTier || 'Top 50%';
                     const sales = data.sales ? parseInt(data.sales.toString().replace(/[^0-9]/g, '')) : 0;
 

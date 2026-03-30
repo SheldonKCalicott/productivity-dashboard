@@ -53,10 +53,10 @@ async function setupDatabase() {
             CREATE TABLE IF NOT EXISTS operational_weights (
                 id SERIAL PRIMARY KEY,
                 store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE,
-                breakfast DECIMAL(4,3) DEFAULT 0.76,
-                lunch DECIMAL(4,3) DEFAULT 1.24,
-                afternoon DECIMAL(4,3) DEFAULT 1.06,
-                dinner DECIMAL(4,3) DEFAULT 0.94,
+                breakfast DECIMAL(4,3) DEFAULT 0.84,
+                lunch DECIMAL(4,3) DEFAULT 1.21,
+                afternoon DECIMAL(4,3) DEFAULT 1.09,
+                dinner DECIMAL(4,3) DEFAULT 0.86,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -94,7 +94,7 @@ async function setupDatabase() {
         if (weightsResult.rows.length === 0) {
             await client.query(
                 'INSERT INTO operational_weights (store_id, breakfast, lunch, afternoon, dinner) VALUES ($1, $2, $3, $4, $5)',
-                [storeId, 0.76, 1.24, 1.06, 0.94]
+                [storeId, 0.84, 1.21, 1.09, 0.86]
             );
             console.log('Created default operational weights');
         }

@@ -342,10 +342,10 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
     
     // Adjustable daypart weights
     const [daypartWeights, setDaypartWeights] = useState({
-        'breakfast': 0.76,   // Low ticket, high prep, stock for lunch
-        'lunch': 1.24,       // Peak volume, high throughput
-        'afternoon': 1.06,   // Post-lunch cleanup + dinner prep
-        'dinner': 0.94       // Peak volume + close-down inefficiency
+        'breakfast': 0.84,   // Low ticket, high prep, stock for lunch
+        'lunch': 1.21,       // Peak volume, high throughput
+        'afternoon': 1.09,   // Post-lunch cleanup + dinner prep
+        'dinner': 0.86       // Peak volume + close-down inefficiency
     });
     
     // Sales inputs

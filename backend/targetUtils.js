@@ -12,7 +12,7 @@ const tierBaselines = {
 const SLOPE = 0.30;
 const ANCHOR_SALES = 30000;
 
-function calculateTargetProductivity(daypartKey, totalDailySales, selectedTier = 'Top 50%', daypartWeights = { breakfast: 0.76, lunch: 1.24, afternoon: 1.06, dinner: 0.94 }) {
+function calculateTargetProductivity(daypartKey, totalDailySales, selectedTier = 'Top 50%', daypartWeights = { breakfast: 0.84, lunch: 1.21, afternoon: 1.09, dinner: 0.86 }) {
   const baseline = tierBaselines[selectedTier] || 85;
   const salesDelta = (totalDailySales - ANCHOR_SALES) / 1000;
   const baseTarget = baseline + SLOPE * salesDelta;
