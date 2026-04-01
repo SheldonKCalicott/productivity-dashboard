@@ -588,7 +588,10 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
                 ))}
               </div>
 
-              <div style={{...styles.scoreboardList, maxHeight: 580, overflowY: 'auto', borderRadius: 8, border: `1px solid ${rt.cardBorder}`, background: rt.cardBg}}>
+              <div
+                className="scoreboard-scroll"
+                style={{...styles.scoreboardList, maxHeight: 580, overflowY: 'auto', borderRadius: 8, border: `1px solid ${rt.cardBorder}`, background: rt.cardBg}}
+              >
                 {sortedData.map((item, index) => {
                   // Expanded blue gradient for up to 20 rows, not lighter than #3b82f6
                   const blueShades = [

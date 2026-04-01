@@ -676,58 +676,125 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     // Performance-based auto-weighting: analyze last 30 days and recalculate weights
     const autoWeightFromPerformance = async () => {
         if (isDemo) { showMessage('demo'); return; }
-        setIsAutoWeighting(true)
+        setIsAutoWeighting(true);
         try {
             const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-            const today = new Date()
-            const start = new Date(today)
-            start.setDate(today.getDate() - 30)
-            const fmt = (d) => d.toISOString().split('T')[0]
-            const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/range/${fmt(start)}/${fmt(today)}`)
-            if (!response.ok) throw new Error(`HTTP ${response.status}`)
-            const records = await response.json()
+            const today = new Date();
+            const start = new Date(today);
+            start.setDate(today.getDate() - 30);
+            const fmt = (d) => d.toISOString().split('T')[0];
+            const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/range/${fmt(start)}/${fmt(today)}`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const records = await response.json();
 
             if (!records || records.length === 0) {
-                showMessage('error')
-                return
+                showMessage('error');
+                return;
             }
 
-            // Group by daypart and compute avg actual/target ratio
-            const dayparts = ['breakfast', 'lunch', 'afternoon', 'dinner']
-            const ratios = {}
-            dayparts.forEach(dp => {
-                const dpRecords = records.filter(r => r.daypart === dp && r.actual_productivity && r.target_productivity)
-                if (dpRecords.length === 0) {
-                    ratios[dp] = 1.0
-                } else {
-                    const avgRatio = dpRecords.reduce((sum, r) => {
-                        return sum + (Number(r.actual_productivity) / Number(r.target_productivity))
-                    }, 0) / dpRecords.length
-                    ratios[dp] = avgRatio
+            const dayparts = ['breakfast', 'lunch', 'afternoon', 'dinner'];
+            // Step 1: Group by day and daypart
+            // Build: { date: { daypart: { sales, actual, target } } }
+            const byDate = {};
+            records.forEach(r => {
+                if (!byDate[r.date]) byDate[r.date] = {};
+                byDate[r.date][r.daypart] = {
+                    sales: Number(r.sales) || 0,
+                    actual: Number(r.actual_productivity) || 0,
+                    target: Number(r.target_productivity) || 0
+                };
+            });
+
+            // Step 2: Calculate average sales per daypart and total daily sales
+            let totalDaypartSales = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 };
+            let totalSalesDays = 0;
+            let totalDailySalesSum = 0;
+            let totalDays = 0;
+            let daypartActualSum = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 };
+            let daypartTargetSum = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 };
+            let daypartCount = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 };
+
+            Object.entries(byDate).forEach(([date, dpObj]) => {
+                let dayTotal = 0;
+                dayparts.forEach(dp => {
+                    if (dpObj[dp] && dpObj[dp].sales > 0) {
+                        totalDaypartSales[dp] += dpObj[dp].sales;
+                        daypartActualSum[dp] += dpObj[dp].actual;
+                        daypartTargetSum[dp] += dpObj[dp].target;
+                        daypartCount[dp] += 1;
+                        dayTotal += dpObj[dp].sales;
+                    }
+                });
+                if (dayTotal > 0) {
+                    totalSalesDays += 1;
+                    totalDailySalesSum += dayTotal;
                 }
-            })
+                totalDays += 1;
+            });
 
-            // Invert ratios: dayparts where actual < target need lower weight (easier target)
-            // dayparts where actual > target can handle higher weight (harder target)
-            const invertedRatios = {}
-            dayparts.forEach(dp => { invertedRatios[dp] = ratios[dp] })
-
-            // Normalize so total = 4.0 (average = 1.0)
-            const totalRaw = dayparts.reduce((s, dp) => s + invertedRatios[dp], 0)
-            const newWeights = {}
+            // Step 3: Calculate sales share for each daypart
+            const avgDaypartSales = {};
             dayparts.forEach(dp => {
-                newWeights[dp] = parseFloat(((invertedRatios[dp] / totalRaw) * 4.0).toFixed(2))
-            })
+                avgDaypartSales[dp] = daypartCount[dp] > 0 ? totalDaypartSales[dp] / daypartCount[dp] : 0;
+            });
+            const avgTotalSales = totalSalesDays > 0 ? totalDailySalesSum / totalSalesDays : 1;
+            const salesShare = {};
+            dayparts.forEach(dp => {
+                salesShare[dp] = avgTotalSales > 0 ? avgDaypartSales[dp] / avgTotalSales : 0.25;
+            });
 
-            setDaypartWeights(newWeights)
-            setBannerMessage({ text: 'Weights recalculated from 30-day performance!', isError: false })
-            setShowDataBanner(true)
-            setTimeout(() => setShowDataBanner(false), 3000)
+            // Step 4: Calculate performance score (average actual / average target)
+            const performanceScore = {};
+            dayparts.forEach(dp => {
+                const avgActual = daypartCount[dp] > 0 ? daypartActualSum[dp] / daypartCount[dp] : 1;
+                const avgTarget = daypartCount[dp] > 0 ? daypartTargetSum[dp] / daypartCount[dp] : 1;
+                performanceScore[dp] = avgTarget > 0 ? avgActual / avgTarget : 1;
+            });
+
+            // Step 5: Attainability adjustment
+            const adjustedShare = {};
+            dayparts.forEach(dp => {
+                adjustedShare[dp] = salesShare[dp] * performanceScore[dp];
+            });
+
+            // Step 6: Normalize adjusted shares
+            const totalAdjusted = dayparts.reduce((sum, dp) => sum + adjustedShare[dp], 0);
+            const normalizedShare = {};
+            dayparts.forEach(dp => {
+                normalizedShare[dp] = totalAdjusted > 0 ? adjustedShare[dp] / totalAdjusted : 0.25;
+            });
+
+            // Step 7: Apply ambition tier (daily productivity target)
+            // Map ambition tier to daily target
+            const ambitionMap = {
+                'Top 50%': 105,
+                'Top 33%': 108,
+                'Top 25%': 110,
+                'Top 10%': 115
+            };
+            const dailyTarget = ambitionMap[selectedTier] || 105;
+
+            // Step 8: Calculate daypart targets (not directly used in weights, but for reference)
+            // const daypartTarget = {};
+            // dayparts.forEach(dp => {
+            //     daypartTarget[dp] = dailyTarget * normalizedShare[dp];
+            // });
+
+            // Step 9: Convert to weights (normalized_share * 4.0)
+            const newWeights = {};
+            dayparts.forEach(dp => {
+                newWeights[dp] = parseFloat((normalizedShare[dp] * 4.0).toFixed(2));
+            });
+
+            setDaypartWeights(newWeights);
+            setBannerMessage({ text: 'Weights recalculated from 30-day sales, performance, and ambition!', isError: false });
+            setShowDataBanner(true);
+            setTimeout(() => setShowDataBanner(false), 3000);
         } catch (error) {
-            console.warn('Auto-weighting failed:', error.message)
-            showMessage('error')
+            console.warn('Auto-weighting failed:', error.message);
+            showMessage('error');
         } finally {
-            setIsAutoWeighting(false)
+            setIsAutoWeighting(false);
         }
     }
 
@@ -1197,7 +1264,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 {/* Save Data Section */}
                                 <div style={{ marginBottom: '10px', padding: '0 4px' }}>
                                     <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600', textAlign: 'left' }}>
-                                        Save Data
+                                        Date to Save
                                     </h6>
                                     <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '6px' }}>
                                         <div style={{ flex: '1 1 0', minWidth: 0 }}>
@@ -1394,7 +1461,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     const balanceLabel = isBalanced ? '✓ Balanced' : isAbove ? 'Above target — reduce weights' : 'Below target — increase weights';
                                     // Map avgWeight onto a 0-100 bar where 100% target is at the center (50%)
                                     // Range: 0.50 = left edge, 1.0 = center, 1.50 = right edge
-                                    const barPercent = Math.min(Math.max(((avgWeight - 0.5) / 1.0) * 100, 0), 100);
+                                    const cappedAvgWeight = Math.max(0.75, Math.min(1.25, avgWeight));
+                                    const barPercent = ((cappedAvgWeight - 0.75) / 0.5) * 100;
 
                                     return (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 2px' }}>
@@ -1421,6 +1489,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     min="50"
                                                     max="150"
                                                     step="1"
+                                                    className="daypart-slider"
                                                     value={Math.round((weight || 0.84) * 100)}
                                                     onChange={(e) => {
                                                         let val = parseFloat(e.target.value);
@@ -1449,9 +1518,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
                                             <span style={{ color: tc.text, fontSize: '12px', fontWeight: '600' }}>Total Avg</span>
-                                            <span style={{ color: balanceColor, fontSize: '12px', fontWeight: '700' }}>
-                                                {isNaN(avgWeight) ? '0%' : (avgWeight * 100).toFixed(0) + '%'}
-                                            </span>
+                                                <span style={{ color: balanceColor, fontSize: '12px', fontWeight: '700' }}>
+                                                    {isNaN(avgWeight) ? '0%' : Math.round(avgWeight * 100) + '%'}
+                                                </span>
                                         </div>
                                         {/* Bar with centered 100% tick mark */}
                                         <div style={{ position: 'relative', width: '100%', height: '14px' }}>
@@ -1476,19 +1545,21 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                             {/* Center tick mark at 100% (50% of bar) */}
                                             <div style={{
                                                 position: 'absolute',
-                                                left: '50%',
+                                                left: '49.5%',
                                                 top: '0',
                                                 transform: 'translateX(-50%)',
-                                                width: '2px',
+                                                width: '18px', // Increased width for variance
                                                 height: '14px',
-                                                backgroundColor: '#22c55e',
-                                                borderRadius: '1px',
+                                                backgroundColor: '#22c55ea1', // semi-transparent green for variance band
+                                                borderRadius: '4px',
                                                 zIndex: 1,
+                                                border: '2px solid #22c55e8c',
+                                                boxSizing: 'border-box',
                                             }} />
                                         </div>
-                                        <div style={{ textAlign: 'center', color: balanceColor, fontSize: '10px', marginTop: '2px', fontWeight: '500' }}>
-                                            {balanceLabel}
-                                        </div>
+                                            <div style={{ textAlign: 'center', color: balanceColor, fontSize: '10px', marginTop: '2px', fontWeight: '500' }}>
+                                                {isBalanced ? '✓ Balanced' : isAbove ? 'Above target — reduce weights' : 'Below target — increase weights'}
+                                            </div>
                                     </div>
 
                                     {/* Auto-Weight Button */}
