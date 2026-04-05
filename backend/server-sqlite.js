@@ -57,6 +57,45 @@ app.use(cors({
 app.use(express.json());
 
 // API Routes
+// Get productivity data for a specific store and date (all dayparts)
+app.get('/api/productivity/:storeNumber/:date', (req, res) => {
+    const { storeNumber, date } = req.params;
+    const query = `
+        SELECT daypart, sales_amount, actual_productivity, target_productivity, pic_name
+        FROM productivity_records
+        WHERE store_number = ? AND record_date = ?
+    `;
+    db.all(query, [storeNumber, date], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        // Format as { breakfast: {...}, lunch: {...}, ... }
+        const result = {};
+        rows.forEach(r => {
+            result[r.daypart] = {
+                sales: r.sales_amount,
+                actualProductivity: r.actual_productivity,
+                targetProductivity: r.target_productivity,
+                picName: r.pic_name
+            };
+        });
+        res.json(result);
+    });
+});
+// TEMP: Add a test store for local development
+app.post('/api/dev/add-test-store', (req, res) => {
+    const { name = 'Tuskawilla', location = 'Local Test' } = req.body || {};
+    db.run(
+        'INSERT OR IGNORE INTO stores (name, location) VALUES (?, ?)',
+        [name, location],
+        function (err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            res.json({ message: `Store '${name}' added (or already exists)` });
+        }
+    );
+});
 
 // Health check
 app.get('/api/health', (req, res) => {

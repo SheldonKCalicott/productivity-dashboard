@@ -694,16 +694,16 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
 
             const dayparts = ['breakfast', 'lunch', 'afternoon', 'dinner'];
             // Step 1: Group by day and daypart
-            // Build: { date: { daypart: { sales, actual, target } } }
             const byDate = {};
             records.forEach(r => {
-                if (!byDate[r.date]) byDate[r.date] = {};
-                byDate[r.date][r.daypart] = {
-                    sales: Number(r.sales) || 0,
+                if (!byDate[r.record_date]) byDate[r.record_date] = {};
+                byDate[r.record_date][r.daypart] = {
+                    sales: Number(r.sales_amount) || 0,
                     actual: Number(r.actual_productivity) || 0,
                     target: Number(r.target_productivity) || 0
                 };
             });
+            console.log('[Step 1] Grouped by date and daypart:', byDate);
 
             // Step 2: Calculate average sales per daypart and total daily sales
             let totalDaypartSales = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 };
@@ -731,41 +731,45 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 }
                 totalDays += 1;
             });
+            console.log('[Step 2] Sums:', { totalDaypartSales, totalSalesDays, totalDailySalesSum, totalDays, daypartActualSum, daypartTargetSum, daypartCount });
 
             // Step 3: Calculate sales share for each daypart
             const avgDaypartSales = {};
             dayparts.forEach(dp => {
-                avgDaypartSales[dp] = daypartCount[dp] > 0 ? totalDaypartSales[dp] / daypartCount[dp] : 0;
+                avgDaypartSales[dp] = daypartCount[dp] > 0 ? totalDaypartSales[dp] / daypartCount[dp] : null;
             });
-            const avgTotalSales = totalSalesDays > 0 ? totalDailySalesSum / totalSalesDays : 1;
+            const avgTotalSales = totalSalesDays > 0 ? totalDailySalesSum / totalSalesDays : null;
             const salesShare = {};
             dayparts.forEach(dp => {
-                salesShare[dp] = avgTotalSales > 0 ? avgDaypartSales[dp] / avgTotalSales : 0.25;
+                salesShare[dp] = (avgDaypartSales[dp] !== null && avgTotalSales) ? avgDaypartSales[dp] / avgTotalSales : null;
             });
+            console.log('[Step 3] Sales share:', { avgDaypartSales, avgTotalSales, salesShare });
 
             // Step 4: Calculate performance score (average actual / average target)
             const performanceScore = {};
             dayparts.forEach(dp => {
-                const avgActual = daypartCount[dp] > 0 ? daypartActualSum[dp] / daypartCount[dp] : 1;
-                const avgTarget = daypartCount[dp] > 0 ? daypartTargetSum[dp] / daypartCount[dp] : 1;
-                performanceScore[dp] = avgTarget > 0 ? avgActual / avgTarget : 1;
+                const avgActual = daypartCount[dp] > 0 ? daypartActualSum[dp] / daypartCount[dp] : null;
+                const avgTarget = daypartCount[dp] > 0 ? daypartTargetSum[dp] / daypartCount[dp] : null;
+                performanceScore[dp] = (avgActual !== null && avgTarget && avgTarget > 0) ? avgActual / avgTarget : null;
             });
+            console.log('[Step 4] Performance score:', { performanceScore });
 
             // Step 5: Attainability adjustment
             const adjustedShare = {};
             dayparts.forEach(dp => {
-                adjustedShare[dp] = salesShare[dp] * performanceScore[dp];
+                adjustedShare[dp] = (salesShare[dp] !== null && performanceScore[dp] !== null) ? salesShare[dp] * performanceScore[dp] : null;
             });
+            console.log('[Step 5] Adjusted share:', { adjustedShare });
 
             // Step 6: Normalize adjusted shares
-            const totalAdjusted = dayparts.reduce((sum, dp) => sum + adjustedShare[dp], 0);
+            const totalAdjusted = dayparts.reduce((sum, dp) => sum + (adjustedShare[dp] !== null ? adjustedShare[dp] : 0), 0);
             const normalizedShare = {};
             dayparts.forEach(dp => {
-                normalizedShare[dp] = totalAdjusted > 0 ? adjustedShare[dp] / totalAdjusted : 0.25;
+                normalizedShare[dp] = (adjustedShare[dp] !== null && totalAdjusted > 0) ? adjustedShare[dp] / totalAdjusted : null;
             });
+            console.log('[Step 6] Normalized share:', { totalAdjusted, normalizedShare });
 
             // Step 7: Apply ambition tier (daily productivity target)
-            // Map ambition tier to daily target
             const ambitionMap = {
                 'Top 50%': 105,
                 'Top 33%': 108,
@@ -773,18 +777,25 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 'Top 10%': 115
             };
             const dailyTarget = ambitionMap[selectedTier] || 105;
+            console.log('[Step 7] Ambition tier:', { selectedTier, dailyTarget });
 
             // Step 8: Calculate daypart targets (not directly used in weights, but for reference)
             // const daypartTarget = {};
             // dayparts.forEach(dp => {
-            //     daypartTarget[dp] = dailyTarget * normalizedShare[dp];
+            //     daypartTarget[dp] = dailyTarget * (normalizedShare[dp] !== null ? normalizedShare[dp] : 0);
             // });
 
-            // Step 9: Convert to weights (normalized_share * 4.0)
+            // Step 9: Convert to weights (normalized_share * 4.0), fallback to previous or default if missing
             const newWeights = {};
             dayparts.forEach(dp => {
-                newWeights[dp] = parseFloat((normalizedShare[dp] * 4.0).toFixed(2));
+                if (normalizedShare[dp] !== null) {
+                    newWeights[dp] = parseFloat((normalizedShare[dp] * 4.0).toFixed(2));
+                } else {
+                    // Fallback: keep previous weight or default
+                    newWeights[dp] = daypartWeights[dp] || 1.0;
+                }
             });
+            console.log('[Step 9] Final weights:', { newWeights });
 
             setDaypartWeights(newWeights);
             setBannerMessage({ text: 'Weights recalculated from 30-day sales, performance, and ambition!', isError: false });
@@ -1233,9 +1244,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             textAlign: 'center',
                             marginBottom: '8px'
                         }}>
-                            <p style={{ margin: '0', color: tc.textSubtle, fontSize: '11px', lineHeight: '1.1' }}>
-                                Tier-based targets calculated from daily sales, weighted by operational complexity
-                            </p>
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '0px', margin: '0', padding: '10px 0 0 0', width: '100%' }}>
@@ -1263,8 +1271,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 
                                 {/* Save Data Section */}
                                 <div style={{ marginBottom: '10px', padding: '0 4px' }}>
-                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600', textAlign: 'left' }}>
-                                        Date to Save
+                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600', textAlign: 'auto' }}>
+                                        Date Displaying
                                     </h6>
                                     <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '6px' }}>
                                         <div style={{ flex: '1 1 0', minWidth: 0 }}>
@@ -1300,7 +1308,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                         <button 
                                             onClick={handleDataAction}
                                             style={{
-                                                padding: '4px 8px',
+                                                padding: '4px 20px',
                                                 backgroundColor: '#3b82f6',
                                                 color: '#ffffff',
                                                 border: 'none',
@@ -1318,7 +1326,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 
                                 {/* Export Data Section */}
                                 <div style={{ padding: '8px 4px' }}>
-                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600', textAlign: 'left' }}>
+                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600', textAlign: 'auto' }}>
                                         Export Data
                                     </h6>
                                     <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '6px' }}>
@@ -1346,7 +1354,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                         <button 
                                             onClick={handleExportAction}
                                             style={{
-                                                padding: '4px 8px',
+                                                padding: '4px 20px',
                                                 backgroundColor: '#059669',
                                                 color: '#ffffff',
                                                 border: 'none',
@@ -1563,25 +1571,42 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     </div>
 
                                     {/* Auto-Weight Button */}
-                                    <button
-                                        onClick={autoWeightFromPerformance}
-                                        disabled={isAutoWeighting}
-                                        style={{
-                                            marginTop: '4px',
-                                            padding: '5px 10px',
-                                            backgroundColor: isAutoWeighting ? '#475569' : '#6366f1',
-                                            color: '#fff',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            fontSize: '11px',
-                                            fontWeight: '600',
-                                            cursor: isAutoWeighting ? 'wait' : 'pointer',
-                                            width: '100%',
-                                            transition: 'background-color 0.2s',
-                                        }}
-                                    >
-                                        {isAutoWeighting ? 'Analyzing...' : 'Auto calculate from past data'}
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '10px', marginTop: '8px', width: '100%' }}>
+                                        <button
+                                            onClick={autoWeightFromPerformance}
+                                            disabled={isAutoWeighting}
+                                            style={{
+                                                flex: '1 1 0',
+                                                padding: '5px 0',
+                                                backgroundColor: isAutoWeighting ? '#475569' : '#2563eb', // blue-600
+                                                color: '#fff',
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                fontSize: '11px',
+                                                fontWeight: '600',
+                                                cursor: isAutoWeighting ? 'wait' : 'pointer',
+                                                transition: 'background-color 0.2s',
+                                            }}
+                                        >
+                                            {isAutoWeighting ? 'Calculating weights...' : 'Recalculate Weights from History'}
+                                        </button>
+                                        <button
+                                            style={{
+                                                flex: '1 1 0',
+                                                padding: '5px 0',
+                                                backgroundColor: '#299965', // lighter green for better contrast
+                                                color: '#ffffff', // dark green text for readability
+                                                border: 'none',
+                                                borderRadius: '4px',
+                                                fontSize: '11px',
+                                                fontWeight: '600',
+                                                cursor: 'pointer',
+                                                transition: 'background-color 0.2s',
+                                            }}
+                                        >
+                                            Save Ambition & Weights
+                                        </button>
+                                    </div>
                                 </div>
                                     );
                                 })()}
