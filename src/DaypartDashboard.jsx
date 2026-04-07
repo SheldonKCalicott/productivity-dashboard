@@ -514,35 +514,42 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const saveToDatabase = async (data) => {
         try {
             const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+            // Helper to send null for empty/cleared fields
+            const nullIfEmpty = (v) => {
+                if (v === undefined || v === null) return null;
+                if (typeof v === 'string' && v.trim() === '') return null;
+                if (!isNaN(v) && v !== null && v !== undefined && v !== '') return Number(v);
+                return v;
+            };
             const payload = {
                 storeName: effectiveStoreName,
                 date: dataDate,
                 daypartsData: {
                     breakfast: {
-                        sales: data.salesInputs.breakfastSales,
-                        actualProductivity: data.productivity.breakfast,
-                        picName: data.picNames.breakfast || '',
+                        sales: nullIfEmpty(data.salesInputs.breakfastSales),
+                        actualProductivity: nullIfEmpty(data.productivity.breakfast),
+                        picName: nullIfEmpty(data.picNames.breakfast),
                         daypartWeights: data.daypartWeights || daypartWeights,
                         selectedTier: data.selectedTier || selectedTier
                     },
                     lunch: {
-                        sales: data.salesInputs.lunchSales,
-                        actualProductivity: data.productivity.lunch,
-                        picName: data.picNames.lunch || '',
+                        sales: nullIfEmpty(data.salesInputs.lunchSales),
+                        actualProductivity: nullIfEmpty(data.productivity.lunch),
+                        picName: nullIfEmpty(data.picNames.lunch),
                         daypartWeights: data.daypartWeights || daypartWeights,
                         selectedTier: data.selectedTier || selectedTier
                     },
                     afternoon: {
-                        sales: data.salesInputs.afternoonSales,
-                        actualProductivity: data.productivity.afternoon,
-                        picName: data.picNames.afternoon || '',
+                        sales: nullIfEmpty(data.salesInputs.afternoonSales),
+                        actualProductivity: nullIfEmpty(data.productivity.afternoon),
+                        picName: nullIfEmpty(data.picNames.afternoon),
                         daypartWeights: data.daypartWeights || daypartWeights,
                         selectedTier: data.selectedTier || selectedTier
                     },
                     dinner: {
-                        sales: data.salesInputs.dinnerSales,
-                        actualProductivity: data.productivity.dinner,
-                        picName: data.picNames.dinner || '',
+                        sales: nullIfEmpty(data.salesInputs.dinnerSales),
+                        actualProductivity: nullIfEmpty(data.productivity.dinner),
+                        picName: nullIfEmpty(data.picNames.dinner),
                         daypartWeights: data.daypartWeights || daypartWeights,
                         selectedTier: data.selectedTier || selectedTier
                     }

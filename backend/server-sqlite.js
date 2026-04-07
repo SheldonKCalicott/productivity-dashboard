@@ -153,41 +153,79 @@ app.get('/api/productivity/:storeNumber/range/:startDate/:endDate', (req, res) =
 
 // Save new productivity record
 app.post('/api/productivity', (req, res) => {
-    const {
-        store_number,
-        daypart,
-        sales_amount,
-        actual_productivity,
-        target_productivity,
-        pic_name,
-        record_date
-    } = req.body;
 
-    // Validate required fields
+    // Accept both direct and nested payloads for flexibility
+    let store_number, daypart, sales_amount, actual_productivity, target_productivity, pic_name, record_date;
+    if (req.body.store_number) {
+        // Flat payload (single record)
+        ({ store_number, daypart, sales_amount, actual_productivity, target_productivity, pic_name, record_date } = req.body);
+    } else if (req.body.storeName && req.body.date && req.body.daypartsData) {
+        // Bulk payload (from dashboard)
+        // Save each daypart as a separate record
+        const responses = [];
+        const storeName = req.body.storeName;
+        const date = req.body.date;
+        const daypartsData = req.body.daypartsData;
+        const dayparts = Object.keys(daypartsData);
+        let completed = 0;
+        dayparts.forEach((dp) => {
+            const d = daypartsData[dp];
+            const query = `
+                INSERT OR REPLACE INTO productivity_records 
+                (store_number, daypart, sales_amount, actual_productivity, target_productivity, pic_name, record_date, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            `;
+            db.run(query, [
+                storeName,
+                dp,
+                d.sales === undefined ? null : d.sales,
+                d.actualProductivity === undefined ? null : d.actualProductivity,
+                d.targetProductivity === undefined ? null : d.targetProductivity,
+                d.picName === undefined ? null : d.picName,
+                date
+            ], function(err) {
+                completed++;
+                if (err) {
+                    responses.push({ error: err.message, daypart: dp });
+                } else {
+                    responses.push({ id: this.lastID, daypart: dp, message: 'Productivity record saved successfully' });
+                }
+                if (completed === dayparts.length) {
+                    // All done
+                    if (responses.some(r => r.error)) {
+                        return res.status(500).json({ error: 'One or more records failed', details: responses });
+                    }
+                    return res.json({ message: 'All records saved', details: responses });
+                }
+            });
+        });
+        return;
+    } else {
+        return res.status(400).json({ error: 'Invalid payload' });
+    }
+
+    // Validate required fields for single-record payload
     if (!store_number || !daypart || !record_date) {
         return res.status(400).json({ error: 'Missing required fields: store_number, daypart, record_date' });
     }
-
     const query = `
         INSERT OR REPLACE INTO productivity_records 
         (store_number, daypart, sales_amount, actual_productivity, target_productivity, pic_name, record_date, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     `;
-
     db.run(query, [
         store_number,
         daypart,
-        sales_amount,
-        actual_productivity,
-        target_productivity,
-        pic_name,
+        sales_amount === undefined ? null : sales_amount,
+        actual_productivity === undefined ? null : actual_productivity,
+        target_productivity === undefined ? null : target_productivity,
+        pic_name === undefined ? null : pic_name,
         record_date
     ], function(err) {
         if (err) {
             console.error('Database save error:', err);
             return res.status(500).json({ error: err.message });
         }
-
         console.log(`✅ Saved productivity record: ${store_number}/${daypart}/${record_date}`);
         res.json({ 
             id: this.lastID,
