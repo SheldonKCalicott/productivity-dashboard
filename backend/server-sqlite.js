@@ -42,6 +42,20 @@ db.serialize(() => {
         )
     `);
 
+    // Create store_settings table (weights + ambition tier per store)
+    db.run(`
+        CREATE TABLE IF NOT EXISTS store_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            store_name TEXT UNIQUE NOT NULL,
+            ambition_tier TEXT DEFAULT 'Top 50%',
+            weight_breakfast REAL DEFAULT 0.84,
+            weight_lunch REAL DEFAULT 1.21,
+            weight_afternoon REAL DEFAULT 1.09,
+            weight_dinner REAL DEFAULT 0.86,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
     // Insert default store if not exists
     db.run(`
         INSERT OR IGNORE INTO stores (name, location) 
@@ -102,7 +116,7 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Get store information
+// Get store information (includes weights and ambition tier from store_settings)
 app.get('/api/store/:storeName?', (req, res) => {
     const storeName = req.params.storeName || '04680';
     
@@ -115,7 +129,61 @@ app.get('/api/store/:storeName?', (req, res) => {
             return res.status(404).json({ error: 'Store not found' });
         }
         
-        res.json(row);
+        // Fetch settings separately and merge into response
+        db.get('SELECT * FROM store_settings WHERE store_name = ?', [storeName], (err2, settings) => {
+            if (err2) {
+                return res.status(500).json({ error: err2.message });
+            }
+            const response = { ...row };
+            if (settings) {
+                response.weights = {
+                    breakfast: settings.weight_breakfast,
+                    lunch: settings.weight_lunch,
+                    afternoon: settings.weight_afternoon,
+                    dinner: settings.weight_dinner
+                };
+                response.settings = {
+                    ambition_tier: settings.ambition_tier
+                };
+            }
+            res.json(response);
+        });
+    });
+});
+
+// Save store settings (weights + ambition tier)
+app.put('/api/store/:storeName/settings', (req, res) => {
+    const { storeName } = req.params;
+    const { ambition_tier, weights } = req.body;
+
+    if (!ambition_tier || !weights) {
+        return res.status(400).json({ error: 'Missing ambition_tier or weights' });
+    }
+
+    const query = `
+        INSERT INTO store_settings (store_name, ambition_tier, weight_breakfast, weight_lunch, weight_afternoon, weight_dinner, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(store_name) DO UPDATE SET
+            ambition_tier = excluded.ambition_tier,
+            weight_breakfast = excluded.weight_breakfast,
+            weight_lunch = excluded.weight_lunch,
+            weight_afternoon = excluded.weight_afternoon,
+            weight_dinner = excluded.weight_dinner,
+            updated_at = CURRENT_TIMESTAMP
+    `;
+    db.run(query, [
+        storeName,
+        ambition_tier,
+        weights.breakfast ?? 0.84,
+        weights.lunch ?? 1.21,
+        weights.afternoon ?? 1.09,
+        weights.dinner ?? 0.86
+    ], function(err) {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        console.log(`✅ Settings saved for store ${storeName}`);
+        res.json({ message: 'Settings saved', storeName });
     });
 });
 
@@ -277,6 +345,23 @@ app.delete('/api/productivity/:id', (req, res) => {
         
         res.json({ message: 'Record deleted successfully' });
     });
+});
+
+// Delete productivity record by store + date + daypart (used when clearing fields on the dashboard)
+app.delete('/api/productivity/:storeName/:date/:daypart', (req, res) => {
+    const { storeName, date, daypart } = req.params;
+
+    db.run(
+        'DELETE FROM productivity_records WHERE store_number = ? AND record_date = ? AND daypart = ?',
+        [storeName, date, daypart],
+        function(err) {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+            console.log(`🗑️ Deleted record: ${storeName}/${date}/${daypart} (${this.changes} rows)`);
+            res.json({ message: 'Record cleared', changes: this.changes });
+        }
+    );
 });
 
 // Error handling middleware

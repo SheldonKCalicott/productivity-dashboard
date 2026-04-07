@@ -521,53 +521,59 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 if (!isNaN(v) && v !== null && v !== undefined && v !== '') return Number(v);
                 return v;
             };
-            const payload = {
-                storeName: effectiveStoreName,
-                date: dataDate,
-                daypartsData: {
-                    breakfast: {
-                        sales: nullIfEmpty(data.salesInputs.breakfastSales),
-                        actualProductivity: nullIfEmpty(data.productivity.breakfast),
-                        picName: nullIfEmpty(data.picNames.breakfast),
-                        daypartWeights: data.daypartWeights || daypartWeights,
-                        selectedTier: data.selectedTier || selectedTier
-                    },
-                    lunch: {
-                        sales: nullIfEmpty(data.salesInputs.lunchSales),
-                        actualProductivity: nullIfEmpty(data.productivity.lunch),
-                        picName: nullIfEmpty(data.picNames.lunch),
-                        daypartWeights: data.daypartWeights || daypartWeights,
-                        selectedTier: data.selectedTier || selectedTier
-                    },
-                    afternoon: {
-                        sales: nullIfEmpty(data.salesInputs.afternoonSales),
-                        actualProductivity: nullIfEmpty(data.productivity.afternoon),
-                        picName: nullIfEmpty(data.picNames.afternoon),
-                        daypartWeights: data.daypartWeights || daypartWeights,
-                        selectedTier: data.selectedTier || selectedTier
-                    },
-                    dinner: {
-                        sales: nullIfEmpty(data.salesInputs.dinnerSales),
-                        actualProductivity: nullIfEmpty(data.productivity.dinner),
-                        picName: nullIfEmpty(data.picNames.dinner),
-                        daypartWeights: data.daypartWeights || daypartWeights,
-                        selectedTier: data.selectedTier || selectedTier
-                    }
-                },
-                operationalWeights: data.daypartWeights || daypartWeights,
-                ambitionTier: data.selectedTier || selectedTier
-            };
 
-            const resp = await fetch(`${apiBase}/productivity`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            if (!resp.ok) {
-                const err = await resp.json().catch(() => ({}));
-                throw new Error(err.message || `HTTP ${resp.status}`);
+            // Determine which dayparts are fully empty (all three data fields cleared)
+            const allDayparts = ['breakfast', 'lunch', 'afternoon', 'dinner'];
+            const salesMap = {
+                breakfast: data.salesInputs.breakfastSales,
+                lunch: data.salesInputs.lunchSales,
+                afternoon: data.salesInputs.afternoonSales,
+                dinner: data.salesInputs.dinnerSales
+            };
+            const isEmpty = (dp) =>
+                nullIfEmpty(salesMap[dp]) === null &&
+                nullIfEmpty(data.productivity[dp]) === null &&
+                nullIfEmpty(data.picNames[dp]) === null;
+
+            const toDelete = allDayparts.filter(dp => isEmpty(dp));
+            const toSave = allDayparts.filter(dp => !isEmpty(dp));
+
+            // Delete cleared dayparts from the DB
+            await Promise.all(toDelete.map(dp =>
+                fetch(`${apiBase}/productivity/${effectiveStoreName}/${dataDate}/${dp}`, { method: 'DELETE' })
+            ));
+
+            // Only POST if there are dayparts with data
+            if (toSave.length > 0) {
+                const daypartsData = {};
+                toSave.forEach(dp => {
+                    daypartsData[dp] = {
+                        sales: nullIfEmpty(salesMap[dp]),
+                        actualProductivity: nullIfEmpty(data.productivity[dp]),
+                        picName: nullIfEmpty(data.picNames[dp])
+                    };
+                });
+
+                const payload = {
+                    storeName: effectiveStoreName,
+                    date: dataDate,
+                    daypartsData,
+                    operationalWeights: data.daypartWeights || daypartWeights,
+                    ambitionTier: data.selectedTier || selectedTier
+                };
+
+                const resp = await fetch(`${apiBase}/productivity`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    throw new Error(err.message || `HTTP ${resp.status}`);
+                }
             }
-            console.log(`✅ Data saved to database for ${dataDate}`);
+
+            console.log(`✅ Data saved to database for ${dataDate} (${toSave.length} upserted, ${toDelete.length} cleared)`);
             return true;
         } catch (error) {
             console.warn('Database save failed:', error.message);
@@ -679,6 +685,32 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     
     // Auto-weight loading state
     const [isAutoWeighting, setIsAutoWeighting] = useState(false)
+
+    // Save ambition tier + operational weights to the database
+    const saveSettings = async () => {
+        if (isDemo) { showMessage('demo'); return; }
+        try {
+            const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+            const resp = await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ambition_tier: selectedTier, weights: daypartWeights })
+            });
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.message || `HTTP ${resp.status}`);
+            }
+            console.log('✅ Ambition & weights saved');
+            setBannerMessage({ text: 'Ambition & weights saved!', isError: false });
+            setShowDataBanner(true);
+            setTimeout(() => setShowDataBanner(false), 3000);
+        } catch (error) {
+            console.warn('Failed to save settings:', error.message);
+            setBannerMessage({ text: 'Failed to save settings — check connection', isError: true });
+            setShowDataBanner(true);
+            setTimeout(() => setShowDataBanner(false), 4000);
+        }
+    }
 
     // Performance-based auto-weighting: analyze last 30 days and recalculate weights
     const autoWeightFromPerformance = async () => {
@@ -1482,10 +1514,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     return (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 2px' }}>
                                     {[
-                                        { key: 'breakfast', name: 'Breakfast', desc: 'Low ticket, complex prep, stocking for lunch' },
-                                        { key: 'lunch', name: 'Lunch', desc: 'Peak volume, highest sales, drives productivity' },
-                                        { key: 'afternoon', name: 'Afternoon', desc: 'Post-lunch cleanup, dinner prep, moderate sales' },
-                                        { key: 'dinner', name: 'Dinner', desc: 'Strong volume, end-of-day cleaning & stocking' }
+                                        { key: 'breakfast', name: 'Breakfast (Default 84%)', desc: 'Low ticket, complex prep, stocking for lunch' },
+                                        { key: 'lunch', name: 'Lunch (Default 121%)', desc: 'Peak volume, highest sales, drives productivity' },
+                                        { key: 'afternoon', name: 'Afternoon (Default 109%)', desc: 'Post-lunch cleanup, dinner prep, moderate sales' },
+                                        { key: 'dinner', name: 'Dinner (Default 86%)', desc: 'Strong volume, end-of-day cleaning & stocking' }
                                     ].map(({ key, name, desc }) => {
                                         const weight = daypartWeights[key];
                                         const deviation = ((weight - 1.0) * 100);
@@ -1598,11 +1630,12 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                             {isAutoWeighting ? 'Calculating weights...' : 'Recalculate Weights from History'}
                                         </button>
                                         <button
+                                            onClick={saveSettings}
                                             style={{
                                                 flex: '1 1 0',
                                                 padding: '5px 0',
-                                                backgroundColor: '#299965', // lighter green for better contrast
-                                                color: '#ffffff', // dark green text for readability
+                                                backgroundColor: '#299965',
+                                                color: '#ffffff',
                                                 border: 'none',
                                                 borderRadius: '4px',
                                                 fontSize: '11px',
