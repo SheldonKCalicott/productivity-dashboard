@@ -1055,10 +1055,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 const storeInfo = await response.json();
                 if (storeInfo.weights) {
                     setDaypartWeights({
-                        breakfast: storeInfo.weights.breakfast ?? 0.84,
-                        lunch: storeInfo.weights.lunch ?? 1.21,
-                        afternoon: storeInfo.weights.afternoon ?? 1.09,
-                        dinner: storeInfo.weights.dinner ?? 0.86
+                        breakfast: parseFloat(storeInfo.weights.breakfast) || 0.84,
+                        lunch: parseFloat(storeInfo.weights.lunch) || 1.21,
+                        afternoon: parseFloat(storeInfo.weights.afternoon) || 1.09,
+                        dinner: parseFloat(storeInfo.weights.dinner) || 0.86
                     });
                 }
                 if (storeInfo.settings?.ambition_tier) {
