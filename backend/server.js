@@ -224,6 +224,9 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
         };
         const selectedTier = settingsRow.ambition_tier || 'Top 50%';
 
+        console.log('[API] /api/productivity/:storeName/range/:startDate/:endDate');
+        console.log('  Store:', storeName, 'Tier:', selectedTier, 'Weights:', daypartWeights);
+
         const result = await pool.query(`
             SELECT * FROM productivity_records 
             WHERE store_id = $1 AND record_date BETWEEN $2 AND $3
@@ -256,6 +259,14 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
                     daypartWeights
                 );
             }
+            const logObj = {
+                date: record.record_date,
+                daypart: record.daypart,
+                sales,
+                targetProductivity,
+                actualProductivity: record.actual_productivity
+            };
+            console.log('  Record:', logObj);
             return {
                 ...record,
                 target_productivity: targetProductivity

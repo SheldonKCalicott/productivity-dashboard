@@ -87,6 +87,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
       const storeName = getStoreNameFromPath()
       try {
         const data = await apiService.loadProductivityRange(startDate, endDate, storeName)
+        console.log('[ReportsPage] API response:', data)
         const transformed = (data || []).map((r, i) => ({
           id: i + 1,
           picName: r.pic_name || 'Unknown',
@@ -99,6 +100,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
           tier: r.target_productivity ? (Number(r.actual_productivity) >= (Number(r.target_productivity) - 2) ? "Top 20%" : "Top 50%") : "No Data",
           improvement: calculateImprovementTrend(r.pic_name, r.daypart, data)
         })).filter(x => x.actualProductivity > 0)
+        console.log('[ReportsPage] Transformed data:', transformed)
         setReportData(transformed)
       } catch (apiErr) {
         console.error('Failed to load report data:', apiErr)
