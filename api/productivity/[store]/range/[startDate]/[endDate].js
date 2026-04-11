@@ -51,12 +51,25 @@ async function getStoreId(storeName = 'simplified') {
     return result.rows[0].id;
 }
 
+// Target calculation logic (matches backend/targetUtils.js)
+const tierBaselines = {
+  'Bottom 50%': 84.5,
+  'Top 50%': 86.8,
+  'Top 33%': 89.2,
+  'Top 20%': 92.0,
+  'Top 10%': 95.1
+};
+const SLOPE = 0.30;
+const ANCHOR_SALES = 30000;
+
+function calculateTargetProductivity(daypartKey, salesAmount, selectedTier = 'Top 50%', daypartWeights = { breakfast: 0.84, lunch: 1.21, afternoon: 1.09, dinner: 0.86 }) {
+  const baseline = tierBaselines[selectedTier] || 86.8;
+  const salesDelta = (salesAmount - ANCHOR_SALES) / 1000;
+  const baseTarget = baseline + SLOPE * salesDelta;
+  return Math.round(baseTarget * (daypartWeights[daypartKey] || 1));
+}
+
 export default async function handler(req, res) {
-    console.error('=== PRODUCTIVITY RANGE API CALLED ===');
-    console.error('Method:', req.method);
-    console.error('URL:', req.url);
-    console.error('Query:', req.query);
-    
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -67,18 +80,36 @@ export default async function handler(req, res) {
     }
 
     if (req.method !== 'GET') {
-        console.error('Method not allowed:', req.method);
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     const pool = getPool();
     const { store, startDate, endDate } = req.query;
-    console.error('Parsed store:', store, 'startDate:', startDate, 'endDate:', endDate);
     
     try {
-        console.error('Getting range data for store:', store, 'from:', startDate, 'to:', endDate);
         const storeId = await getStoreId(store);
-        console.error('Store ID found:', storeId);
+
+        // Fetch latest weights and ambition tier for this store
+        const weightsResult = await pool.query(
+            'SELECT * FROM operational_weights WHERE store_id = $1',
+            [storeId]
+        );
+        const settingsResult = await pool.query(
+            'SELECT * FROM store_settings WHERE store_id = $1',
+            [storeId]
+        );
+
+        const weightsRow = weightsResult.rows[0] || {};
+        const settingsRow = settingsResult.rows[0] || {};
+        const daypartWeights = {
+            breakfast: parseFloat(weightsRow.breakfast) || 0.84,
+            lunch: parseFloat(weightsRow.lunch) || 1.21,
+            afternoon: parseFloat(weightsRow.afternoon) || 1.09,
+            dinner: parseFloat(weightsRow.dinner) || 0.86
+        };
+        const selectedTier = settingsRow.ambition_tier || 'Top 50%';
+
+        console.error('[API] Store:', store, '| Tier:', selectedTier, '| Weights:', daypartWeights);
 
         const result = await pool.query(`
             SELECT * FROM productivity_records 
@@ -92,12 +123,22 @@ export default async function handler(req, res) {
                 END
         `, [storeId, startDate, endDate]);
 
-        console.error('Range query returned:', result.rows.length, 'records');
-        return res.json(result.rows);
+        // Recalculate target_productivity for each record using latest tier and weights
+        const recalculatedRows = result.rows.map(record => {
+            const sales = parseInt(record.sales_amount) || 0;
+            const targetProductivity = sales > 0
+                ? calculateTargetProductivity(record.daypart, sales, selectedTier, daypartWeights)
+                : record.target_productivity;
+            return {
+                ...record,
+                target_productivity: targetProductivity
+            };
+        });
+
+        return res.json(recalculatedRows);
         
     } catch (error) {
         console.error('Error fetching productivity range data:', error);
-        console.error('Error stack:', error.stack);
         res.status(500).json({ 
             error: 'Internal server error', 
             message: error.message,
