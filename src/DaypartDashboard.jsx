@@ -43,7 +43,7 @@ const orderedDayparts = ['breakfast', 'lunch', 'afternoon', 'dinner']
 const fallbackTotalDaySales = Object.values(defaultDaypartSales).reduce((sum, value) => sum + value, 0)
 
 // Simplified Productivity Dial - focused on ONE job: actual vs target
-function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, noDataMessage = "Enter sales and actual productivity below", themeColors = null, statusOnRight = false }) {
+function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, noDataMessage = "Enter sales and actual productivity below", themeColors = null, statusOnRight = false, compact = false }) {
     const tc = themeColors || themes.dark
     // Sales-driven dial configuration - focused range for granular measurement
     const DIAL_RANGE = 20  // +/- 10 points from target for precise measurement
@@ -51,7 +51,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     const MAX_PRODUCTIVITY = targetProductivity + DIAL_RANGE/2
     
     // Dynamic dial size based on type - SVG viewBox is larger to avoid tick clipping
-    const dialSize = isDayNight ? 194 : 188
+    const dialSize = isDayNight ? (compact ? 168 : 194) : (compact ? 150 : 188)
     const svgSize = dialSize + 30  // extra padding for outer tick labels
     const centerX = svgSize / 2
     const centerY = svgSize / 2
@@ -426,6 +426,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const displayStoreName = effectiveStoreName;
     const isTabletLandscape = viewportSize.width <= 1366 && viewportSize.height <= 1024
     const isCompactTablet = viewportSize.width <= 1180
+    const isMobileViewport = viewportSize.width <= 900
     
     // Tier selection state
     const [selectedTier, setSelectedTier] = useState('Top 50%')
@@ -497,6 +498,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     
     // Demo banner state (no saving for demo)
     const [showDemoBanner, setShowDemoBanner] = useState(false)
+    const [showControlsDrawer, setShowControlsDrawer] = useState(false)
 
     const weekdayOptions = [
         { value: 0, full: 'Sunday', short: 'Sun' },
@@ -560,6 +562,12 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         window.addEventListener('resize', updateViewportSize)
         return () => window.removeEventListener('resize', updateViewportSize)
     }, [])
+
+    useEffect(() => {
+        if (!isMobileViewport) {
+            setShowControlsDrawer(false)
+        }
+    }, [isMobileViewport])
 
     const normalizePicName = (name) => {
         const cleaned = (name || '').toString().trim()
@@ -1564,18 +1572,21 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
     const tDialGrid = {
         ...dashboardStyles.dialGrid,
-        ...(isTabletLandscape ? { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' } : {})
+        ...(isTabletLandscape ? { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' } : {}),
+        ...(isMobileViewport ? { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '5px' } : {})
     }
     const tBottomRow = {
         ...dashboardStyles.bottomRow,
-        ...(isTabletLandscape ? { minHeight: '262px', maxHeight: '312px', gap: '8px' } : {})
+        ...(isTabletLandscape ? { minHeight: '262px', maxHeight: '312px', gap: '8px' } : {}),
+        ...(isMobileViewport ? { minHeight: '220px', maxHeight: 'none', gap: '6px' } : {})
     }
     const tInputSection = {...dialStyles.inputSection, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
     const tDaypartTitle = {...dialStyles.daypartTitle, backgroundColor: tc.headerBg, color: tc.text}
     const tRowInput = {...dialStyles.rowInput, background: tc.inputBg, border: `1px solid ${tc.inputBorder}`, color: tc.text}
     const tCombinedSection = {
         ...dashboardStyles.combinedSection,
-        ...(isTabletLandscape ? { flex: '0 0 31%' } : {})
+        ...(isTabletLandscape ? { flex: '0 0 31%' } : {}),
+        ...(isMobileViewport ? { flex: '1 1 auto', width: '100%' } : {})
     }
     const tCombinedDial = {
         ...dashboardStyles.combinedDial,
@@ -1593,7 +1604,34 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             minHeight: '262px',
             maxHeight: '312px',
             padding: '0 8px 6px 8px',
+        } : {}),
+        ...(isMobileViewport ? {
+            display: showControlsDrawer ? 'block' : 'none',
+            position: 'fixed',
+            top: '56px',
+            left: '8px',
+            right: '8px',
+            bottom: '8px',
+            zIndex: 1201,
+            minHeight: 'auto',
+            maxHeight: 'none',
+            flex: 'unset',
+            width: 'auto',
+            padding: '0 8px 8px 8px',
+            boxShadow: '0 12px 24px rgba(0, 0, 0, 0.45)',
         } : {})
+    }
+    const normalizedControlStyle = {
+        width: '100%',
+        minHeight: isMobileViewport ? '36px' : '34px',
+        padding: isMobileViewport ? '7px 8px' : '7px 8px',
+        fontSize: '12px',
+        backgroundColor: tc.inputBg,
+        color: tc.text,
+        border: `1px solid ${tc.inputBorder}`,
+        borderRadius: '4px',
+        boxSizing: 'border-box',
+        textAlign: 'center'
     }
 
     const renderPicInput = (daypartKey) => {
@@ -1657,7 +1695,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         style={{
                             ...dashboardStyles.weekTile,
                             ...(isTabletLandscape ? { minHeight: '78px', padding: '4px 5px' } : {}),
-                            ...(snapshot.date === weeklySnapshots[0]?.date ? { paddingLeft: '12px' } : {}),
                             borderColor: isActiveDate ? '#3b82f6' : tc.cardBorder,
                             backgroundColor: isActiveDate ? `${tc.headerBg}` : tc.cardBg,
                             cursor: 'pointer',
@@ -1726,6 +1763,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             targetProductivity={calculateTargetProductivity(daypartKey, getDisplayDaypartSales(daypartKey), selectedTier, daypartWeights)}
                             salesContext="Tier-Based"
                             themeColors={tc}
+                            compact={isMobileViewport}
                         />
                     </div>
                     <div style={{ ...dialStyles.inputColumn, ...(isTabletLandscape ? { flex: '0 0 142px', minWidth: '136px', maxWidth: '154px', gap: '5px' } : {}) }}>
@@ -1822,6 +1860,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     noDataMessage="Add daypart sales and productivity to unlock total day guidance"
                                     themeColors={tc}
                                     statusOnRight={true}
+                                    compact={isMobileViewport}
                                 />
                             </div>
                         </div>
@@ -1842,6 +1881,25 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             boxSizing: 'border-box'
                         }}>
                             Operations Control Center
+                            {isMobileViewport && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowControlsDrawer(false)}
+                                    style={{
+                                        float: 'right',
+                                        background: 'transparent',
+                                        border: 'none',
+                                        color: tc.text,
+                                        fontSize: '18px',
+                                        lineHeight: '1',
+                                        cursor: 'pointer',
+                                        marginTop: '-2px'
+                                    }}
+                                    aria-label="Close controls"
+                                >
+                                    ×
+                                </button>
+                            )}
                         </h4>
                         
                         <div style={{
@@ -1888,30 +1946,19 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     value={dataDate}
                                                     onChange={(e) => handleDateChange(e.target.value)}
                                                     onClick={(e) => e.target.showPicker && e.target.showPicker()}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '7px 8px',
-                                                        fontSize: '12px',
-                                                        backgroundColor: tc.inputBg,
-                                                        color: tc.text,
-                                                        border: `1px solid ${tc.inputBorder}`,
-                                                        borderRadius: '3px',
-                                                        cursor: 'pointer',
-                                                        boxSizing: 'border-box',
-                                                        marginBottom: '16px',
-                                                        textAlign: 'center'
-                                                    }}
+                                                    style={{ ...normalizedControlStyle, cursor: 'pointer', marginBottom: '16px' }}
                                                 />
                                             )}
                                             <button
                                                 onClick={handleDataAction}
                                                 style={{
                                                     width: '100%',
+                                                    minHeight: isMobileViewport ? '36px' : '34px',
                                                     padding: '7px 10px',
                                                     backgroundColor: '#3b82f6',
                                                     color: '#ffffff',
                                                     border: 'none',
-                                                    borderRadius: '3px',
+                                                    borderRadius: '4px',
                                                     fontSize: '12px',
                                                     cursor: 'pointer',
                                                     fontWeight: '700',
@@ -1929,18 +1976,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                             <select
                                                 value={exportDateRange}
                                                 onChange={(e) => setExportDateRange(e.target.value)}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '7px 8px',
-                                                    fontSize: '12px',
-                                                    backgroundColor: tc.inputBg,
-                                                    color: tc.text,
-                                                    border: `1px solid ${tc.inputBorder}`,
-                                                    borderRadius: '3px',
-                                                    boxSizing: 'border-box',
-                                                    marginBottom: '16px',
-                                                    textAlign: 'center'
-                                                }}
+                                                style={{ ...normalizedControlStyle, marginBottom: '16px' }}
                                             >
                                                 <option value="this-week">This Week</option>
                                                 <option value="this-month">This Month</option>
@@ -1951,11 +1987,12 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 onClick={handleExportAction}
                                                 style={{
                                                     width: '100%',
+                                                    minHeight: isMobileViewport ? '36px' : '34px',
                                                     padding: '7px 10px',
                                                     backgroundColor: '#059669',
                                                     color: '#ffffff',
                                                     border: 'none',
-                                                    borderRadius: '3px',
+                                                    borderRadius: '4px',
                                                     fontSize: '12px',
                                                     cursor: 'pointer',
                                                     fontWeight: '700',
@@ -1975,17 +2012,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 value={customExportStartDate}
                                                 onChange={(e) => setCustomExportStartDate(e.target.value)}
                                                 onClick={(e) => e.target.showPicker && e.target.showPicker()}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '5px 6px',
-                                                    fontSize: '11px',
-                                                    backgroundColor: tc.inputBg,
-                                                    color: tc.text,
-                                                    border: `1px solid ${tc.inputBorder}`,
-                                                    borderRadius: '3px',
-                                                    boxSizing: 'border-box',
-                                                    cursor: 'pointer'
-                                                }}
+                                                style={{ ...normalizedControlStyle, fontSize: '11px', cursor: 'pointer' }}
                                             />
                                             <input
                                                 type="date"
@@ -1993,17 +2020,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 value={customExportEndDate}
                                                 onChange={(e) => setCustomExportEndDate(e.target.value)}
                                                 onClick={(e) => e.target.showPicker && e.target.showPicker()}
-                                                style={{
-                                                    width: '100%',
-                                                    padding: '5px 6px',
-                                                    fontSize: '11px',
-                                                    backgroundColor: tc.inputBg,
-                                                    color: tc.text,
-                                                    border: `1px solid ${tc.inputBorder}`,
-                                                    borderRadius: '3px',
-                                                    boxSizing: 'border-box',
-                                                    cursor: 'pointer'
-                                                }}
+                                                style={{ ...normalizedControlStyle, fontSize: '11px', cursor: 'pointer' }}
                                             />
                                         </div>
                                     )}
@@ -2378,6 +2395,45 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         </div>
                     </div>
                 </div>
+                {isMobileViewport && showControlsDrawer && (
+                    <div
+                        onClick={() => setShowControlsDrawer(false)}
+                        style={{
+                            position: 'fixed',
+                            inset: 0,
+                            backgroundColor: 'rgba(0,0,0,0.5)',
+                            zIndex: 1200,
+                        }}
+                    />
+                )}
+                {isMobileViewport && (
+                    <button
+                        type="button"
+                        onClick={() => setShowControlsDrawer(true)}
+                        style={{
+                            position: 'fixed',
+                            right: '10px',
+                            bottom: '10px',
+                            zIndex: 1202,
+                            border: 'none',
+                            borderRadius: '999px',
+                            minWidth: '44px',
+                            minHeight: '44px',
+                            padding: '0 14px',
+                            backgroundColor: '#2563eb',
+                            color: '#ffffff',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            boxShadow: '0 6px 16px rgba(0,0,0,0.35)',
+                            cursor: 'pointer',
+                            display: showControlsDrawer ? 'none' : 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                    >
+                        Controls
+                    </button>
+                )}
             </div>
     );
 }
