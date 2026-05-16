@@ -307,7 +307,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     </svg>
                 </div>
 
-                <div style={{ ...dialStyles.dataSection, width: statusOnRight ? '42%' : '100%', minWidth: statusOnRight ? '190px' : '0' }}>
+                <div style={{ ...dialStyles.dataSection, width: statusOnRight ? 'min(44%, 320px)' : '100%', minWidth: statusOnRight ? '168px' : '0', flex: statusOnRight ? '0 1 44%' : '1 1 auto' }}>
                     {/* Current Status - Always visible */}
                     <div style={{
                         ...dialStyles.statusBadge,
@@ -317,15 +317,17 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                         <div style={{
                             ...dialStyles.zoneName,
                             color: currentZone.color,
-                            whiteSpace: 'pre-line',
+                            whiteSpace: 'normal',
                             lineHeight: '1.4'
                         }}>
                             {currentZone.zone} {laborDelta !== null && currentZone.zone !== "No Data" && `(${laborDelta > 0 ? '+' : ''}${laborDelta.toFixed(1)} hrs)`}
                         </div>
                         <div style={{
                             ...dialStyles.zoneAction,
-                            fontSize: isDayNight ? '13px' : dialStyles.zoneAction.fontSize,
-                            whiteSpace: 'pre-line',
+                            fontSize: isDayNight ? 'clamp(11px, 1.15vw, 13px)' : dialStyles.zoneAction.fontSize,
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
                             lineHeight: '1.4'
                         }}>
                             {currentZone.action}
@@ -414,10 +416,16 @@ function CombinedProductivityDial({ title, combinedSales, combinedActual, target
 export default function DaypartDashboard({ onNavigateToReports, storeNumber = null, storeName = null }) {
     const { theme } = useTheme()
     const tc = themes[theme]
+    const [viewportSize, setViewportSize] = useState({
+        width: typeof window !== 'undefined' ? window.innerWidth : 1366,
+        height: typeof window !== 'undefined' ? window.innerHeight : 768,
+    })
     // Store-specific configuration  
     const effectiveStoreName = storeName || storeNumber || 'simplified';
     const isDemo = !effectiveStoreName || effectiveStoreName === 'demo';
     const displayStoreName = effectiveStoreName;
+    const isTabletLandscape = viewportSize.width <= 1366 && viewportSize.height <= 1024
+    const isCompactTablet = viewportSize.width <= 1180
     
     // Tier selection state
     const [selectedTier, setSelectedTier] = useState('Top 50%')
@@ -469,6 +477,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const [showPicModal, setShowPicModal] = useState(false)
     const [pendingPicDaypart, setPendingPicDaypart] = useState('')
     const [newPicName, setNewPicName] = useState('')
+    const [showPicManager, setShowPicManager] = useState(false)
+    const [picAliasMap, setPicAliasMap] = useState({})
+    const [retiredPicNames, setRetiredPicNames] = useState([])
+    const [selectedPicProfile, setSelectedPicProfile] = useState('')
+    const [picRenameDraft, setPicRenameDraft] = useState('')
     
     // Export date range selection
     const [exportDateRange, setExportDateRange] = useState('this-week')
@@ -539,6 +552,51 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         }
     }, [closedWeekdays, effectiveStoreName])
 
+    useEffect(() => {
+        const updateViewportSize = () => {
+            setViewportSize({ width: window.innerWidth, height: window.innerHeight })
+        }
+        updateViewportSize()
+        window.addEventListener('resize', updateViewportSize)
+        return () => window.removeEventListener('resize', updateViewportSize)
+    }, [])
+
+    const normalizePicName = (name) => {
+        const cleaned = (name || '').toString().trim()
+        if (!cleaned) return ''
+        return picAliasMap[cleaned.toLowerCase()] || cleaned
+    }
+
+    const isPicRetired = (name) => retiredPicNames.includes((name || '').toLowerCase())
+
+    useEffect(() => {
+        const storageKey = `pic-directory-${effectiveStoreName}`
+        try {
+            const raw = window.localStorage.getItem(storageKey)
+            if (!raw) return
+            const parsed = JSON.parse(raw)
+            if (parsed && typeof parsed === 'object') {
+                if (parsed.aliases && typeof parsed.aliases === 'object') {
+                    setPicAliasMap(parsed.aliases)
+                }
+                if (Array.isArray(parsed.retired)) {
+                    setRetiredPicNames(parsed.retired.map((value) => String(value).toLowerCase()))
+                }
+            }
+        } catch (error) {
+            console.warn('Failed loading PIC directory:', error.message)
+        }
+    }, [effectiveStoreName])
+
+    useEffect(() => {
+        const storageKey = `pic-directory-${effectiveStoreName}`
+        try {
+            window.localStorage.setItem(storageKey, JSON.stringify({ aliases: picAliasMap, retired: retiredPicNames }))
+        } catch (error) {
+            console.warn('Failed saving PIC directory:', error.message)
+        }
+    }, [picAliasMap, retiredPicNames, effectiveStoreName])
+
     const mergePicProfiles = (names) => {
         const incoming = (Array.isArray(names) ? names : Object.values(names || {}))
             .map(name => (name || '').toString().trim())
@@ -549,8 +607,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         setPicProfiles(prev => {
             const merged = [...prev]
             incoming.forEach(name => {
-                if (!merged.some(existing => existing.toLowerCase() === name.toLowerCase())) {
-                    merged.push(name)
+                const normalized = normalizePicName(name)
+                if (!normalized) return
+                if (!merged.some(existing => existing.toLowerCase() === normalized.toLowerCase())) {
+                    merged.push(normalized)
                 }
             })
             return merged.sort((a, b) => a.localeCompare(b))
@@ -564,13 +624,54 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
 
     const savePicFromModal = () => {
-        const cleaned = (newPicName || '').trim()
+        const cleaned = normalizePicName(newPicName)
         if (!cleaned || !pendingPicDaypart) return
         mergePicProfiles([cleaned])
         setPicNames((prev) => ({ ...prev, [pendingPicDaypart]: cleaned }))
         setShowPicModal(false)
         setPendingPicDaypart('')
         setNewPicName('')
+    }
+
+    const activePicProfiles = picProfiles.filter((name) => !isPicRetired(name))
+
+    const handleRenamePicProfile = () => {
+        const source = (selectedPicProfile || '').trim()
+        const target = (picRenameDraft || '').trim()
+        if (!source || !target) return
+
+        setPicAliasMap((prev) => ({
+            ...prev,
+            [source.toLowerCase()]: target,
+        }))
+
+        mergePicProfiles([target])
+
+        setPicNames((prev) => {
+            const next = { ...prev }
+            orderedDayparts.forEach((daypart) => {
+                if ((next[daypart] || '').toLowerCase() === source.toLowerCase()) {
+                    next[daypart] = target
+                }
+            })
+            return next
+        })
+
+        setRetiredPicNames((prev) => Array.from(new Set([...prev, source.toLowerCase()])))
+        setSelectedPicProfile(target)
+        setPicRenameDraft('')
+    }
+
+    const retirePicProfile = () => {
+        const selected = (selectedPicProfile || '').trim()
+        if (!selected) return
+        setRetiredPicNames((prev) => Array.from(new Set([...prev, selected.toLowerCase()])))
+    }
+
+    const restorePicProfile = () => {
+        const selected = (selectedPicProfile || '').trim()
+        if (!selected) return
+        setRetiredPicNames((prev) => prev.filter((name) => name !== selected.toLowerCase()))
     }
 
     const cancelPicModal = () => {
@@ -634,6 +735,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             const weightedActual = dayRecords.reduce((sum, record) => sum + ((Number(record.sales_amount) || 0) * (Number(record.actual_productivity) || 0)), 0)
             const weightedTarget = dayRecords.reduce((sum, record) => sum + ((Number(record.sales_amount) || 0) * (Number(record.target_productivity) || 0)), 0)
             const uniquePics = [...new Set(dayRecords.map(record => (record.pic_name || '').trim()).filter(Boolean))]
+                .map((name) => normalizePicName(name))
+                .filter(Boolean)
 
             const actual = totalSales > 0 ? (weightedActual / totalSales) : 0
             const target = totalSales > 0 ? (weightedTarget / totalSales) : 0
@@ -1181,10 +1284,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 })
                 
                 setPicNames({
-                    breakfast: daypartsData.breakfast?.picName || '',
-                    lunch: daypartsData.lunch?.picName || '',
-                    afternoon: daypartsData.afternoon?.picName || '',
-                    dinner: daypartsData.dinner?.picName || ''
+                    breakfast: normalizePicName(daypartsData.breakfast?.picName || ''),
+                    lunch: normalizePicName(daypartsData.lunch?.picName || ''),
+                    afternoon: normalizePicName(daypartsData.afternoon?.picName || ''),
+                    dinner: normalizePicName(daypartsData.dinner?.picName || '')
                 })
 
                 mergePicProfiles({
@@ -1445,16 +1548,60 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
 
     // Theme-overridden styles
+    const tDashboardContainer = {
+        ...dashboardStyles.container,
+        background: tc.bg,
+        color: tc.text,
+        ...(isTabletLandscape ? {
+            padding: '4px',
+            height: 'calc(100vh - 44px)',
+            maxHeight: 'calc(100vh - 44px)',
+        } : {})
+    }
+    const tMainContent = {
+        ...dashboardStyles.mainContent,
+        ...(isTabletLandscape ? { gap: '6px' } : {})
+    }
+    const tDialGrid = {
+        ...dashboardStyles.dialGrid,
+        ...(isTabletLandscape ? { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' } : {})
+    }
+    const tBottomRow = {
+        ...dashboardStyles.bottomRow,
+        ...(isTabletLandscape ? { minHeight: '262px', maxHeight: '312px', gap: '8px' } : {})
+    }
     const tInputSection = {...dialStyles.inputSection, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
     const tDaypartTitle = {...dialStyles.daypartTitle, backgroundColor: tc.headerBg, color: tc.text}
     const tRowInput = {...dialStyles.rowInput, background: tc.inputBg, border: `1px solid ${tc.inputBorder}`, color: tc.text}
-    const tCombinedDial = {...dashboardStyles.combinedDial, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
+    const tCombinedSection = {
+        ...dashboardStyles.combinedSection,
+        ...(isTabletLandscape ? { flex: '0 0 31%' } : {})
+    }
+    const tCombinedDial = {
+        ...dashboardStyles.combinedDial,
+        background: tc.cardBg,
+        border: `1px solid ${tc.cardBorder}`,
+        ...(isTabletLandscape ? { minHeight: '262px', maxHeight: '312px' } : {})
+    }
     const tCombinedTitle = {...dashboardStyles.combinedTitle, backgroundColor: tc.headerBg, color: tc.text}
-    const tControlsPanel = {...dashboardStyles.controlsPanel, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
+    const tControlsPanel = {
+        ...dashboardStyles.controlsPanel,
+        background: tc.cardBg,
+        border: `1px solid ${tc.cardBorder}`,
+        ...(isTabletLandscape ? {
+            flex: '0 0 69%',
+            minHeight: '262px',
+            maxHeight: '312px',
+            padding: '0 8px 6px 8px',
+        } : {})
+    }
 
     const renderPicInput = (daypartKey) => {
         const currentName = picNames[daypartKey] || ''
-        const hasSavedMatch = picProfiles.some(name => name.toLowerCase() === currentName.toLowerCase())
+        const selectableProfiles = activePicProfiles.some((name) => name.toLowerCase() === currentName.toLowerCase())
+            ? activePicProfiles
+            : (currentName ? [...activePicProfiles, currentName].sort((a, b) => a.localeCompare(b)) : activePicProfiles)
+        const hasSavedMatch = selectableProfiles.some(name => name.toLowerCase() === currentName.toLowerCase())
         const selectValue = hasSavedMatch ? currentName : (currentName ? '__new__' : '__placeholder__')
 
         return (
@@ -1468,13 +1615,13 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             openPicModal(daypartKey)
                             return
                         }
-                        setPicNames(prev => ({ ...prev, [daypartKey]: selected }))
+                        setPicNames(prev => ({ ...prev, [daypartKey]: normalizePicName(selected) }))
                     }}
                     style={{ ...tRowInput, ...dialStyles.picSelect }}
                 >
                     <option value="__placeholder__" disabled>Select PIC</option>
                     <option value="__new__">NEW PIC</option>
-                    {picProfiles.map(name => (
+                    {selectableProfiles.map(name => (
                         <option key={name} value={name}>{name}</option>
                     ))}
                 </select>
@@ -1483,16 +1630,16 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
 
     const renderWeekCalendar = () => (
-        <div style={dashboardStyles.weekCalendarWrap}>
+        <div style={{ ...dashboardStyles.weekCalendarWrap, ...(isTabletLandscape ? { gridTemplateColumns: '24px 1fr 24px', gap: '4px' } : {}) }}>
             <button
                 type="button"
                 onClick={() => shiftWeek(-1)}
-                style={{ ...dashboardStyles.weekNavButton, paddingLeft: '10px' }}
+                style={{ ...dashboardStyles.weekNavButton, paddingLeft: '10px', ...(isTabletLandscape ? { minHeight: '78px', fontSize: '12px' } : {}) }}
                 aria-label="Previous week"
             >
                 ◀
             </button>
-            <div style={dashboardStyles.weekCalendarRow}>
+            <div style={{ ...dashboardStyles.weekCalendarRow, ...(isTabletLandscape ? { gridTemplateColumns: 'repeat(7, minmax(92px, 1fr))', gap: '4px' } : {}) }}>
                 {weeklySnapshots.map((snapshot) => {
                 const tileDate = new Date(snapshot.date + 'T00:00:00')
                 const dayLabel = tileDate.toLocaleDateString('en-US', { weekday: 'short' })
@@ -1509,6 +1656,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         onClick={() => handleDateChange(snapshot.date)}
                         style={{
                             ...dashboardStyles.weekTile,
+                            ...(isTabletLandscape ? { minHeight: '78px', padding: '4px 5px' } : {}),
                             ...(snapshot.date === weeklySnapshots[0]?.date ? { paddingLeft: '12px' } : {}),
                             borderColor: isActiveDate ? '#3b82f6' : tc.cardBorder,
                             backgroundColor: isActiveDate ? `${tc.headerBg}` : tc.cardBg,
@@ -1523,9 +1671,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                         PIC: {snapshot.pics.length > 0 ? snapshot.pics.slice(0, 2).join(', ') : 'No PIC'}
                                     </div>
                                     <div style={dashboardStyles.weekTileLine}>Target: {snapshot.target ? snapshot.target.toFixed(1) : '--'}</div>
-                                    <div style={dashboardStyles.weekTileLine}>Actual: {snapshot.actual ? snapshot.actual.toFixed(1) : '--'}</div>
                                     <div style={{ ...dashboardStyles.weekTileLine, color: varianceColor, fontWeight: '700' }}>
-                                        Delta: {`${variance >= 0 ? '+' : ''}${variance.toFixed(1)}`}
+                                        Actual: {snapshot.actual ? snapshot.actual.toFixed(1) : '--'}
                                     </div>
                                 </>
                             ) : snapshot.isClosed ? (
@@ -1545,7 +1692,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             <button
                 type="button"
                 onClick={() => shiftWeek(1)}
-                style={dashboardStyles.weekNavButton}
+                style={{ ...dashboardStyles.weekNavButton, ...(isTabletLandscape ? { minHeight: '78px', fontSize: '12px' } : {}) }}
                 aria-label="Next week"
             >
                 ▶
@@ -1570,7 +1717,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return (
             <div style={tInputSection} key={daypartKey}>
                 <h4 style={tDaypartTitle}>{title}</h4>
-                <div style={dialStyles.daypartBody}>
+                <div style={{ ...dialStyles.daypartBody, ...(isTabletLandscape ? { gap: '6px', padding: '5px 6px 6px' } : {}) }}>
                     <div style={{ ...dialStyles.dialContainer, flex: '1 1 auto' }}>
                         <SimplifiedProductivityDial
                             title={title}
@@ -1581,7 +1728,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             themeColors={tc}
                         />
                     </div>
-                    <div style={dialStyles.inputColumn}>
+                    <div style={{ ...dialStyles.inputColumn, ...(isTabletLandscape ? { flex: '0 0 142px', minWidth: '136px', maxWidth: '154px', gap: '5px' } : {}) }}>
                         <input
                             type="text"
                             placeholder="$ Sales"
@@ -1604,8 +1751,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
     
     return (
-        <div style={{...dashboardStyles.container, background: tc.bg, color: tc.text}}>
-            <div style={dashboardStyles.mainContent}>
+        <div style={tDashboardContainer}>
+            <div style={tMainContent}>
                 {/* Demo Banner - Only show in demo mode */}
                 {isDemo && showDemoBanner && (
                     <div style={{
@@ -1649,7 +1796,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 {renderWeekCalendar()}
                 
                 {/* Four Main Daypart Dials */}
-                <div style={dashboardStyles.dialGrid}>
+                <div style={tDialGrid}>
                     {renderDaypartCard('breakfast', 'Breakfast')}
                     {renderDaypartCard('lunch', 'Lunch')}
                     {renderDaypartCard('afternoon', 'Afternoon')}
@@ -1657,9 +1804,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 </div>
 
                 {/* Bottom Row: Day/Night Dials and Controls */}
-                <div style={dashboardStyles.bottomRow}>
+                <div style={tBottomRow}>
                     {/* Total Day Combined Dial */}
-                    <div style={dashboardStyles.combinedSection}>
+                    <div style={tCombinedSection}>
                         <div style={tCombinedDial}>
                             <h4 style={tCombinedTitle}>Total Day</h4>
                             <div style={dialStyles.dialContainer}>
@@ -1703,7 +1850,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         }}>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.25fr', gap: '0px', margin: '0', padding: '4px 0 0 0', width: '100%', height: '100%' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isTabletLandscape ? '1fr 1.1fr' : '1fr 1.25fr', gap: isTabletLandscape ? '4px' : '0px', margin: '0', padding: '4px 0 0 0', width: '100%', height: '100%' }}>
                             {/* Left Column: Data Management + Ambition */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '0 8px 0 4px', boxSizing: 'border-box', borderRight: `1px solid ${tc.cardBorder}` }}>
                                 <h5 style={{ margin: '0 0 2px 0', color: tc.text, fontSize: '16px', fontWeight: '700', padding: '0 4px', textAlign: 'center' }}>
@@ -1860,6 +2007,132 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                             />
                                         </div>
                                     )}
+
+                                    <div style={{ marginTop: '8px', padding: '0 4px' }}>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPicManager((prev) => !prev)}
+                                            style={{
+                                                width: '100%',
+                                                padding: isTabletLandscape ? '6px 8px' : '7px 10px',
+                                                backgroundColor: tc.inputBg,
+                                                color: tc.text,
+                                                border: `1px solid ${tc.inputBorder}`,
+                                                borderRadius: '4px',
+                                                fontSize: '11px',
+                                                fontWeight: '700',
+                                                cursor: 'pointer'
+                                            }}
+                                        >
+                                            {showPicManager ? 'Hide PIC Management' : 'Manage PIC Names'}
+                                        </button>
+
+                                        {showPicManager && (
+                                            <div style={{ marginTop: '8px', border: `1px solid ${tc.cardBorder}`, borderRadius: '6px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                <h6 style={{ margin: '0', color: tc.text, fontSize: '11px', fontWeight: '700', textAlign: 'left' }}>
+                                                    PIC Directory
+                                                </h6>
+                                                <select
+                                                    value={selectedPicProfile}
+                                                    onChange={(e) => {
+                                                        setSelectedPicProfile(e.target.value)
+                                                        setPicRenameDraft(e.target.value)
+                                                    }}
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '6px 8px',
+                                                        fontSize: '11px',
+                                                        backgroundColor: tc.inputBg,
+                                                        color: tc.text,
+                                                        border: `1px solid ${tc.inputBorder}`,
+                                                        borderRadius: '4px',
+                                                        boxSizing: 'border-box'
+                                                    }}
+                                                >
+                                                    <option value="">Select PIC profile</option>
+                                                    {picProfiles.map((name) => (
+                                                        <option key={name} value={name}>
+                                                            {name}{isPicRetired(name) ? ' (archived)' : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+
+                                                <input
+                                                    type="text"
+                                                    value={picRenameDraft}
+                                                    onChange={(e) => setPicRenameDraft(e.target.value)}
+                                                    placeholder="Rename to canonical name"
+                                                    style={{
+                                                        width: '100%',
+                                                        padding: '6px 8px',
+                                                        fontSize: '11px',
+                                                        backgroundColor: tc.inputBg,
+                                                        color: tc.text,
+                                                        border: `1px solid ${tc.inputBorder}`,
+                                                        borderRadius: '4px',
+                                                        boxSizing: 'border-box'
+                                                    }}
+                                                />
+
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleRenamePicProfile}
+                                                        disabled={!selectedPicProfile || !picRenameDraft.trim()}
+                                                        style={{
+                                                            padding: '6px 4px',
+                                                            backgroundColor: '#2563eb',
+                                                            color: '#fff',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: '10px',
+                                                            fontWeight: '700',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Rename
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={retirePicProfile}
+                                                        disabled={!selectedPicProfile || isPicRetired(selectedPicProfile)}
+                                                        style={{
+                                                            padding: '6px 4px',
+                                                            backgroundColor: '#f59e0b',
+                                                            color: '#111827',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: '10px',
+                                                            fontWeight: '700',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Archive
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={restorePicProfile}
+                                                        disabled={!selectedPicProfile || !isPicRetired(selectedPicProfile)}
+                                                        style={{
+                                                            padding: '6px 4px',
+                                                            backgroundColor: '#16a34a',
+                                                            color: '#fff',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: '10px',
+                                                            fontWeight: '700',
+                                                            cursor: 'pointer'
+                                                        }}
+                                                    >
+                                                        Restore
+                                                    </button>
+                                                </div>
+                                                <div style={{ color: tc.textMuted, fontSize: '10px', textAlign: 'left', lineHeight: '1.3' }}>
+                                                    Rename keeps historic records usable by mapping old names to canonical names. Archived profiles are hidden from daypart dropdowns but preserved for history.
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div style={{ textAlign: 'center', margin: '0', padding: '4px 6px 8px', boxSizing: 'border-box', order: 1, borderBottom: `1px solid ${tc.cardBorder}` }}>
@@ -2060,7 +2333,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 </div>
                                             </div>
 
-                                            <div style={{ display: 'flex', gap: '8px', marginTop: '6px', width: '100%' }}>
+                                            <div style={{ display: 'flex', gap: isTabletLandscape ? '6px' : '8px', marginTop: '6px', width: '100%' }}>
                                                 <button
                                                     onClick={autoWeightFromPerformance}
                                                     disabled={isAutoWeighting}
