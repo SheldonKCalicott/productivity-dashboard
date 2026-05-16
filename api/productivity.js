@@ -129,11 +129,12 @@ module.exports = async function handler(req, res) {
                     const sales = data.sales ? parseInt(data.sales.toString().replace(/[^0-9]/g, '')) : 0;
 
                     // Calculate target using same formula as backend
-                    const tierBaselines = { 'Bottom 50%': 84.5, 'Top 50%': 86.8, 'Top 33%': 89.2, 'Top 20%': 92.0, 'Top 10%': 95.1 };
-                    const baseline = tierBaselines[tier] || 85;
-                    const salesDelta = (sales - 30000) / 1000;
-                    const baseTarget = baseline + 0.30 * salesDelta;
-                    const targetProd = Math.round(baseTarget * daypartWeights[dp]);
+                    const tierOffsets = { 'Bottom 50%': -2.0, 'Top 50%': 0.0, 'Top 33%': 1.6, 'Top 20%': 3.2, 'Top 10%': 5.6 };
+                    const safeSales = Math.max(1000, Number(sales) || 0);
+                    const benchmark = (16.75 * Math.log(safeSales)) - 84.9;
+                    const boundedBenchmark = Math.max(60, Math.min(110, benchmark));
+                    const tierAdjusted = boundedBenchmark + (tierOffsets[tier] ?? 0);
+                    const targetProd = Math.round((tierAdjusted * (daypartWeights[dp] || 1)) * 10) / 10;
 
                     await pool.query(`
                         INSERT INTO productivity_records 

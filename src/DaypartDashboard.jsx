@@ -5,19 +5,45 @@ import { useTheme } from "./App"
 // Light/dark theme color palettes
 const themes = {
     dark: {
-        bg: '#0E0E11', cardBg: '#1a1a1a', cardBorder: '#333', inputBg: '#2a2a2a',
-        inputBorder: '#444', text: '#fff', textMuted: '#888', textSubtle: '#cccccc',
-        headerBg: '#2a2a2a', dialBg: '#15161A', dialStroke: '#444',
+        bg: '#0f141b', cardBg: '#171d26', cardBorder: '#2f3a4a', inputBg: '#222c38',
+        inputBorder: '#3b4a5f', text: '#f3f7ff', textMuted: '#9aa8bc', textSubtle: '#dbe5f2',
+        headerBg: '#232d3a', dialBg: '#1a2330', dialStroke: '#425068',
     },
     light: {
-        bg: '#f0f2f5', cardBg: '#ffffff', cardBorder: '#d0d5dd', inputBg: '#f8f9fa',
-        inputBorder: '#bbb', text: '#1a1a1a', textMuted: '#666', textSubtle: '#555',
-        headerBg: '#e8eaed', dialBg: '#f0f0f3', dialStroke: '#aaa',
+        bg: '#e8edf3', cardBg: '#f9fbfd', cardBorder: '#bcc8d8', inputBg: '#edf2f7',
+        inputBorder: '#a8b7ca', text: '#16212f', textMuted: '#4e6075', textSubtle: '#2f4258',
+        headerBg: '#dde6f1', dialBg: '#eaf1f8', dialStroke: '#95a9bf',
     },
 }
 
+const defaultPicProfiles = [
+    'Chauncey',
+    'Ashley',
+    'Michelle',
+    'Krise',
+    'Dan',
+    'Victor',
+    'Nat',
+    'Alaina',
+    'Madelyn',
+    'Awilda',
+    'Eli',
+    'Toryn'
+]
+
+const defaultDaypartSales = {
+    breakfast: 6000,
+    lunch: 10000,
+    afternoon: 7000,
+    dinner: 8000,
+}
+
+const orderedDayparts = ['breakfast', 'lunch', 'afternoon', 'dinner']
+
+const fallbackTotalDaySales = Object.values(defaultDaypartSales).reduce((sum, value) => sum + value, 0)
+
 // Simplified Productivity Dial - focused on ONE job: actual vs target
-function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, noDataMessage = "Enter sales and actual productivity below", themeColors = null }) {
+function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, noDataMessage = "Enter sales and actual productivity below", themeColors = null, statusOnRight = false }) {
     const tc = themeColors || themes.dark
     // Sales-driven dial configuration - focused range for granular measurement
     const DIAL_RANGE = 20  // +/- 10 points from target for precise measurement
@@ -25,7 +51,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     const MAX_PRODUCTIVITY = targetProductivity + DIAL_RANGE/2
     
     // Dynamic dial size based on type - SVG viewBox is larger to avoid tick clipping
-    const dialSize = isDayNight ? 160 : 170
+    const dialSize = isDayNight ? 194 : 188
     const svgSize = dialSize + 30  // extra padding for outer tick labels
     const centerX = svgSize / 2
     const centerY = svgSize / 2
@@ -119,7 +145,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                         x={labelX}
                         y={labelY}
                         fill={isTarget ? tc.text : tc.textSubtle}
-                        fontSize={isTarget ? "11" : "9"}
+                        fontSize={isDayNight ? (isTarget ? "15" : "13") : (isTarget ? "14" : "12")}
                         fontWeight={isTarget ? "bold" : "normal"}
                         textAnchor="middle"
                         dominantBaseline="middle"
@@ -231,52 +257,57 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
         <div style={dialStyles.container}>
             <div style={{
                 display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
+                flexDirection: statusOnRight ? 'row' : 'column',
+                alignItems: statusOnRight ? 'center' : 'center',
+                justifyContent: statusOnRight ? 'center' : 'flex-start',
                 height: '100%',
-                minHeight: 0
+                minHeight: 0,
+                width: '100%',
+                gap: statusOnRight ? '10px' : '0',
             }}>
-                <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`} style={dialStyles.svg}>
-                    {/* Background circle */}
-                    <circle
-                        cx={centerX}
-                        cy={centerY}
-                        r={radius + 5}
-                        fill={tc.dialBg}
-                        stroke={tc.dialStroke}
-                        strokeWidth="2"
-                    />
-                    
-                    {/* Behavior zones */}
-                    {generateZones()}
-                    
-                    {/* Tick marks and labels */}
-                    {generateTicks()}
-                    
-                    {/* Actual productivity needle - conditionally rendered */}
-                    {showNeedle && actualAngle !== null && (
-                        <line
-                            x1={centerX}
-                            y1={centerY}
-                            x2={centerX + (radius - 25) * Math.cos((actualAngle * Math.PI) / 180)}
-                            y2={centerY + (radius - 25) * Math.sin((actualAngle * Math.PI) / 180)}
-                            stroke={currentZone?.color || "#fff"}
-                            strokeWidth={isDayNight ? "3" : "4"}
-                            strokeLinecap="round"
-                            style={{ transition: 'all 0.3s ease-in-out' }}
+                <div style={{ flex: statusOnRight ? '1 1 auto' : '0 0 auto', display: 'flex', justifyContent: 'center', minWidth: 0 }}>
+                    <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`} style={dialStyles.svg}>
+                        {/* Background circle */}
+                        <circle
+                            cx={centerX}
+                            cy={centerY}
+                            r={radius + 5}
+                            fill={tc.dialBg}
+                            stroke={tc.dialStroke}
+                            strokeWidth="2"
                         />
-                    )}
-                    
-                    {/* Center dot */}
-                    <circle
-                        cx={centerX}
-                        cy={centerY}
-                        r={isDayNight ? "4" : "5"}
-                        fill={tc.text}
-                    />
-                </svg>
 
-                <div style={dialStyles.dataSection}>
+                        {/* Behavior zones */}
+                        {generateZones()}
+
+                        {/* Tick marks and labels */}
+                        {generateTicks()}
+
+                        {/* Actual productivity needle - conditionally rendered */}
+                        {showNeedle && actualAngle !== null && (
+                            <line
+                                x1={centerX}
+                                y1={centerY}
+                                x2={centerX + (radius - 25) * Math.cos((actualAngle * Math.PI) / 180)}
+                                y2={centerY + (radius - 25) * Math.sin((actualAngle * Math.PI) / 180)}
+                                stroke={currentZone?.color || "#fff"}
+                                strokeWidth={isDayNight ? "3" : "4"}
+                                strokeLinecap="round"
+                                style={{ transition: 'all 0.3s ease-in-out' }}
+                            />
+                        )}
+
+                        {/* Center dot */}
+                        <circle
+                            cx={centerX}
+                            cy={centerY}
+                            r={isDayNight ? "4" : "5"}
+                            fill={tc.text}
+                        />
+                    </svg>
+                </div>
+
+                <div style={{ ...dialStyles.dataSection, width: statusOnRight ? '42%' : '100%', minWidth: statusOnRight ? '190px' : '0' }}>
                     {/* Current Status - Always visible */}
                     <div style={{
                         ...dialStyles.statusBadge,
@@ -293,6 +324,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                         </div>
                         <div style={{
                             ...dialStyles.zoneAction,
+                            fontSize: isDayNight ? '13px' : dialStyles.zoneAction.fontSize,
                             whiteSpace: 'pre-line',
                             lineHeight: '1.4'
                         }}>
@@ -432,6 +464,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         afternoon: '',
         dinner: ''
     })
+    const [picProfiles, setPicProfiles] = useState(defaultPicProfiles)
+    const [salesBaselines, setSalesBaselines] = useState(defaultDaypartSales)
+    const [showPicModal, setShowPicModal] = useState(false)
+    const [pendingPicDaypart, setPendingPicDaypart] = useState('')
+    const [newPicName, setNewPicName] = useState('')
     
     // Export date range selection
     const [exportDateRange, setExportDateRange] = useState('this-week')
@@ -440,9 +477,107 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     
     // Data date management
     const [dataDate, setDataDate] = useState(new Date().toISOString().split('T')[0])
+    const [weekAnchorDate, setWeekAnchorDate] = useState(new Date().toISOString().split('T')[0])
+    const [weeklySnapshots, setWeeklySnapshots] = useState([])
+    const [closedWeekdays, setClosedWeekdays] = useState([0])
+    const [closedDaysDropdownOpen, setClosedDaysDropdownOpen] = useState(false)
     
     // Demo banner state (no saving for demo)
     const [showDemoBanner, setShowDemoBanner] = useState(false)
+
+    const weekdayOptions = [
+        { value: 0, full: 'Sunday', short: 'Sun' },
+        { value: 1, full: 'Monday', short: 'Mon' },
+        { value: 2, full: 'Tuesday', short: 'Tue' },
+        { value: 3, full: 'Wednesday', short: 'Wed' },
+        { value: 4, full: 'Thursday', short: 'Thu' },
+        { value: 5, full: 'Friday', short: 'Fri' },
+        { value: 6, full: 'Saturday', short: 'Sat' },
+    ]
+
+    const closedDaysSummary = closedWeekdays.length > 0
+        ? closedWeekdays
+            .slice()
+            .sort((a, b) => a - b)
+            .map((day) => weekdayOptions.find((item) => item.value === day)?.short)
+            .filter(Boolean)
+            .join(', ')
+        : 'None'
+
+    const toggleClosedWeekday = (dayValue) => {
+        setClosedWeekdays((prev) => {
+            if (prev.includes(dayValue)) {
+                return prev.filter((day) => day !== dayValue)
+            }
+            return [...prev, dayValue].sort((a, b) => a - b)
+        })
+    }
+
+    useEffect(() => {
+        const storageKey = `closed-days-${effectiveStoreName}`
+        try {
+            const raw = window.localStorage.getItem(storageKey)
+            if (!raw) return
+            const parsed = JSON.parse(raw)
+            if (Array.isArray(parsed)) {
+                const valid = parsed
+                    .map((n) => Number(n))
+                    .filter((n) => Number.isInteger(n) && n >= 0 && n <= 6)
+                if (valid.length > 0) setClosedWeekdays([...new Set(valid)].sort((a, b) => a - b))
+            }
+        } catch (error) {
+            console.warn('Failed loading closed days:', error.message)
+        }
+    }, [effectiveStoreName])
+
+    useEffect(() => {
+        const storageKey = `closed-days-${effectiveStoreName}`
+        try {
+            window.localStorage.setItem(storageKey, JSON.stringify(closedWeekdays))
+        } catch (error) {
+            console.warn('Failed saving closed days:', error.message)
+        }
+    }, [closedWeekdays, effectiveStoreName])
+
+    const mergePicProfiles = (names) => {
+        const incoming = (Array.isArray(names) ? names : Object.values(names || {}))
+            .map(name => (name || '').toString().trim())
+            .filter(Boolean)
+
+        if (incoming.length === 0) return
+
+        setPicProfiles(prev => {
+            const merged = [...prev]
+            incoming.forEach(name => {
+                if (!merged.some(existing => existing.toLowerCase() === name.toLowerCase())) {
+                    merged.push(name)
+                }
+            })
+            return merged.sort((a, b) => a.localeCompare(b))
+        })
+    }
+
+    const openPicModal = (daypartKey) => {
+        setPendingPicDaypart(daypartKey)
+        setNewPicName('')
+        setShowPicModal(true)
+    }
+
+    const savePicFromModal = () => {
+        const cleaned = (newPicName || '').trim()
+        if (!cleaned || !pendingPicDaypart) return
+        mergePicProfiles([cleaned])
+        setPicNames((prev) => ({ ...prev, [pendingPicDaypart]: cleaned }))
+        setShowPicModal(false)
+        setPendingPicDaypart('')
+        setNewPicName('')
+    }
+
+    const cancelPicModal = () => {
+        setShowPicModal(false)
+        setPendingPicDaypart('')
+        setNewPicName('')
+    }
 
     // Use centralized calculateTargetProductivity from utils/targetUtils.js
     const getTotalSales = () => {
@@ -463,6 +598,64 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         }
         const salesInput = salesInputs[daypartKey]
         return salesInput ? parseInt(salesInput.replace(/[^0-9]/g, '')) : 0
+    }
+
+    const getDisplayDaypartSales = (daypartKey) => {
+        const enteredSales = getDaypartSales(daypartKey)
+        if (enteredSales > 0) return enteredSales
+        return salesBaselines[daypartKey] || defaultDaypartSales[daypartKey] || 0
+    }
+
+    const getWeekDates = (anchorDateString) => {
+        const anchor = new Date(anchorDateString + 'T00:00:00')
+        const day = anchor.getDay()
+        const weekStart = new Date(anchor)
+        weekStart.setDate(anchor.getDate() - day)
+
+        const dates = []
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(weekStart)
+            d.setDate(weekStart.getDate() + i)
+            dates.push(d.toISOString().split('T')[0])
+        }
+        return dates
+    }
+
+    const buildWeeklySnapshots = (dates, records) => {
+        return dates.map(date => {
+            const weekday = new Date(date + 'T00:00:00').getDay()
+            const isClosed = closedWeekdays.includes(weekday)
+            const dayRecords = (records || []).filter(record => {
+                const recordDate = new Date(record.record_date).toISOString().split('T')[0]
+                return recordDate === date
+            })
+
+            const totalSales = dayRecords.reduce((sum, record) => sum + (Number(record.sales_amount) || 0), 0)
+            const weightedActual = dayRecords.reduce((sum, record) => sum + ((Number(record.sales_amount) || 0) * (Number(record.actual_productivity) || 0)), 0)
+            const weightedTarget = dayRecords.reduce((sum, record) => sum + ((Number(record.sales_amount) || 0) * (Number(record.target_productivity) || 0)), 0)
+            const uniquePics = [...new Set(dayRecords.map(record => (record.pic_name || '').trim()).filter(Boolean))]
+
+            const actual = totalSales > 0 ? (weightedActual / totalSales) : 0
+            const target = totalSales > 0 ? (weightedTarget / totalSales) : 0
+
+            return {
+                date,
+                pics: uniquePics,
+                actual,
+                target,
+                totalSales,
+                isClosed,
+                hasData: dayRecords.length > 0,
+            }
+        })
+    }
+
+    const shiftWeek = (direction) => {
+        const base = new Date(weekAnchorDate + 'T00:00:00')
+        base.setDate(base.getDate() + (direction * 7))
+        const shiftedDate = base.toISOString().split('T')[0]
+        setWeekAnchorDate(shiftedDate)
+        loadWeekSnapshots(shiftedDate)
     }
 
     // Store-aware data management functions
@@ -503,6 +696,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             
             // Save to database (upserts — overwrites existing data for the same date)
             const success = await saveToDatabase(storeData)
+            mergePicProfiles(picNames)
+            if (success) {
+                loadWeekSnapshots(dataDate)
+                loadSalesBaselines()
+            }
             
             showMessage(success ? 'data' : 'error')
             
@@ -685,6 +883,109 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     
     // Auto-weight loading state
     const [isAutoWeighting, setIsAutoWeighting] = useState(false)
+
+    const loadWeekSnapshots = async (anchorDate = dataDate) => {
+        const weekDates = getWeekDates(anchorDate)
+        if (isDemo) {
+            const localDate = dataDate
+            const localSnapshot = {
+                record_date: localDate,
+                sales_amount: getTotalDaySales(),
+                actual_productivity: getTotalDayActual(),
+                target_productivity: getTotalDayTarget(),
+                pic_name: Object.values(picNames).filter(Boolean).join(' / '),
+            }
+            setWeeklySnapshots(buildWeeklySnapshots(weekDates, [localSnapshot]))
+            return
+        }
+
+        try {
+            const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
+            const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/range/${weekDates[0]}/${weekDates[6]}`)
+            if (!response.ok) {
+                setWeeklySnapshots(buildWeeklySnapshots(weekDates, []))
+                return
+            }
+
+            const records = await response.json()
+            setWeeklySnapshots(buildWeeklySnapshots(weekDates, records))
+        } catch (error) {
+            console.warn('Failed to load week snapshots:', error.message)
+            setWeeklySnapshots(buildWeeklySnapshots(weekDates, []))
+        }
+    }
+
+    useEffect(() => {
+        loadWeekSnapshots(weekAnchorDate)
+    }, [closedWeekdays])
+
+    const loadPicProfiles = async () => {
+        if (isDemo) {
+            setPicProfiles(defaultPicProfiles)
+            return
+        }
+
+        try {
+            const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
+            const today = new Date()
+            const start = new Date(today)
+            start.setDate(today.getDate() - 120)
+            const fmt = (d) => d.toISOString().split('T')[0]
+
+            const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/range/${fmt(start)}/${fmt(today)}`)
+            if (!response.ok) return
+
+            const records = await response.json()
+            mergePicProfiles((records || []).map(r => r.pic_name).filter(Boolean))
+        } catch (error) {
+            console.warn('Failed to load PIC profiles:', error.message)
+        }
+    }
+
+    const loadSalesBaselines = async () => {
+        if (isDemo) {
+            setSalesBaselines(defaultDaypartSales)
+            return
+        }
+
+        try {
+            const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
+            const today = new Date()
+            const start = new Date(today)
+            start.setDate(today.getDate() - 90)
+            const fmt = (d) => d.toISOString().split('T')[0]
+
+            const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/range/${fmt(start)}/${fmt(today)}`)
+            if (!response.ok) {
+                setSalesBaselines(defaultDaypartSales)
+                return
+            }
+
+            const records = await response.json()
+            const totals = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 }
+            const counts = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 }
+
+            ;(records || []).forEach((record) => {
+                if (!totals.hasOwnProperty(record.daypart)) return
+                const sales = Number(record.sales_amount) || 0
+                if (sales <= 0) return
+                totals[record.daypart] += sales
+                counts[record.daypart] += 1
+            })
+
+            const computed = { ...defaultDaypartSales }
+            Object.keys(computed).forEach((daypart) => {
+                if (counts[daypart] > 0) {
+                    computed[daypart] = Math.round(totals[daypart] / counts[daypart])
+                }
+            })
+
+            setSalesBaselines(computed)
+        } catch (error) {
+            console.warn('Failed to load sales baselines:', error.message)
+            setSalesBaselines(defaultDaypartSales)
+        }
+    }
 
     // Save ambition tier + operational weights to the database
     const saveSettings = async () => {
@@ -885,6 +1186,13 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     afternoon: daypartsData.afternoon?.picName || '',
                     dinner: daypartsData.dinner?.picName || ''
                 })
+
+                mergePicProfiles({
+                    breakfast: daypartsData.breakfast?.picName,
+                    lunch: daypartsData.lunch?.picName,
+                    afternoon: daypartsData.afternoon?.picName,
+                    dinner: daypartsData.dinner?.picName,
+                })
             } else {
                 clearAllFields()
             }
@@ -917,7 +1225,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     // Handle date change and load corresponding data
     const handleDateChange = (newDate) => {
         setDataDate(newDate)
+        setWeekAnchorDate(newDate)
         loadDataForDate(newDate)
+        loadWeekSnapshots(newDate)
     }
     
     // Auto-save at midnight and advance to next day
@@ -968,6 +1278,19 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return af + dn
     }
 
+    const getTotalDaySales = () => {
+        return getDayCombinedSales() + getNightCombinedSales()
+    }
+
+    const getProjectedTotalDaySales = () => {
+        return orderedDayparts
+            .map((daypart) => {
+                const enteredSales = getDaypartSales(daypart)
+                return enteredSales > 0 ? enteredSales : defaultDaypartSales[daypart]
+            })
+            .reduce((sum, value) => sum + value, 0)
+    }
+
     const getDayCombinedActual = () => {
         const bfSales = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0
         const lnSales = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
@@ -988,26 +1311,59 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return ((afSales * afProd) + (dnSales * dnProd)) / (afSales + dnSales)
     }
 
+    const getTotalDayActual = () => {
+        const projectedDaypartProductivity = orderedDayparts.map((daypart) => {
+            const enteredSales = getDaypartSales(daypart)
+            const enteredProductivity = parseFloat(actualProductivity[daypart]) || 0
+            if (enteredSales > 0 && enteredProductivity > 0) {
+                return enteredProductivity
+            }
+
+            const placeholderSales = defaultDaypartSales[daypart]
+            return calculateTargetProductivity(daypart, placeholderSales, selectedTier, daypartWeights)
+        })
+
+        return projectedDaypartProductivity.reduce((sum, value) => sum + value, 0) / orderedDayparts.length
+    }
+
     const getDayCombinedTarget = () => {
-        const bfSales = getDaypartSales('breakfast') || 6000  // Default breakfast sales
-        const lnSales = getDaypartSales('lunch') || 10000     // Default lunch sales
+        const bfSales = getDisplayDaypartSales('breakfast')
+        const lnSales = getDisplayDaypartSales('lunch')
         const dayCombinedSales = bfSales + lnSales
         
-        const bfTarget = calculateTargetProductivity('breakfast', bfSales)
-        const lnTarget = calculateTargetProductivity('lunch', lnSales)
+        const bfTarget = calculateTargetProductivity('breakfast', bfSales, selectedTier, daypartWeights)
+        const lnTarget = calculateTargetProductivity('lunch', lnSales, selectedTier, daypartWeights)
         
         return ((bfSales * bfTarget) + (lnSales * lnTarget)) / dayCombinedSales
     }
 
     const getNightCombinedTarget = () => {
-        const afSales = getDaypartSales('afternoon') || 7000  // Default afternoon sales
-        const dnSales = getDaypartSales('dinner') || 8000    // Default dinner sales
+        const afSales = getDisplayDaypartSales('afternoon')
+        const dnSales = getDisplayDaypartSales('dinner')
         const nightCombinedSales = afSales + dnSales
         
-        const afTarget = calculateTargetProductivity('afternoon', afSales)
-        const dnTarget = calculateTargetProductivity('dinner', dnSales)
+        const afTarget = calculateTargetProductivity('afternoon', afSales, selectedTier, daypartWeights)
+        const dnTarget = calculateTargetProductivity('dinner', dnSales, selectedTier, daypartWeights)
         
         return ((afSales * afTarget) + (dnSales * dnTarget)) / nightCombinedSales
+    }
+
+    const getTotalDayTarget = () => {
+        const targetByDaypart = orderedDayparts.map((daypart) => {
+            const enteredSales = getDaypartSales(daypart)
+            const salesForTarget = enteredSales > 0 ? enteredSales : defaultDaypartSales[daypart]
+            return calculateTargetProductivity(daypart, salesForTarget, selectedTier, daypartWeights)
+        })
+
+        return targetByDaypart.reduce((sum, value) => sum + value, 0) / orderedDayparts.length
+    }
+
+    const hasEnteredAnyDaypart = () => {
+        return orderedDayparts.some((daypart) => {
+            const enteredSales = getDaypartSales(daypart)
+            const enteredProductivity = parseFloat(actualProductivity[daypart]) || 0
+            return enteredSales > 0 && enteredProductivity > 0
+        })
     }
 
 
@@ -1016,6 +1372,12 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         const numValue = typeof value === 'string' ? parseInt(value.replace(/[^0-9]/g, '')) : value
         if (isNaN(numValue)) return ''
         return `$${numValue.toLocaleString()}`
+    }
+
+    const formatCurrencyWithZero = (value) => {
+        const numValue = Number(value)
+        if (isNaN(numValue)) return '$0'
+        return `$${Math.max(0, numValue).toLocaleString()}`
     }
     
     // Set up midnight auto-save timer
@@ -1069,7 +1431,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             }
         };
         loadStoreSettings();
+        loadPicProfiles();
+        loadSalesBaselines();
         loadDataForDate(dataDate);
+        loadWeekSnapshots(dataDate);
+        setWeekAnchorDate(dataDate)
     }, [storeNumber, isDemo])
 
     const parseCurrency = (value) => {
@@ -1085,6 +1451,157 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const tCombinedDial = {...dashboardStyles.combinedDial, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
     const tCombinedTitle = {...dashboardStyles.combinedTitle, backgroundColor: tc.headerBg, color: tc.text}
     const tControlsPanel = {...dashboardStyles.controlsPanel, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
+
+    const renderPicInput = (daypartKey) => {
+        const currentName = picNames[daypartKey] || ''
+        const hasSavedMatch = picProfiles.some(name => name.toLowerCase() === currentName.toLowerCase())
+        const selectValue = hasSavedMatch ? currentName : (currentName ? '__new__' : '__placeholder__')
+
+        return (
+            <div style={dialStyles.picInputStack}>
+                <select
+                    value={selectValue}
+                    onChange={(e) => {
+                        const selected = e.target.value
+                        if (selected === '__placeholder__') return
+                        if (selected === '__new__') {
+                            openPicModal(daypartKey)
+                            return
+                        }
+                        setPicNames(prev => ({ ...prev, [daypartKey]: selected }))
+                    }}
+                    style={{ ...tRowInput, ...dialStyles.picSelect }}
+                >
+                    <option value="__placeholder__" disabled>Select PIC</option>
+                    <option value="__new__">NEW PIC</option>
+                    {picProfiles.map(name => (
+                        <option key={name} value={name}>{name}</option>
+                    ))}
+                </select>
+            </div>
+        )
+    }
+
+    const renderWeekCalendar = () => (
+        <div style={dashboardStyles.weekCalendarWrap}>
+            <button
+                type="button"
+                onClick={() => shiftWeek(-1)}
+                style={{ ...dashboardStyles.weekNavButton, paddingLeft: '10px' }}
+                aria-label="Previous week"
+            >
+                ◀
+            </button>
+            <div style={dashboardStyles.weekCalendarRow}>
+                {weeklySnapshots.map((snapshot) => {
+                const tileDate = new Date(snapshot.date + 'T00:00:00')
+                const dayLabel = tileDate.toLocaleDateString('en-US', { weekday: 'short' })
+                const dateLabel = tileDate.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
+                const isActiveDate = snapshot.date === dataDate
+                const variance = snapshot.actual - snapshot.target
+                const varianceColor = snapshot.hasData
+                    ? (variance >= 0 ? '#22c55e' : '#ef4444')
+                    : tc.textMuted
+
+                return (
+                    <div
+                        key={snapshot.date}
+                        onClick={() => handleDateChange(snapshot.date)}
+                        style={{
+                            ...dashboardStyles.weekTile,
+                            ...(snapshot.date === weeklySnapshots[0]?.date ? { paddingLeft: '12px' } : {}),
+                            borderColor: isActiveDate ? '#3b82f6' : tc.cardBorder,
+                            backgroundColor: isActiveDate ? `${tc.headerBg}` : tc.cardBg,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        <div style={dashboardStyles.weekTileHeader}>{dayLabel} {dateLabel}</div>
+                        <div style={dashboardStyles.weekTileBody}>
+                            {snapshot.hasData ? (
+                                <>
+                                    <div style={dashboardStyles.weekTileLine}>
+                                        PIC: {snapshot.pics.length > 0 ? snapshot.pics.slice(0, 2).join(', ') : 'No PIC'}
+                                    </div>
+                                    <div style={dashboardStyles.weekTileLine}>Target: {snapshot.target ? snapshot.target.toFixed(1) : '--'}</div>
+                                    <div style={dashboardStyles.weekTileLine}>Actual: {snapshot.actual ? snapshot.actual.toFixed(1) : '--'}</div>
+                                    <div style={{ ...dashboardStyles.weekTileLine, color: varianceColor, fontWeight: '700' }}>
+                                        Delta: {`${variance >= 0 ? '+' : ''}${variance.toFixed(1)}`}
+                                    </div>
+                                </>
+                            ) : snapshot.isClosed ? (
+                                <div style={{ ...dashboardStyles.weekTileLine, color: '#60a5fa', fontWeight: '700' }}>
+                                    Closed
+                                </div>
+                            ) : (
+                                <div style={{ ...dashboardStyles.weekTileLine, color: '#f59e0b', fontWeight: '700' }}>
+                                    Data needed
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )
+                })}
+            </div>
+            <button
+                type="button"
+                onClick={() => shiftWeek(1)}
+                style={dashboardStyles.weekNavButton}
+                aria-label="Next week"
+            >
+                ▶
+            </button>
+        </div>
+    )
+
+    const renderDaypartCard = (daypartKey, title) => {
+        const salesValues = {
+            breakfast: breakfastSales,
+            lunch: lunchSales,
+            afternoon: afternoonSales,
+            dinner: dinnerSales,
+        }
+        const salesSetters = {
+            breakfast: setBreakfastSales,
+            lunch: setLunchSales,
+            afternoon: setAfternoonSales,
+            dinner: setDinnerSales,
+        }
+
+        return (
+            <div style={tInputSection} key={daypartKey}>
+                <h4 style={tDaypartTitle}>{title}</h4>
+                <div style={dialStyles.daypartBody}>
+                    <div style={{ ...dialStyles.dialContainer, flex: '1 1 auto' }}>
+                        <SimplifiedProductivityDial
+                            title={title}
+                            salesInput={salesValues[daypartKey]}
+                            actualProductivity={parseFloat(actualProductivity[daypartKey]) || 0}
+                            targetProductivity={calculateTargetProductivity(daypartKey, getDisplayDaypartSales(daypartKey), selectedTier, daypartWeights)}
+                            salesContext="Tier-Based"
+                            themeColors={tc}
+                        />
+                    </div>
+                    <div style={dialStyles.inputColumn}>
+                        <input
+                            type="text"
+                            placeholder="$ Sales"
+                            value={formatCurrency(salesValues[daypartKey])}
+                            onChange={(e) => salesSetters[daypartKey](parseCurrency(e.target.value))}
+                            style={{ ...tRowInput, ...dialStyles.mainInput }}
+                        />
+                        <input
+                            type="text"
+                            placeholder="Productivity"
+                            value={actualProductivity[daypartKey]}
+                            onChange={(e) => setActualProductivity((prev) => ({ ...prev, [daypartKey]: e.target.value.replace(/[^0-9.]/g, '') }))}
+                            style={{ ...tRowInput, ...dialStyles.mainInput }}
+                        />
+                        {renderPicInput(daypartKey)}
+                    </div>
+                </div>
+            </div>
+        )
+    }
     
     return (
         <div style={{...dashboardStyles.container, background: tc.bg, color: tc.text}}>
@@ -1128,135 +1645,36 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         {bannerMessage.text}
                     </div>
                 )}
+
+                {renderWeekCalendar()}
                 
                 {/* Four Main Daypart Dials */}
                 <div style={dashboardStyles.dialGrid}>
-                    <div style={tInputSection}>
-                        <h4 style={tDaypartTitle}>Breakfast</h4>
-                        <div style={dialStyles.dialContainer}>
-                            <SimplifiedProductivityDial
-                                title="Breakfast"
-                                salesInput={breakfastSales}
-                                actualProductivity={parseFloat(actualProductivity.breakfast) || 0}
-                                targetProductivity={calculateTargetProductivity('breakfast', getDaypartSales('breakfast'), selectedTier, daypartWeights)}
-                                salesContext="Tier-Based"
-                                themeColors={tc}
-                            />
-                        </div>
-                        <div style={dialStyles.inputRow}>
-                            <input type="text" placeholder="$ Sales" value={formatCurrency(breakfastSales)} onChange={(e) => setBreakfastSales(parseCurrency(e.target.value))} style={tRowInput} />
-                            <input type="text" placeholder="Productivity" value={actualProductivity.breakfast} onChange={(e) => setActualProductivity(prev => ({...prev, breakfast: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
-                            <input type="text" placeholder="PIC" value={picNames.breakfast} onChange={(e) => setPicNames(prev => ({...prev, breakfast: e.target.value}))} style={tRowInput} />
-                        </div>
-                    </div>
-
-                    <div style={tInputSection}>
-                        <h4 style={tDaypartTitle}>Lunch</h4>
-                        <div style={dialStyles.dialContainer}>
-                            <SimplifiedProductivityDial
-                                title="Lunch"
-                                salesInput={lunchSales}
-                                actualProductivity={parseFloat(actualProductivity.lunch) || 0}
-                                targetProductivity={calculateTargetProductivity('lunch', getDaypartSales('lunch'), selectedTier, daypartWeights)}
-                                salesContext="Tier-Based"
-                                themeColors={tc}
-                            />
-                        </div>
-                        <div style={dialStyles.inputRow}>
-                            <input type="text" placeholder="$ Sales" value={formatCurrency(lunchSales)} onChange={(e) => setLunchSales(parseCurrency(e.target.value))} style={tRowInput} />
-                            <input type="text" placeholder="Productivity" value={actualProductivity.lunch} onChange={(e) => setActualProductivity(prev => ({...prev, lunch: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
-                            <input type="text" placeholder="PIC" value={picNames.lunch} onChange={(e) => setPicNames(prev => ({...prev, lunch: e.target.value}))} style={tRowInput} />
-                        </div>
-                    </div>
-
-                    <div style={tInputSection}>
-                        <h4 style={tDaypartTitle}>Afternoon</h4>
-                        <div style={dialStyles.dialContainer}>
-                            <SimplifiedProductivityDial
-                                title="Afternoon"
-                                salesInput={afternoonSales}
-                                actualProductivity={parseFloat(actualProductivity.afternoon) || 0}
-                                targetProductivity={calculateTargetProductivity('afternoon', getDaypartSales('afternoon'), selectedTier, daypartWeights)}
-                                salesContext="Tier-Based"
-                                themeColors={tc}
-                            />
-                        </div>
-                        <div style={dialStyles.inputRow}>
-                            <input type="text" placeholder="$ Sales" value={formatCurrency(afternoonSales)} onChange={(e) => setAfternoonSales(parseCurrency(e.target.value))} style={tRowInput} />
-                            <input type="text" placeholder="Productivity" value={actualProductivity.afternoon} onChange={(e) => setActualProductivity(prev => ({...prev, afternoon: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
-                            <input type="text" placeholder="PIC" value={picNames.afternoon} onChange={(e) => setPicNames(prev => ({...prev, afternoon: e.target.value}))} style={tRowInput} />
-                        </div>
-                    </div>
-
-                    <div style={tInputSection}>
-                        <h4 style={tDaypartTitle}>Dinner</h4>
-                        <div style={dialStyles.dialContainer}>
-                            <SimplifiedProductivityDial
-                                title="Dinner"
-                                salesInput={dinnerSales}
-                                actualProductivity={parseFloat(actualProductivity.dinner) || 0}
-                                targetProductivity={calculateTargetProductivity('dinner', getDaypartSales('dinner'), selectedTier, daypartWeights)}
-                                salesContext="Tier-Based"
-                                themeColors={tc}
-                            />
-                        </div>
-                        <div style={dialStyles.inputRow}>
-                            <input type="text" placeholder="$ Sales" value={formatCurrency(dinnerSales)} onChange={(e) => setDinnerSales(parseCurrency(e.target.value))} style={tRowInput} />
-                            <input type="text" placeholder="Productivity" value={actualProductivity.dinner} onChange={(e) => setActualProductivity(prev => ({...prev, dinner: e.target.value.replace(/[^0-9.]/g, '')}))} style={tRowInput} />
-                            <input type="text" placeholder="PIC" value={picNames.dinner} onChange={(e) => setPicNames(prev => ({...prev, dinner: e.target.value}))} style={tRowInput} />
-                        </div>
-                    </div>
+                    {renderDaypartCard('breakfast', 'Breakfast')}
+                    {renderDaypartCard('lunch', 'Lunch')}
+                    {renderDaypartCard('afternoon', 'Afternoon')}
+                    {renderDaypartCard('dinner', 'Dinner')}
                 </div>
 
                 {/* Bottom Row: Day/Night Dials and Controls */}
                 <div style={dashboardStyles.bottomRow}>
-                    {/* Day and Night Combined Dials */}
-                    {/* Combined Dials - Day and Night - Always visible */}
+                    {/* Total Day Combined Dial */}
                     <div style={dashboardStyles.combinedSection}>
-                        {/* Day Dial - Always show container */}
                         <div style={tCombinedDial}>
-                            <h4 style={tCombinedTitle}>Day</h4>
+                            <h4 style={tCombinedTitle}>Total Day</h4>
                             <div style={dialStyles.dialContainer}>
-                                <CombinedProductivityDial
-                                    title="Breakfast + Lunch"
-                                    combinedSales={getDayCombinedSales()}
-                                    combinedActual={getDayCombinedActual()}
-                                    targetProductivity={getDayCombinedTarget()}
-                                    daypart1Prod={actualProductivity.breakfast}
-                                    daypart2Prod={actualProductivity.lunch}
+                                <SimplifiedProductivityDial
+                                    title="All Dayparts"
+                                    salesInput={getTotalDaySales().toString()}
+                                    actualProductivity={getTotalDayActual()}
+                                    targetProductivity={getTotalDayTarget()}
+                                    salesContext="Total Day"
                                     isDayNight={true}
-                                    showNeedle={breakfastSales && lunchSales && 
-                                             actualProductivity.breakfast && actualProductivity.lunch &&
-                                             parseFloat(breakfastSales.replace(/[^0-9]/g, '')) > 0 &&
-                                             parseFloat(lunchSales.replace(/[^0-9]/g, '')) > 0 &&
-                                             parseFloat(actualProductivity.breakfast) > 0 &&
-                                             parseFloat(actualProductivity.lunch) > 0}
-                                    noDataMessage="Complete breakfast & lunch data to view combined performance"
+                                    showNeedle={hasEnteredAnyDaypart()}
+                                    enhancedActionMessage={`Cumulative Sales: ${formatCurrencyWithZero(getTotalDaySales())}\nProductivity: ${getTotalDayActual() ? getTotalDayActual().toFixed(1) : '0.0'}\nTarget: ${getTotalDayTarget() ? getTotalDayTarget().toFixed(1) : '0.0'}`}
+                                    noDataMessage="Add daypart sales and productivity to unlock total day guidance"
                                     themeColors={tc}
-                                />
-                            </div>
-                        </div>
-                        
-                        {/* Night Dial - Always show container */}
-                        <div style={tCombinedDial}>
-                            <h4 style={tCombinedTitle}>Night</h4>
-                            <div style={dialStyles.dialContainer}>
-                                <CombinedProductivityDial
-                                    title="Afternoon + Dinner"
-                                    combinedSales={getNightCombinedSales()}
-                                    combinedActual={getNightCombinedActual()}
-                                    targetProductivity={getNightCombinedTarget()}
-                                    daypart1Prod={actualProductivity.afternoon}
-                                    daypart2Prod={actualProductivity.dinner}
-                                    isDayNight={true}
-                                    showNeedle={afternoonSales && dinnerSales && 
-                                             actualProductivity.afternoon && actualProductivity.dinner &&
-                                             parseFloat(afternoonSales.replace(/[^0-9]/g, '')) > 0 &&
-                                             parseFloat(dinnerSales.replace(/[^0-9]/g, '')) > 0 &&
-                                             parseFloat(actualProductivity.afternoon) > 0 &&
-                                             parseFloat(actualProductivity.dinner) > 0}
-                                    noDataMessage="Complete afternoon & dinner data to view combined performance"
-                                    themeColors={tc}
+                                    statusOnRight={true}
                                 />
                             </div>
                         </div>
@@ -1265,235 +1683,274 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     {/* Controls Panel */}
                     <div style={tControlsPanel}>
                         <h4 style={{
-                            fontSize: '1rem',
+                            fontSize: '1.1rem',
                             color: tc.text,
                             fontWeight: 'bold',
                             textAlign: 'center',
-                            margin: '0 -10px 10px -10px',
-                            padding: '6px',
+                            margin: '0 -10px 6px -10px',
+                            padding: '7px',
                             backgroundColor: tc.headerBg,
                             borderRadius: '8px 8px 0 0',
                             width: 'calc(100% + 20px)',
                             boxSizing: 'border-box'
                         }}>
-                            Performance Settings
+                            Operations Control Center
                         </h4>
                         
                         <div style={{
                             textAlign: 'center',
-                            marginBottom: '8px'
+                            marginBottom: '4px'
                         }}>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '0px', margin: '0', padding: '10px 0 0 0', width: '100%' }}>
-                            {/* Data Management - Left Column */}
-                            <div style={{ textAlign: 'center', margin: '0', padding: '0 12px', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
-                                <h5 style={{ margin: '0 0 6px 0', color: tc.text, fontSize: '14px', fontWeight: '600', padding: '0 4px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.25fr', gap: '0px', margin: '0', padding: '4px 0 0 0', width: '100%', height: '100%' }}>
+                            {/* Left Column: Data Management + Ambition */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '0 8px 0 4px', boxSizing: 'border-box', borderRight: `1px solid ${tc.cardBorder}` }}>
+                                <h5 style={{ margin: '0 0 2px 0', color: tc.text, fontSize: '16px', fontWeight: '700', padding: '0 4px', textAlign: 'center' }}>
                                     Data Management
                                 </h5>
-                                
-                                {/* Save Banner */}
-                                {!isDemo && showDataBanner && (
-                                    <div style={{
-                                        backgroundColor: bannerMessage.isError ? '#ef4444' : '#10b981',
-                                        color: '#fff',
-                                        padding: '4px 8px',
-                                        borderRadius: '3px',
-                                        marginBottom: '6px',
-                                        textAlign: 'center',
-                                        fontSize: '11px',
-                                        fontWeight: '600'
-                                    }}>
-                                        {bannerMessage.isError ? 'Save Failed!' : 'Data Saved!'}
-                                    </div>
-                                )}
-                                
-                                {/* Save Data Section */}
-                                <div style={{ marginBottom: '10px', padding: '0 4px' }}>
-                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600', textAlign: 'auto' }}>
-                                        Date Displaying
-                                    </h6>
-                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '6px' }}>
-                                        <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                                <div style={{ textAlign: 'center', margin: '0', padding: '0 2px 8px', boxSizing: 'border-box', order: 2 }}>
+
+                                    {!isDemo && showDataBanner && (
+                                        <div style={{
+                                            backgroundColor: bannerMessage.isError ? '#ef4444' : '#10b981',
+                                            color: '#fff',
+                                            padding: '4px 8px',
+                                            borderRadius: '3px',
+                                            marginBottom: '6px',
+                                            textAlign: 'center',
+                                            fontSize: '11px',
+                                            fontWeight: '600'
+                                        }}>
+                                            {bannerMessage.isError ? 'Save Failed!' : 'Data Saved!'}
+                                        </div>
+                                    )}
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '0 4px' }}>
+                                        <div style={{ textAlign: 'left' }}>
+                                            <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '700', textAlign: 'left' }}>
+                                                Date
+                                            </h6>
                                             {isDemo ? (
-                                                <span style={{
-                                                    fontSize: '11px',
-                                                    color: '#94a3b8',
-                                                    fontStyle: 'italic'
-                                                }}>
-                                                    Demo Mode - No Dates
+                                                <span style={{ fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>
+                                                    Demo Mode
                                                 </span>
                                             ) : (
-                                                <input 
-                                                    type="date" 
+                                                <input
+                                                    type="date"
                                                     value={dataDate}
                                                     onChange={(e) => handleDateChange(e.target.value)}
                                                     onClick={(e) => e.target.showPicker && e.target.showPicker()}
                                                     style={{
                                                         width: '100%',
-                                                        maxWidth: '130px',
-                                                        padding: '4px 6px',
-                                                        fontSize: '11px',
+                                                        padding: '7px 8px',
+                                                        fontSize: '12px',
                                                         backgroundColor: tc.inputBg,
                                                         color: tc.text,
                                                         border: `1px solid ${tc.inputBorder}`,
                                                         borderRadius: '3px',
                                                         cursor: 'pointer',
-                                                        boxSizing: 'border-box'
+                                                        boxSizing: 'border-box',
+                                                        marginBottom: '16px',
+                                                        textAlign: 'center'
                                                     }}
                                                 />
                                             )}
+                                            <button
+                                                onClick={handleDataAction}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '7px 10px',
+                                                    backgroundColor: '#3b82f6',
+                                                    color: '#ffffff',
+                                                    border: 'none',
+                                                    borderRadius: '3px',
+                                                    fontSize: '12px',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '700',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                {isDemo ? 'Demo Save' : 'Save'}
+                                            </button>
                                         </div>
-                                        <button 
-                                            onClick={handleDataAction}
-                                            style={{
-                                                padding: '4px 20px',
-                                                backgroundColor: '#3b82f6',
-                                                color: '#ffffff',
-                                                border: 'none',
-                                                borderRadius: '3px',
-                                                fontSize: '11px',
-                                                cursor: 'pointer',
-                                                fontWeight: '600',
-                                                whiteSpace: 'nowrap'
-                                            }}
-                                        >
-                                            {isDemo ? 'Demo Save' : 'Save'}
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                {/* Export Data Section */}
-                                <div style={{ padding: '8px 4px' }}>
-                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '600', textAlign: 'auto' }}>
-                                        Export Data
-                                    </h6>
-                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '6px' }}>
-                                        <div style={{ flex: '1 1 0', minWidth: 0 }}>
-                                            <select 
+
+                                        <div style={{ textAlign: 'left' }}>
+                                            <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '700', textAlign: 'left' }}>
+                                                Export Data
+                                            </h6>
+                                            <select
                                                 value={exportDateRange}
                                                 onChange={(e) => setExportDateRange(e.target.value)}
                                                 style={{
                                                     width: '100%',
-                                                    maxWidth: '130px',
-                                                    padding: '4px 6px',
-                                                    fontSize: '11px',
+                                                    padding: '7px 8px',
+                                                    fontSize: '12px',
                                                     backgroundColor: tc.inputBg,
                                                     color: tc.text,
                                                     border: `1px solid ${tc.inputBorder}`,
                                                     borderRadius: '3px',
-                                                    boxSizing: 'border-box'
-                                                }}>
+                                                    boxSizing: 'border-box',
+                                                    marginBottom: '16px',
+                                                    textAlign: 'center'
+                                                }}
+                                            >
                                                 <option value="this-week">This Week</option>
                                                 <option value="this-month">This Month</option>
                                                 <option value="this-quarter">This Quarter</option>
                                                 <option value="custom-start-date">Custom Dates</option>
                                             </select>
+                                            <button
+                                                onClick={handleExportAction}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '7px 10px',
+                                                    backgroundColor: '#059669',
+                                                    color: '#ffffff',
+                                                    border: 'none',
+                                                    borderRadius: '3px',
+                                                    fontSize: '12px',
+                                                    cursor: 'pointer',
+                                                    fontWeight: '700',
+                                                    whiteSpace: 'nowrap'
+                                                }}
+                                            >
+                                                Export
+                                            </button>
                                         </div>
-                                        <button 
-                                            onClick={handleExportAction}
-                                            style={{
-                                                padding: '4px 20px',
-                                                backgroundColor: '#059669',
-                                                color: '#ffffff',
-                                                border: 'none',
-                                                borderRadius: '3px',
-                                                fontSize: '11px',
-                                                cursor: 'pointer',
-                                                fontWeight: '600',
-                                                whiteSpace: 'nowrap'
-                                            }}
-                                        >
-                                            Export
-                                        </button>
                                     </div>
-                                    
-                                    {/* Custom Date Range - Below export section */}
+
                                     {exportDateRange === 'custom-start-date' && (
-                                        <div style={{ marginTop: '12px' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '4px' }}>
-                                                <input 
-                                                    type="date" 
-                                                    placeholder="Start"
-                                                    value={customExportStartDate}
-                                                    onChange={(e) => setCustomExportStartDate(e.target.value)}
-                                                    onClick={(e) => e.target.showPicker && e.target.showPicker()}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '4px 6px',
-                                                        fontSize: '11px',
-                                                        backgroundColor: tc.inputBg,
-                                                        color: tc.text,
-                                                        border: `1px solid ${tc.inputBorder}`,
-                                                        borderRadius: '3px',
-                                                        boxSizing: 'border-box',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                />
-                                                <input 
-                                                    type="date" 
-                                                    placeholder="End"
-                                                    value={customExportEndDate}
-                                                    onChange={(e) => setCustomExportEndDate(e.target.value)}
-                                                    onClick={(e) => e.target.showPicker && e.target.showPicker()}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '4px 6px',
-                                                        fontSize: '11px',
-                                                        backgroundColor: tc.inputBg,
-                                                        color: tc.text,
-                                                        border: `1px solid ${tc.inputBorder}`,
-                                                        borderRadius: '3px',
-                                                        boxSizing: 'border-box',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                />
-                                            </div>
+                                        <div style={{ marginTop: '8px', padding: '0 4px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                            <input
+                                                type="date"
+                                                placeholder="Start"
+                                                value={customExportStartDate}
+                                                onChange={(e) => setCustomExportStartDate(e.target.value)}
+                                                onClick={(e) => e.target.showPicker && e.target.showPicker()}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '5px 6px',
+                                                    fontSize: '11px',
+                                                    backgroundColor: tc.inputBg,
+                                                    color: tc.text,
+                                                    border: `1px solid ${tc.inputBorder}`,
+                                                    borderRadius: '3px',
+                                                    boxSizing: 'border-box',
+                                                    cursor: 'pointer'
+                                                }}
+                                            />
+                                            <input
+                                                type="date"
+                                                placeholder="End"
+                                                value={customExportEndDate}
+                                                onChange={(e) => setCustomExportEndDate(e.target.value)}
+                                                onClick={(e) => e.target.showPicker && e.target.showPicker()}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '5px 6px',
+                                                    fontSize: '11px',
+                                                    backgroundColor: tc.inputBg,
+                                                    color: tc.text,
+                                                    border: `1px solid ${tc.inputBorder}`,
+                                                    borderRadius: '3px',
+                                                    boxSizing: 'border-box',
+                                                    cursor: 'pointer'
+                                                }}
+                                            />
                                         </div>
                                     )}
                                 </div>
-                            </div>
 
-                            <div style={{ textAlign: 'center', margin: '0', padding: '0 6px', borderRight: `1px solid ${tc.cardBorder}`, boxSizing: 'border-box' }}>
-                                <h5 style={{ margin: '0 0 12px 0', color: tc.text, fontSize: '14px', fontWeight: '600', padding: '0 0px' }}>
-                                    Ambition Tier
-                                </h5>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 2px', alignItems: 'center' }}>
-                                    {[
-                                        { value: 'Top 50%', label: 'Top 50%' },
-                                        { value: 'Top 33%', label: 'Top 33%' },
-                                        { value: 'Top 20%', label: 'Top 20%' },
-                                        { value: 'Top 10%', label: 'Top 10%' }
-                                    ].map(tier => (
-                                        <label key={tier.value} style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '4px',
-                                            color: tc.textSubtle,
-                                            fontSize: '12px',
-                                            cursor: 'pointer'
-                                        }}>
-                                            <input
-                                                type="radio"
-                                                name="tier"
-                                                value={tier.value}
-                                                checked={selectedTier === tier.value}
+                                <div style={{ textAlign: 'center', margin: '0', padding: '4px 6px 8px', boxSizing: 'border-box', order: 1, borderBottom: `1px solid ${tc.cardBorder}` }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', alignItems: 'start' }}>
+                                        <div style={{ textAlign: 'left' }}>
+                                            <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '700', textAlign: 'left' }}>
+                                                Ambition Tier
+                                            </h6>
+                                            <select
+                                                value={selectedTier}
                                                 onChange={(e) => setSelectedTier(e.target.value)}
-                                                style={{ margin: 0 }}
-                                            />
-                                            {tier.label}
-                                        </label>
-                                    ))}
+                                                style={{
+                                                    width: '100%',
+                                                    padding: '7px 8px',
+                                                    fontSize: '12px',
+                                                    backgroundColor: tc.inputBg,
+                                                    color: tc.text,
+                                                    border: `1px solid ${tc.inputBorder}`,
+                                                    borderRadius: '4px',
+                                                    boxSizing: 'border-box',
+                                                    textAlign: 'center'
+                                                }}
+                                            >
+                                                <option value="Top 50%">Top 50%</option>
+                                                <option value="Top 33%">Top 33%</option>
+                                                <option value="Top 20%">Top 20%</option>
+                                                <option value="Top 10%">Top 10%</option>
+                                            </select>
+                                        </div>
+                                        <div style={{ position: 'relative', textAlign: 'left' }}>
+                                            <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '700', textAlign: 'left' }}>
+                                                Days Closed
+                                            </h6>
+                                            <button
+                                                type="button"
+                                                onClick={() => setClosedDaysDropdownOpen((prev) => !prev)}
+                                                style={{
+                                                    width: '100%',
+                                                    border: `1px solid ${tc.inputBorder}`,
+                                                    backgroundColor: tc.inputBg,
+                                                    color: tc.text,
+                                                    borderRadius: '4px',
+                                                    fontSize: '12px',
+                                                    padding: '7px 8px',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    gap: '8px'
+                                                }}
+                                            >
+                                                <span style={{ flex: 1, textAlign: 'center' }}>{closedDaysSummary}</span>
+                                                <span aria-hidden="true">▼</span>
+                                            </button>
+                                            {closedDaysDropdownOpen && (
+                                                <div style={{
+                                                    position: 'absolute',
+                                                    left: 0,
+                                                    top: 'calc(100% + 4px)',
+                                                    zIndex: 20,
+                                                    backgroundColor: tc.cardBg,
+                                                    border: `1px solid ${tc.cardBorder}`,
+                                                    borderRadius: '6px',
+                                                    padding: '6px',
+                                                    minWidth: '190px',
+                                                    boxShadow: '0 6px 18px rgba(0,0,0,0.25)'
+                                                }}>
+                                                    {weekdayOptions.map((day) => (
+                                                        <label key={day.value} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: tc.text, padding: '3px 0', cursor: 'pointer' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={closedWeekdays.includes(day.value)}
+                                                                onChange={() => toggleClosedWeekday(day.value)}
+                                                            />
+                                                            {day.full}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
-                            {/* Operational Weights - Right Column */}
-                            <div style={{ margin: '0', padding: '0 4px', boxSizing: 'border-box' }}>
-                                <h5 style={{ 
-                                    margin: '0 0 6px 0', 
-                                    color: tc.text, 
-                                    fontSize: '14px', 
-                                    fontWeight: '600',
+                            {/* Right Column: Operational Weights */}
+                            <div style={{ margin: '0', padding: '0 4px 0 10px', boxSizing: 'border-box' }}>
+                                <h5 style={{
+                                    margin: '0 0 4px 0',
+                                    color: tc.text,
+                                    fontSize: '15px',
+                                    fontWeight: '700',
                                     textAlign: 'center',
                                     padding: '0 10px'
                                 }}>
@@ -1505,157 +1962,150 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     const isBalanced = avgWeight === 1.0 || (Math.round(avgWeight * 100) === 100);
                                     const isAbove = avgWeight > 1.0 && !isBalanced;
                                     const balanceColor = isBalanced ? '#22c55e' : isAbove ? '#f59e0b' : '#ef4444';
-                                    const balanceLabel = isBalanced ? '✓ Balanced' : isAbove ? 'Above target — reduce weights' : 'Below target — increase weights';
-                                    // Map avgWeight onto a 0-100 bar where 100% target is at the center (50%)
-                                    // Range: 0.50 = left edge, 1.0 = center, 1.50 = right edge
                                     const cappedAvgWeight = Math.max(0.75, Math.min(1.25, avgWeight));
                                     const barPercent = ((cappedAvgWeight - 0.75) / 0.5) * 100;
 
                                     return (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 2px' }}>
-                                    {[
-                                        { key: 'breakfast', name: 'Breakfast (Default 84%)', desc: 'Low ticket, complex prep, stocking for lunch' },
-                                        { key: 'lunch', name: 'Lunch (Default 121%)', desc: 'Peak volume, highest sales, drives productivity' },
-                                        { key: 'afternoon', name: 'Afternoon (Default 109%)', desc: 'Post-lunch cleanup, dinner prep, moderate sales' },
-                                        { key: 'dinner', name: 'Dinner (Default 86%)', desc: 'Strong volume, end-of-day cleaning & stocking' }
-                                    ].map(({ key, name, desc }) => {
-                                        const weight = daypartWeights[key];
-                                        const deviation = ((weight - 1.0) * 100);
-                                        const devSign = deviation > 0 ? '+' : '';
-                                        return (
-                                        <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                                                <span style={{ color: tc.text, fontSize: '12px', fontWeight: '600' }}>{name}</span>
-                                                <span style={{ fontSize: '12px', fontWeight: '700', color: tc.text }}>
-                                                    {(weight * 100).toFixed(0)}% <span style={{ fontSize: '10px', fontWeight: '500', color: tc.textMuted }}>({devSign}{deviation.toFixed(0)}%)</span>
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                                <input
-                                                    type="range"
-                                                    min="50"
-                                                    max="150"
-                                                    step="1"
-                                                    className="daypart-slider"
-                                                    value={Math.round((weight || 0.84) * 100)}
-                                                    onChange={(e) => {
-                                                        let val = parseFloat(e.target.value);
-                                                        if (isNaN(val)) val = 84;
-                                                        const newWeight = val / 100;
-                                                        setDaypartWeights(prev => ({ ...prev, [key]: newWeight }));
-                                                    }}
-                                                    style={{
-                                                        flex: 1,
-                                                        height: '4px',
-                                                        accentColor: '#3b82f6',
-                                                        cursor: 'pointer',
-                                                    }}
-                                                />
-                                            </div>
-                                            <div style={{ color: tc.textMuted, fontSize: '10px', lineHeight: '1.2' }}>{desc}</div>
-                                        </div>
-                                        );
-                                    })}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 2px' }}>
+                                            {[
+                                                { key: 'breakfast', name: 'Breakfast (Default 84%)', desc: 'Low ticket, complex prep, stocking for lunch' },
+                                                { key: 'lunch', name: 'Lunch (Default 121%)', desc: 'Peak volume, highest sales, drives productivity' },
+                                                { key: 'afternoon', name: 'Afternoon (Default 109%)', desc: 'Post-lunch cleanup, dinner prep, moderate sales' },
+                                                { key: 'dinner', name: 'Dinner (Default 86%)', desc: 'Strong volume, end-of-day cleaning & stocking' }
+                                            ].map(({ key, name, desc }) => {
+                                                const weight = daypartWeights[key];
+                                                const deviation = ((weight - 1.0) * 100);
+                                                const devSign = deviation > 0 ? '+' : '';
+                                                return (
+                                                    <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                                            <span style={{ color: tc.text, fontSize: '12px', fontWeight: '700' }}>{name}</span>
+                                                            <span style={{ fontSize: '12px', fontWeight: '700', color: tc.text }}>
+                                                                {(weight * 100).toFixed(0)}% <span style={{ fontSize: '10px', fontWeight: '500', color: tc.textMuted }}>({devSign}{deviation.toFixed(0)}%)</span>
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                            <input
+                                                                type="range"
+                                                                min="50"
+                                                                max="150"
+                                                                step="1"
+                                                                className="daypart-slider"
+                                                                value={Math.round((weight || 0.84) * 100)}
+                                                                onChange={(e) => {
+                                                                    let val = parseFloat(e.target.value);
+                                                                    if (isNaN(val)) val = 84;
+                                                                    const newWeight = val / 100;
+                                                                    setDaypartWeights(prev => ({ ...prev, [key]: newWeight }));
+                                                                }}
+                                                                style={{
+                                                                    flex: 1,
+                                                                    height: '4px',
+                                                                    accentColor: '#3b82f6',
+                                                                    cursor: 'pointer',
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div style={{ color: tc.textMuted, fontSize: '10px', lineHeight: '1.15' }}>{desc}</div>
+                                                    </div>
+                                                );
+                                            })}
 
-                                    {/* Total Weight Balance Indicator */}
-                                    <div style={{
-                                        borderTop: `1px solid ${tc.inputBorder}`,
-                                        marginTop: '4px',
-                                        paddingTop: '6px',
-                                    }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                                            <span style={{ color: tc.text, fontSize: '12px', fontWeight: '600' }}>Total Avg</span>
-                                                <span style={{ color: balanceColor, fontSize: '12px', fontWeight: '700' }}>
-                                                    {isNaN(avgWeight) ? '0%' : Math.round(avgWeight * 100) + '%'}
-                                                </span>
-                                        </div>
-                                        {/* Bar with centered 100% tick mark */}
-                                        <div style={{ position: 'relative', width: '100%', height: '14px' }}>
                                             <div style={{
-                                                width: '100%',
-                                                height: '6px',
-                                                backgroundColor: tc.inputBg,
-                                                borderRadius: '3px',
-                                                overflow: 'hidden',
-                                                border: `1px solid ${tc.inputBorder}`,
-                                                position: 'absolute',
-                                                top: '4px',
+                                                borderTop: `1px solid ${tc.inputBorder}`,
+                                                marginTop: '2px',
+                                                paddingTop: '4px',
                                             }}>
-                                                <div style={{
-                                                    width: `${barPercent}%`,
-                                                    height: '100%',
-                                                    backgroundColor: balanceColor,
-                                                    borderRadius: '3px',
-                                                    transition: 'width 0.2s, background-color 0.2s',
-                                                }} />
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                                                    <span style={{ color: tc.text, fontSize: '12px', fontWeight: '700' }}>Total Avg</span>
+                                                    <span style={{ color: balanceColor, fontSize: '12px', fontWeight: '700' }}>
+                                                        {isNaN(avgWeight) ? '0%' : Math.round(avgWeight * 100) + '%'}
+                                                    </span>
+                                                </div>
+                                                <div style={{ position: 'relative', width: '100%', height: '14px' }}>
+                                                    <div style={{
+                                                        width: '100%',
+                                                        height: '6px',
+                                                        backgroundColor: tc.inputBg,
+                                                        borderRadius: '3px',
+                                                        overflow: 'hidden',
+                                                        border: `1px solid ${tc.inputBorder}`,
+                                                        position: 'absolute',
+                                                        top: '4px',
+                                                    }}>
+                                                        <div style={{
+                                                            width: `${barPercent}%`,
+                                                            height: '100%',
+                                                            backgroundColor: balanceColor,
+                                                            borderRadius: '3px',
+                                                            transition: 'width 0.2s, background-color 0.2s',
+                                                        }} />
+                                                    </div>
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        left: '49.5%',
+                                                        top: '0',
+                                                        transform: 'translateX(-50%)',
+                                                        width: '18px',
+                                                        height: '14px',
+                                                        backgroundColor: '#22c55ea1',
+                                                        borderRadius: '4px',
+                                                        zIndex: 1,
+                                                        border: '2px solid #22c55e8c',
+                                                        boxSizing: 'border-box',
+                                                    }} />
+                                                </div>
+                                                <div style={{ textAlign: 'center', color: balanceColor, fontSize: '10px', marginTop: '2px', fontWeight: '600' }}>
+                                                    {isBalanced ? '✓ Balanced' : isAbove ? 'Above target — reduce weights' : 'Below target — increase weights'}
+                                                </div>
                                             </div>
-                                            {/* Center tick mark at 100% (50% of bar) */}
-                                            <div style={{
-                                                position: 'absolute',
-                                                left: '49.5%',
-                                                top: '0',
-                                                transform: 'translateX(-50%)',
-                                                width: '18px', // Increased width for variance
-                                                height: '14px',
-                                                backgroundColor: '#22c55ea1', // semi-transparent green for variance band
-                                                borderRadius: '4px',
-                                                zIndex: 1,
-                                                border: '2px solid #22c55e8c',
-                                                boxSizing: 'border-box',
-                                            }} />
-                                        </div>
-                                            <div style={{ textAlign: 'center', color: balanceColor, fontSize: '10px', marginTop: '2px', fontWeight: '500' }}>
-                                                {isBalanced ? '✓ Balanced' : isAbove ? 'Above target — reduce weights' : 'Below target — increase weights'}
-                                            </div>
-                                    </div>
 
-                                    {/* Auto-Weight Button */}
-                                    <div style={{ display: 'flex', gap: '10px', marginTop: '8px', width: '100%' }}>
-                                        <button
-                                            onClick={autoWeightFromPerformance}
-                                            disabled={isAutoWeighting}
-                                            style={{
-                                                flex: '1 1 0',
-                                                padding: '5px 0',
-                                                backgroundColor: isAutoWeighting ? '#475569' : '#2563eb', // blue-600
-                                                color: '#fff',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                fontSize: '11px',
-                                                fontWeight: '600',
-                                                cursor: isAutoWeighting ? 'wait' : 'pointer',
-                                                transition: 'background-color 0.2s',
-                                            }}
-                                        >
-                                            {isAutoWeighting ? 'Calculating weights...' : 'Recalculate Weights from History'}
-                                        </button>
-                                        <button
-                                            onClick={saveSettings}
-                                            style={{
-                                                flex: '1 1 0',
-                                                padding: '5px 0',
-                                                backgroundColor: '#299965',
-                                                color: '#ffffff',
-                                                border: 'none',
-                                                borderRadius: '4px',
-                                                fontSize: '11px',
-                                                fontWeight: '600',
-                                                cursor: 'pointer',
-                                                transition: 'background-color 0.2s',
-                                            }}
-                                        >
-                                            Save Ambition & Weights
-                                        </button>
-                                    </div>
-                                </div>
+                                            <div style={{ display: 'flex', gap: '8px', marginTop: '6px', width: '100%' }}>
+                                                <button
+                                                    onClick={autoWeightFromPerformance}
+                                                    disabled={isAutoWeighting}
+                                                    style={{
+                                                        flex: '1 1 0',
+                                                        padding: '6px 0',
+                                                        backgroundColor: isAutoWeighting ? '#475569' : '#2563eb',
+                                                        color: '#fff',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        fontSize: '11px',
+                                                        fontWeight: '700',
+                                                        cursor: isAutoWeighting ? 'wait' : 'pointer',
+                                                        transition: 'background-color 0.2s',
+                                                    }}
+                                                >
+                                                    {isAutoWeighting ? 'Calculating weights...' : 'Recalculate Weights from History'}
+                                                </button>
+                                                <button
+                                                    onClick={saveSettings}
+                                                    style={{
+                                                        flex: '1 1 0',
+                                                        padding: '6px 0',
+                                                        backgroundColor: '#299965',
+                                                        color: '#ffffff',
+                                                        border: 'none',
+                                                        borderRadius: '4px',
+                                                        fontSize: '11px',
+                                                        fontWeight: '700',
+                                                        cursor: 'pointer',
+                                                        transition: 'background-color 0.2s',
+                                                    }}
+                                                >
+                                                    Save Ambition & Weights
+                                                </button>
+                                            </div>
+                                        </div>
                                     );
                                 })()}
                             </div>
                         </div>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
     );
 }
 
@@ -1673,7 +2123,7 @@ const dashboardStyles = {
         padding: 'clamp(4px, 0.8vw, 10px)',
         boxSizing: 'border-box',
         width: '100%',
-        overflow: 'hidden',
+        overflow: 'auto',
     },
     mainContent: {
         display: 'flex',
@@ -1685,9 +2135,60 @@ const dashboardStyles = {
         flex: 1,
         minHeight: 0,
     },
+    weekCalendarWrap: {
+        display: 'grid',
+        gridTemplateColumns: '28px 1fr 28px',
+        gap: '6px',
+        width: '100%',
+        alignItems: 'stretch',
+    },
+    weekNavButton: {
+        border: '1px solid #3b82f6',
+        borderRadius: '8px',
+        background: '#1e293b',
+        color: '#ffffff',
+        fontSize: '14px',
+        fontWeight: '700',
+        cursor: 'pointer',
+        minHeight: '88px',
+    },
+    weekCalendarRow: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(108px, 1fr))',
+        gap: '6px',
+        width: '100%',
+        minHeight: 0,
+    },
+    weekTile: {
+        border: '1px solid #333',
+        borderRadius: '8px',
+        padding: '5px 6px',
+        minHeight: '88px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'flex-start',
+        overflow: 'hidden',
+    },
+    weekTileHeader: {
+        fontSize: '12px',
+        fontWeight: '700',
+        marginBottom: '4px',
+    },
+    weekTileBody: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '2px',
+    },
+    weekTileLine: {
+        fontSize: '11px',
+        lineHeight: '1.3',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+    },
     dialGrid: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
         gap: 'clamp(6px, 1vw, 12px)',
         width: '100%',
         marginBottom: 'clamp(4px, 0.6vw, 8px)',
@@ -1702,11 +2203,13 @@ const dashboardStyles = {
         alignItems: 'stretch',
         flexWrap: 'nowrap',
         flex: '0 0 auto',
+        minHeight: '300px',
+        maxHeight: '350px',
     },
     combinedSection: {
         display: 'flex',
         gap: 'clamp(6px, 1vw, 12px)',
-        flex: '0 0 auto',
+        flex: '0 0 25%',
         minWidth: 0,
     },
     combinedDial: {
@@ -1718,13 +2221,14 @@ const dashboardStyles = {
         border: '1px solid #333',
         padding: '0',
         minWidth: 0,
-        flex: '0 1 200px',
-        maxWidth: '200px',
-        minHeight: 0,
+        flex: '1 1 auto',
+        maxWidth: '100%',
+        minHeight: '300px',
+        maxHeight: '350px',
         overflow: 'hidden',
     },
     combinedTitle: {
-        fontSize: 'clamp(0.85rem, 1.1vw, 1.1rem)',
+        fontSize: 'clamp(1rem, 1.3vw, 1.2rem)',
         color: '#fff',
         fontWeight: 'bold',
         textAlign: 'center',
@@ -1741,9 +2245,12 @@ const dashboardStyles = {
         borderRadius: '8px',
         border: '1px solid #333',
         minWidth: 0,
-        flex: '1 1 0',
-        minHeight: 0,
-        overflow: 'hidden',
+        flex: '0 0 75%',
+        maxWidth: 'none',
+        minHeight: '300px',
+        maxHeight: '350px',
+        overflowY: 'auto',
+        overflowX: 'visible',
         boxSizing: 'border-box',
     },
     controlsTitle: {
@@ -1781,8 +2288,16 @@ const dialStyles = {
         boxSizing: 'border-box',
         overflow: 'hidden',
     },
+    daypartBody: {
+        display: 'flex',
+        alignItems: 'stretch',
+        gap: '8px',
+        padding: '6px 8px 8px',
+        minHeight: 0,
+        flex: 1,
+    },
     daypartTitle: {
-        fontSize: 'clamp(0.85rem, 1.1vw, 1.1rem)',
+        fontSize: 'clamp(1rem, 1.2vw, 1.2rem)',
         color: '#fff',
         fontWeight: 'bold',
         textAlign: 'center',
@@ -1795,16 +2310,26 @@ const dialStyles = {
     },
     inputRow: {
         display: 'flex',
-        flexDirection: 'row',
+        flexDirection: 'column',
         gap: '4px',
-        padding: '4px 6px 6px',
+        padding: '6px 8px 8px',
         boxSizing: 'border-box',
         width: '100%',
+        alignItems: 'stretch',
+    },
+    inputColumn: {
+        flex: '0 0 165px',
+        minWidth: '160px',
+        maxWidth: '190px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '6px',
+        justifyContent: 'center',
     },
     rowInput: {
         flex: 1,
-        padding: '5px 2px',
-        fontSize: 'clamp(10px, 0.9vw, 12px)',
+        padding: '7px 8px',
+        fontSize: 'clamp(12px, 1.05vw, 14px)',
         borderRadius: '4px',
         border: '1px solid #444',
         textAlign: 'center',
@@ -1819,15 +2344,36 @@ const dialStyles = {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        padding: '8px',
+        padding: '2px',
         minHeight: 0,
+    },
+    mainInput: {
+        flex: '1 1 auto',
+        minWidth: 0,
+    },
+    picInputStack: {
+        flex: '1 1 auto',
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '4px',
+    },
+    picSelect: {
+        width: '100%',
+        textAlign: 'center',
+        paddingLeft: '0',
+    },
+    picCustomInput: {
+        width: '100%',
+        textAlign: 'left',
+        paddingLeft: '8px',
     },
     dataSection: {
         width: '100%',
-        minHeight: '60px',
+        minHeight: '54px',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'flex-start',
+        justifyContent: 'center',
         alignItems: 'center',
     },
     inputGroup: {
@@ -1862,17 +2408,19 @@ const dialStyles = {
         padding: '6px 8px',
         borderRadius: '6px',
         border: '2px solid',
-        margin: '4px 0',
+        margin: '2px 0',
         textAlign: 'center',
+        width: '100%',
+        boxSizing: 'border-box',
     },
     zoneName: {
-        fontSize: '11px',
+        fontSize: '15px',
         fontWeight: 'bold',
         marginBottom: '2px',
         textAlign: 'center',
     },
     zoneAction: {
-        fontSize: '10px',
+        fontSize: '11px',
         opacity: 0.9,
         textAlign: 'center',
         lineHeight: '1.2',

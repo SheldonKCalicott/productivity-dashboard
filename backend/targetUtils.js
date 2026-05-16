@@ -1,22 +1,28 @@
 // Centralized tier tables and target calculation logic for Node.js backend
 
-
-// New linear formula for all tiers
-const tierBaselines = {
-  'Bottom 50%': 84.5,
-  'Top 50%': 86.8,
-  'Top 33%': 89.2,
-  'Top 20%': 92.0,
-  'Top 10%': 95.1
+const tierOffsets = {
+  'Bottom 50%': -2.0,
+  'Top 50%': 0.0,
+  'Top 33%': 1.6,
+  'Top 20%': 3.2,
+  'Top 10%': 5.6,
 };
-const SLOPE = 0.30;
-const ANCHOR_SALES = 30000;
 
-function calculateTargetProductivity(daypartKey, totalDailySales, selectedTier = 'Top 50%', daypartWeights = { breakfast: 0.84, lunch: 1.21, afternoon: 1.09, dinner: 0.86 }) {
-  const baseline = tierBaselines[selectedTier] || 85;
-  const salesDelta = (totalDailySales - ANCHOR_SALES) / 1000;
-  const baseTarget = baseline + SLOPE * salesDelta;
-  return Math.round(baseTarget * daypartWeights[daypartKey]);
+const MIN_SALES_FOR_LOG = 1000;
+const LOG_BENCHMARK_MULTIPLIER = 16.75;
+const LOG_BENCHMARK_INTERCEPT = -84.9;
+
+function benchmarkFromSales(totalDailySales) {
+  const safeSales = Math.max(MIN_SALES_FOR_LOG, Number(totalDailySales) || 0);
+  const benchmark = LOG_BENCHMARK_MULTIPLIER * Math.log(safeSales) + LOG_BENCHMARK_INTERCEPT;
+  return Math.max(60, Math.min(110, benchmark));
 }
 
-export { tierBaselines, calculateTargetProductivity };
+function calculateTargetProductivity(daypartKey, totalDailySales, selectedTier = 'Top 50%', daypartWeights = { breakfast: 0.84, lunch: 1.21, afternoon: 1.09, dinner: 0.86 }) {
+  const benchmark = benchmarkFromSales(totalDailySales);
+  const tierAdjusted = benchmark + (tierOffsets[selectedTier] ?? 0);
+  const weightedTarget = tierAdjusted * (daypartWeights[daypartKey] || 1);
+  return Math.round(weightedTarget * 10) / 10;
+}
+
+export { tierOffsets, calculateTargetProductivity };

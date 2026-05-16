@@ -85,8 +85,8 @@ input[type="range"].daypart-slider {
   appearance: none;
 }
 input[type="range"].daypart-slider::-webkit-slider-thumb {
-  width: 100px;
-  height: 100px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #3b82f6;
   border: 2px solid #fff;
@@ -100,8 +100,8 @@ input[type="range"].daypart-slider:focus::-webkit-slider-thumb {
   background: #2563eb;
 }
 input[type="range"].daypart-slider::-moz-range-thumb {
-  width: 100px;
-  height: 100px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #3b82f6;
   border: 2px solid #fff;
@@ -113,8 +113,8 @@ input[type="range"].daypart-slider:focus::-moz-range-thumb {
   background: #2563eb;
 }
 input[type="range"].daypart-slider::-ms-thumb {
-  width: 100px;
-  height: 100px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: #3b82f6;
   border: 2px solid #fff;

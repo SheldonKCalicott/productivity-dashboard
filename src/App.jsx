@@ -1,7 +1,6 @@
 import React, { useState, createContext, useContext } from 'react'
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import DashboardSelector from './DashboardSelector'
-import SimplifiedDashboard from './SimplifiedDashboard'
 import DaypartDashboard from './DaypartDashboard'
 import ReportsPage from './ReportsPage'
 
@@ -138,7 +137,7 @@ function TemplateWrapper() {
     
     return (
         <DashboardWrapper title="Template" isTemplate={true}>
-            <SimplifiedDashboard onNavigateToReports={null} />
+            <DaypartDashboard onNavigateToReports={null} storeName="demo" />
         </DashboardWrapper>
     )
 }
