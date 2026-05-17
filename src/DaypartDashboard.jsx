@@ -1557,22 +1557,22 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         background: tc.bg,
         color: tc.text,
         ...(isTabletLandscape ? {
-            padding: '4px',
+            padding: '3px',
             height: 'calc(100vh - 44px)',
             maxHeight: 'calc(100vh - 44px)',
         } : {})
     }
     const tMainContent = {
         ...dashboardStyles.mainContent,
-        ...(isTabletLandscape ? { gap: '6px' } : {})
+        ...(isTabletLandscape ? { gap: '4px' } : { gap: '6px' })
     }
     const tDialGrid = {
         ...dashboardStyles.dialGrid,
-        ...(isTabletLandscape ? { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' } : {})
+        ...(isTabletLandscape ? { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '5px', marginBottom: '4px' } : {})
     }
     const tBottomRow = {
         ...dashboardStyles.bottomRow,
-        ...(isTabletLandscape ? { minHeight: '262px', maxHeight: '312px', gap: '8px' } : {})
+        ...(isTabletLandscape ? { minHeight: '252px', maxHeight: '298px', gap: '6px', width: 'calc(100% - 6px)', margin: '0 auto' } : { width: 'calc(100% - 6px)', margin: '0 auto' })
     }
     const tInputSection = {...dialStyles.inputSection, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
     const tDaypartTitle = {
@@ -1658,16 +1658,16 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
 
     const renderWeekCalendar = () => (
-        <div style={{ ...dashboardStyles.weekCalendarWrap, ...(isTabletLandscape ? { gridTemplateColumns: '24px 1fr 24px', gap: '4px' } : {}) }}>
+        <div style={{ ...dashboardStyles.weekCalendarWrap, ...(isTabletLandscape ? { gridTemplateColumns: '22px 1fr 22px', gap: '3px' } : {}) }}>
             <button
                 type="button"
                 onClick={() => shiftWeek(-1)}
-                style={{ ...dashboardStyles.weekNavButton, paddingLeft: '10px', ...(isTabletLandscape ? { minHeight: '78px', fontSize: '12px' } : {}) }}
+                style={{ ...dashboardStyles.weekNavButton, paddingLeft: '0', ...(isTabletLandscape ? { minHeight: '72px', fontSize: '10px' } : {}) }}
                 aria-label="Previous week"
             >
                 ◀
             </button>
-            <div style={{ ...dashboardStyles.weekCalendarRow, ...(isTabletLandscape ? { gridTemplateColumns: 'repeat(7, minmax(92px, 1fr))', gap: '4px' } : {}) }}>
+            <div style={{ ...dashboardStyles.weekCalendarRow, ...(isTabletLandscape ? { gridTemplateColumns: 'repeat(7, minmax(84px, 1fr))', gap: '3px' } : {}) }}>
                 {weeklySnapshots.map((snapshot) => {
                 const tileDate = new Date(snapshot.date + 'T00:00:00')
                 const dayLabel = tileDate.toLocaleDateString('en-US', { weekday: 'short' })
@@ -1684,7 +1684,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         onClick={() => handleDateChange(snapshot.date)}
                         style={{
                             ...dashboardStyles.weekTile,
-                            ...(isTabletLandscape ? { minHeight: '78px', padding: '4px 5px' } : {}),
+                            ...(isTabletLandscape ? { minHeight: '72px', padding: '3px 4px' } : {}),
                             ...(snapshot.date === weeklySnapshots[0]?.date ? { paddingLeft: '12px' } : {}),
                             borderColor: isActiveDate ? '#3b82f6' : tc.cardBorder,
                             backgroundColor: isActiveDate ? `${tc.headerBg}` : tc.cardBg,
@@ -1720,7 +1720,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             <button
                 type="button"
                 onClick={() => shiftWeek(1)}
-                style={{ ...dashboardStyles.weekNavButton, ...(isTabletLandscape ? { minHeight: '78px', fontSize: '12px' } : {}) }}
+                style={{ ...dashboardStyles.weekNavButton, ...(isTabletLandscape ? { minHeight: '72px', fontSize: '10px' } : {}) }}
                 aria-label="Next week"
             >
                 ▶
@@ -1866,11 +1866,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             color: tc.text,
                             fontWeight: 'bold',
                             textAlign: 'center',
-                            margin: isMobileViewport ? '0 -10px 4px -10px' : '0 -10px 6px -10px',
+                            margin: isMobileViewport ? '0 -6px 4px -6px' : '0 -6px 6px -6px',
                             padding: isMobileViewport ? '5px' : '7px',
                             backgroundColor: tc.headerBg,
                             borderRadius: '8px 8px 0 0',
-                            width: 'calc(100% + 20px)',
+                            width: 'calc(100% + 12px)',
                             boxSizing: 'border-box'
                         }}>
                             Operations Control Center
@@ -1995,7 +1995,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 onClick={(e) => e.target.showPicker && e.target.showPicker()}
                                                 style={{
                                                     ...dataControlBase,
-                                                    fontSize: '11px',
                                                     cursor: 'pointer'
                                                 }}
                                             />
@@ -2007,7 +2006,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 onClick={(e) => e.target.showPicker && e.target.showPicker()}
                                                 style={{
                                                     ...dataControlBase,
-                                                    fontSize: '11px',
                                                     cursor: 'pointer'
                                                 }}
                                             />
@@ -2019,12 +2017,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                             type="button"
                                             onClick={() => setShowPicManager(true)}
                                             style={{
-                                                width: '100%',
-                                                padding: isTabletLandscape ? '6px 8px' : '7px 10px',
-                                                backgroundColor: tc.inputBg,
-                                                color: tc.text,
-                                                border: `1px solid ${tc.inputBorder}`,
-                                                borderRadius: '4px',
+                                                ...dataControlBase,
                                                 fontSize: '11px',
                                                 fontWeight: '700',
                                                 cursor: 'pointer'
@@ -2473,21 +2466,23 @@ const dashboardStyles = {
         overflow: 'hidden',
     },
     weekTileHeader: {
-        fontSize: '12px',
+        fontSize: 'clamp(8px, 0.75vw, 10px)',
         fontWeight: '700',
-        marginBottom: '4px',
+        marginBottom: '2px',
+        lineHeight: '1.1',
+        whiteSpace: 'nowrap',
     },
     weekTileBody: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '2px',
+        gap: '1px',
     },
     weekTileLine: {
-        fontSize: '11px',
-        lineHeight: '1.3',
+        fontSize: 'clamp(7px, 0.68vw, 9px)',
+        lineHeight: '1.1',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
-        textOverflow: 'ellipsis',
+        textOverflow: 'clip',
     },
     dialGrid: {
         display: 'grid',
