@@ -1572,7 +1572,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
     const tBottomRow = {
         ...dashboardStyles.bottomRow,
-        ...(isTabletLandscape ? { minHeight: '252px', maxHeight: '298px', gap: '6px', width: 'calc(100% - 6px)', margin: '0 auto' } : { width: 'calc(100% - 6px)', margin: '0 auto' })
+        ...(isTabletLandscape ? { minHeight: '236px', maxHeight: '282px', gap: '6px', width: 'calc(100% - 6px)', margin: '0 auto' } : { minHeight: '252px', maxHeight: '300px', width: 'calc(100% - 6px)', margin: '0 auto' })
     }
     const tInputSection = {...dialStyles.inputSection, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
     const tDaypartTitle = {
@@ -1581,7 +1581,13 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         color: tc.text,
         ...(isMobileViewport ? { fontSize: '0.88rem', padding: '4px 6px' } : {})
     }
-    const tRowInput = {...dialStyles.rowInput, background: tc.inputBg, border: `1px solid ${tc.inputBorder}`, color: tc.text}
+    const tRowInput = {
+        ...dialStyles.rowInput,
+        background: tc.inputBg,
+        border: `1px solid ${tc.inputBorder}`,
+        color: tc.text,
+        ...(isTabletLandscape ? { padding: '5px 6px', fontSize: '11px' } : {})
+    }
     const tCombinedSection = {
         ...dashboardStyles.combinedSection,
         ...(isTabletLandscape ? { flex: '0 0 24%' } : { flex: '0 0 20%' })
@@ -1590,7 +1596,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         ...dashboardStyles.combinedDial,
         background: tc.cardBg,
         border: `1px solid ${tc.cardBorder}`,
-        ...(isTabletLandscape ? { minHeight: '248px', maxHeight: '294px' } : { minHeight: '268px', maxHeight: '320px' })
+        ...(isTabletLandscape ? { minHeight: '228px', maxHeight: '274px' } : { minHeight: '246px', maxHeight: '292px' })
     }
     const tCombinedTitle = {
         ...dashboardStyles.combinedTitle,
@@ -1604,18 +1610,18 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         border: `1px solid ${tc.cardBorder}`,
         ...(isTabletLandscape ? {
             flex: '0 0 76%',
-            minHeight: '248px',
-            maxHeight: '294px',
-            padding: '0 8px 6px 8px',
+            minHeight: '228px',
+            maxHeight: '274px',
+            padding: '0 6px 4px 6px',
         } : {
             flex: '0 0 80%',
         })
     }
     const dataControlBase = {
         width: '100%',
-        minHeight: isMobileViewport ? '32px' : '34px',
-        padding: isMobileViewport ? '5px 7px' : '6px 8px',
-        fontSize: '12px',
+        minHeight: isMobileViewport ? '30px' : '32px',
+        padding: isMobileViewport ? '4px 6px' : '5px 7px',
+        fontSize: '11px',
         backgroundColor: tc.inputBg,
         color: tc.text,
         border: `1px solid ${tc.inputBorder}`,
@@ -1745,7 +1751,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return (
             <div style={tInputSection} key={daypartKey}>
                 <h4 style={tDaypartTitle}>{title}</h4>
-                <div style={{ ...dialStyles.daypartBody, ...(isTabletLandscape ? { gap: '6px', padding: '5px 6px 6px' } : {}) }}>
+                <div style={{ ...dialStyles.daypartBody, ...(isTabletLandscape ? { gap: '5px', padding: '3px 5px 4px' } : { padding: '4px 6px 5px' }) }}>
                     <div style={{ ...dialStyles.dialContainer, flex: '1 1 auto' }}>
                         <SimplifiedProductivityDial
                             title={title}
@@ -1757,7 +1763,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             compactMode={isMobileViewport}
                         />
                     </div>
-                    <div style={{ ...dialStyles.inputColumn, ...(isTabletLandscape ? { flex: '0 0 142px', minWidth: '136px', maxWidth: '154px', gap: '5px' } : {}) }}>
+                    <div style={{ ...dialStyles.inputColumn, ...(isTabletLandscape ? { flex: '0 0 132px', minWidth: '126px', maxWidth: '142px', gap: '4px' } : { gap: '5px' }) }}>
                         <input
                             type="text"
                             placeholder="$ Sales"
@@ -1862,12 +1868,12 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     {/* Controls Panel */}
                     <div style={tControlsPanel}>
                         <h4 style={{
-                            fontSize: isMobileViewport ? '0.95rem' : '1.1rem',
+                            fontSize: isMobileViewport ? '0.9rem' : '1rem',
                             color: tc.text,
                             fontWeight: 'bold',
                             textAlign: 'center',
                             margin: isMobileViewport ? '0 -6px 4px -6px' : '0 -6px 6px -6px',
-                            padding: isMobileViewport ? '5px' : '7px',
+                            padding: isMobileViewport ? '4px' : '6px',
                             backgroundColor: tc.headerBg,
                             borderRadius: '8px 8px 0 0',
                             width: 'calc(100% + 12px)',
@@ -1882,13 +1888,13 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         }}>
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: isTabletLandscape ? '1fr 1.1fr' : '1fr 1.25fr', gap: isTabletLandscape ? '4px' : '0px', margin: '0', padding: '4px 0 0 0', width: '100%', height: '100%' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isTabletLandscape ? '1fr 1.1fr' : '1fr 1.25fr', gap: isTabletLandscape ? '3px' : '0px', margin: '0', padding: '2px 0 0 0', width: '100%', height: '100%' }}>
                             {/* Left Column: Data Management + Ambition */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '0 8px 0 4px', boxSizing: 'border-box', borderRight: `1px solid ${tc.cardBorder}` }}>
-                                <h5 style={{ margin: '0 0 2px 0', color: tc.text, fontSize: isMobileViewport ? '14px' : '16px', fontWeight: '700', padding: '0 4px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', padding: '0 6px 0 3px', boxSizing: 'border-box', borderRight: `1px solid ${tc.cardBorder}` }}>
+                                <h5 style={{ margin: '0 0 1px 0', color: tc.text, fontSize: isMobileViewport ? '12px' : '14px', fontWeight: '700', padding: '0 2px', textAlign: 'center' }}>
                                     Data Management
                                 </h5>
-                                <div style={{ textAlign: 'center', margin: '0', padding: '0 2px 8px', boxSizing: 'border-box', order: 2 }}>
+                                <div style={{ textAlign: 'center', margin: '0', padding: '0 1px 4px', boxSizing: 'border-box', order: 2 }}>
 
                                     {!isDemo && showDataBanner && (
                                         <div style={{
@@ -1905,8 +1911,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                         </div>
                                     )}
 
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', padding: '0 4px' }}>
-                                        <div style={{ textAlign: 'left' }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '6px', padding: '0 2px' }}>
+                                        <div style={{ textAlign: 'left', minWidth: 0 }}>
                                             <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '700', textAlign: 'left' }}>
                                                 Date
                                             </h6>
@@ -1923,7 +1929,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     style={{
                                                         ...dataControlBase,
                                                         cursor: 'pointer',
-                                                        marginBottom: '12px'
+                                                        marginBottom: '8px'
                                                     }}
                                                 />
                                             )}
@@ -1937,7 +1943,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     color: '#ffffff',
                                                     border: 'none',
                                                     borderRadius: '4px',
-                                                    fontSize: '12px',
+                                                    fontSize: '11px',
                                                     cursor: 'pointer',
                                                     fontWeight: '700',
                                                     whiteSpace: 'nowrap'
@@ -1947,7 +1953,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                             </button>
                                         </div>
 
-                                        <div style={{ textAlign: 'left' }}>
+                                        <div style={{ textAlign: 'left', minWidth: 0 }}>
                                             <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '700', textAlign: 'left' }}>
                                                 Export Data
                                             </h6>
@@ -1956,7 +1962,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 onChange={(e) => setExportDateRange(e.target.value)}
                                                 style={{
                                                     ...dataControlBase,
-                                                    marginBottom: '12px'
+                                                    marginBottom: '8px'
                                                 }}
                                             >
                                                 <option value="this-week">This Week</option>
@@ -1974,7 +1980,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     color: '#ffffff',
                                                     border: 'none',
                                                     borderRadius: '4px',
-                                                    fontSize: '12px',
+                                                    fontSize: '11px',
                                                     cursor: 'pointer',
                                                     fontWeight: '700',
                                                     whiteSpace: 'nowrap'
@@ -1986,7 +1992,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     </div>
 
                                     {exportDateRange === 'custom-start-date' && (
-                                        <div style={{ marginTop: '8px', padding: '0 4px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                        <div style={{ marginTop: '6px', padding: '0 2px', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '6px' }}>
                                             <input
                                                 type="date"
                                                 placeholder="Start"
@@ -2012,7 +2018,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                         </div>
                                     )}
 
-                                    <div style={{ marginTop: '8px', padding: '0 4px' }}>
+                                    <div style={{ marginTop: '6px', padding: '0 2px' }}>
                                         <button
                                             type="button"
                                             onClick={() => setShowPicManager(true)}
@@ -2028,8 +2034,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     </div>
                                 </div>
 
-                                <div style={{ textAlign: 'center', margin: '0', padding: '4px 6px 8px', boxSizing: 'border-box', order: 1, borderBottom: `1px solid ${tc.cardBorder}` }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', alignItems: 'start' }}>
+                                <div style={{ textAlign: 'center', margin: '0', padding: '3px 4px 5px', boxSizing: 'border-box', order: 1, borderBottom: `1px solid ${tc.cardBorder}` }}>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '6px', alignItems: 'start' }}>
                                         <div style={{ textAlign: 'left' }}>
                                             <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '700', textAlign: 'left' }}>
                                                 Ambition Tier
@@ -2097,14 +2103,14 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             </div>
 
                             {/* Right Column: Operational Weights */}
-                            <div style={{ margin: '0', padding: '0 4px 0 10px', boxSizing: 'border-box' }}>
+                            <div style={{ margin: '0', padding: '0 3px 0 7px', boxSizing: 'border-box' }}>
                                 <h5 style={{
-                                    margin: '0 0 4px 0',
+                                    margin: '0 0 2px 0',
                                     color: tc.text,
-                                    fontSize: isMobileViewport ? '13px' : '15px',
+                                    fontSize: isMobileViewport ? '12px' : '14px',
                                     fontWeight: '700',
                                     textAlign: 'center',
-                                    padding: '0 10px'
+                                    padding: '0 6px'
                                 }}>
                                     Operational Weights
                                 </h5>
@@ -2270,6 +2276,85 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 </div>
             </div>
 
+            {showPicModal && (
+                <div
+                    onClick={cancelPicModal}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.55)',
+                        zIndex: 1250,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '16px',
+                    }}
+                >
+                    <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                            width: 'min(420px, 100%)',
+                            backgroundColor: tc.cardBg,
+                            border: `1px solid ${tc.cardBorder}`,
+                            borderRadius: '10px',
+                            boxShadow: '0 12px 36px rgba(0,0,0,0.35)',
+                            padding: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                        }}
+                    >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h6 style={{ margin: 0, color: tc.text, fontSize: '13px', fontWeight: '700' }}>Add New PIC</h6>
+                            <button
+                                type="button"
+                                onClick={cancelPicModal}
+                                style={{
+                                    border: `1px solid ${tc.inputBorder}`,
+                                    backgroundColor: tc.inputBg,
+                                    color: tc.text,
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    padding: '4px 8px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Close
+                            </button>
+                        </div>
+                        <input
+                            type="text"
+                            value={newPicName}
+                            onChange={(e) => setNewPicName(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') savePicFromModal()
+                            }}
+                            placeholder="Enter PIC name"
+                            autoFocus
+                            style={{ ...dataControlBase, textAlign: 'left' }}
+                        />
+                        <button
+                            type="button"
+                            onClick={savePicFromModal}
+                            disabled={!newPicName.trim()}
+                            style={{
+                                minHeight: dataControlBase.minHeight,
+                                padding: '6px 10px',
+                                backgroundColor: '#2563eb',
+                                color: '#fff',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            Add PIC
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {showPicManager && (
                 <div
                     onClick={() => setShowPicManager(false)}
@@ -2433,8 +2518,8 @@ const dashboardStyles = {
     },
     weekCalendarWrap: {
         display: 'grid',
-        gridTemplateColumns: '28px 1fr 28px',
-        gap: '6px',
+        gridTemplateColumns: '24px 1fr 24px',
+        gap: '4px',
         width: '100%',
         alignItems: 'stretch',
     },
@@ -2443,23 +2528,23 @@ const dashboardStyles = {
         borderRadius: '8px',
         background: '#1e293b',
         color: '#ffffff',
-        fontSize: '14px',
+        fontSize: '11px',
         fontWeight: '700',
         cursor: 'pointer',
-        minHeight: '88px',
+        minHeight: '74px',
     },
     weekCalendarRow: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(108px, 1fr))',
-        gap: '6px',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))',
+        gap: '4px',
         width: '100%',
         minHeight: 0,
     },
     weekTile: {
         border: '1px solid #333',
         borderRadius: '8px',
-        padding: '5px 6px',
-        minHeight: '88px',
+        padding: '3px 4px',
+        minHeight: '74px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-start',
@@ -2642,7 +2727,7 @@ const dialStyles = {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'flex-start',
-        padding: '2px',
+        padding: '0',
         minHeight: 0,
     },
     mainInput: {
@@ -2668,7 +2753,7 @@ const dialStyles = {
     },
     dataSection: {
         width: '100%',
-        minHeight: '54px',
+        minHeight: '40px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
