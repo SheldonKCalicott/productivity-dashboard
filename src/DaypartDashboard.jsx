@@ -43,7 +43,7 @@ const orderedDayparts = ['breakfast', 'lunch', 'afternoon', 'dinner']
 const fallbackTotalDaySales = Object.values(defaultDaypartSales).reduce((sum, value) => sum + value, 0)
 
 // Simplified Productivity Dial - focused on ONE job: actual vs target
-function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, noDataMessage = "Enter sales and actual productivity below", themeColors = null, statusOnRight = false, compact = false }) {
+function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, noDataMessage = "Enter sales and actual productivity below", themeColors = null, statusOnRight = false, compactMode = false, superCompact = false }) {
     const tc = themeColors || themes.dark
     // Sales-driven dial configuration - focused range for granular measurement
     const DIAL_RANGE = 20  // +/- 10 points from target for precise measurement
@@ -51,7 +51,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     const MAX_PRODUCTIVITY = targetProductivity + DIAL_RANGE/2
     
     // Dynamic dial size based on type - SVG viewBox is larger to avoid tick clipping
-    const dialSize = isDayNight ? (compact ? 168 : 194) : (compact ? 150 : 188)
+    const dialSize = superCompact ? (isDayNight ? 138 : 146) : (compactMode ? (isDayNight ? 166 : 154) : (isDayNight ? 194 : 188))
     const svgSize = dialSize + 30  // extra padding for outer tick labels
     const centerX = svgSize / 2
     const centerY = svgSize / 2
@@ -145,7 +145,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                         x={labelX}
                         y={labelY}
                         fill={isTarget ? tc.text : tc.textSubtle}
-                        fontSize={isDayNight ? (isTarget ? "15" : "13") : (isTarget ? "14" : "12")}
+                        fontSize={compactMode ? (isDayNight ? (isTarget ? "12" : "11") : (isTarget ? "11" : "10")) : (isDayNight ? (isTarget ? "15" : "13") : (isTarget ? "14" : "12"))}
                         fontWeight={isTarget ? "bold" : "normal"}
                         textAnchor="middle"
                         dominantBaseline="middle"
@@ -163,7 +163,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
         if (!targetAngle || !targetProductivity) return null
 
         const createArc = (startAngle, endAngle, color, opacity = 0.15) => {
-            const arcRadius = isDayNight ? radius - 20 : radius - 22   // EDIT HERE: Zone thickness (bigger zones for Day/Night)
+            const arcRadius = compactMode ? (isDayNight ? radius - 17 : radius - 18) : (isDayNight ? radius - 20 : radius - 22)
             
             let actualEndAngle = endAngle
             if (endAngle < startAngle) {
@@ -291,7 +291,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                                 x2={centerX + (radius - 25) * Math.cos((actualAngle * Math.PI) / 180)}
                                 y2={centerY + (radius - 25) * Math.sin((actualAngle * Math.PI) / 180)}
                                 stroke={currentZone?.color || "#fff"}
-                                strokeWidth={isDayNight ? "3" : "4"}
+                                strokeWidth={superCompact ? "2" : (compactMode ? "2.5" : (isDayNight ? "3" : "4"))}
                                 strokeLinecap="round"
                                 style={{ transition: 'all 0.3s ease-in-out' }}
                             />
@@ -301,16 +301,17 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                         <circle
                             cx={centerX}
                             cy={centerY}
-                            r={isDayNight ? "4" : "5"}
+                            r={superCompact ? "3" : (compactMode ? "3.5" : (isDayNight ? "4" : "5"))}
                             fill={tc.text}
                         />
                     </svg>
                 </div>
 
-                <div style={{ ...dialStyles.dataSection, width: statusOnRight ? 'min(44%, 320px)' : '100%', minWidth: statusOnRight ? '168px' : '0', flex: statusOnRight ? '0 1 44%' : '1 1 auto' }}>
+                <div style={{ ...dialStyles.dataSection, width: statusOnRight ? 'min(44%, 320px)' : '100%', minWidth: statusOnRight ? (compactMode ? '142px' : '168px') : '0', flex: statusOnRight ? '0 1 44%' : '1 1 auto' }}>
                     {/* Current Status - Always visible */}
                     <div style={{
                         ...dialStyles.statusBadge,
+                        ...(superCompact ? { padding: '3px 5px', margin: '0' } : (compactMode ? { padding: '4px 6px', margin: '1px 0' } : {})),
                         backgroundColor: currentZone.color + '22',
                         borderColor: currentZone.color
                     }}>
@@ -318,17 +319,19 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                             ...dialStyles.zoneName,
                             color: currentZone.color,
                             whiteSpace: 'normal',
-                            lineHeight: '1.4'
+                            lineHeight: superCompact ? '1.1' : (compactMode ? '1.25' : '1.4'),
+                            fontSize: superCompact ? '10px' : (compactMode ? '12px' : dialStyles.zoneName.fontSize),
+                            marginBottom: superCompact ? '0' : (compactMode ? '1px' : dialStyles.zoneName.marginBottom)
                         }}>
                             {currentZone.zone} {laborDelta !== null && currentZone.zone !== "No Data" && `(${laborDelta > 0 ? '+' : ''}${laborDelta.toFixed(1)} hrs)`}
                         </div>
                         <div style={{
                             ...dialStyles.zoneAction,
-                            fontSize: isDayNight ? 'clamp(11px, 1.15vw, 13px)' : dialStyles.zoneAction.fontSize,
+                            fontSize: superCompact ? '9px' : (compactMode ? '10px' : (isDayNight ? 'clamp(11px, 1.15vw, 13px)' : dialStyles.zoneAction.fontSize)),
                             whiteSpace: 'pre-wrap',
                             wordBreak: 'break-word',
                             overflowWrap: 'anywhere',
-                            lineHeight: '1.4'
+                            lineHeight: superCompact ? '1.1' : (compactMode ? '1.2' : '1.4')
                         }}>
                             {currentZone.action}
                         </div>
@@ -498,7 +501,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     
     // Demo banner state (no saving for demo)
     const [showDemoBanner, setShowDemoBanner] = useState(false)
-    const [showControlsDrawer, setShowControlsDrawer] = useState(false)
 
     const weekdayOptions = [
         { value: 0, full: 'Sunday', short: 'Sun' },
@@ -562,12 +564,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         window.addEventListener('resize', updateViewportSize)
         return () => window.removeEventListener('resize', updateViewportSize)
     }, [])
-
-    useEffect(() => {
-        if (!isMobileViewport) {
-            setShowControlsDrawer(false)
-        }
-    }, [isMobileViewport])
 
     const normalizePicName = (name) => {
         const cleaned = (name || '').toString().trim()
@@ -1572,59 +1568,53 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
     const tDialGrid = {
         ...dashboardStyles.dialGrid,
-        ...(isTabletLandscape ? { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' } : {}),
-        ...(isMobileViewport ? { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '5px' } : {})
+        ...(isTabletLandscape ? { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '6px' } : {})
     }
     const tBottomRow = {
         ...dashboardStyles.bottomRow,
-        ...(isTabletLandscape ? { minHeight: '262px', maxHeight: '312px', gap: '8px' } : {}),
-        ...(isMobileViewport ? { minHeight: '220px', maxHeight: 'none', gap: '6px' } : {})
+        ...(isTabletLandscape ? { minHeight: '262px', maxHeight: '312px', gap: '8px' } : {})
     }
     const tInputSection = {...dialStyles.inputSection, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
-    const tDaypartTitle = {...dialStyles.daypartTitle, backgroundColor: tc.headerBg, color: tc.text}
+    const tDaypartTitle = {
+        ...dialStyles.daypartTitle,
+        backgroundColor: tc.headerBg,
+        color: tc.text,
+        ...(isMobileViewport ? { fontSize: '0.88rem', padding: '4px 6px' } : {})
+    }
     const tRowInput = {...dialStyles.rowInput, background: tc.inputBg, border: `1px solid ${tc.inputBorder}`, color: tc.text}
     const tCombinedSection = {
         ...dashboardStyles.combinedSection,
-        ...(isTabletLandscape ? { flex: '0 0 31%' } : {}),
-        ...(isMobileViewport ? { flex: '1 1 auto', width: '100%' } : {})
+        ...(isTabletLandscape ? { flex: '0 0 24%' } : { flex: '0 0 20%' })
     }
     const tCombinedDial = {
         ...dashboardStyles.combinedDial,
         background: tc.cardBg,
         border: `1px solid ${tc.cardBorder}`,
-        ...(isTabletLandscape ? { minHeight: '262px', maxHeight: '312px' } : {})
+        ...(isTabletLandscape ? { minHeight: '248px', maxHeight: '294px' } : { minHeight: '268px', maxHeight: '320px' })
     }
-    const tCombinedTitle = {...dashboardStyles.combinedTitle, backgroundColor: tc.headerBg, color: tc.text}
+    const tCombinedTitle = {
+        ...dashboardStyles.combinedTitle,
+        backgroundColor: tc.headerBg,
+        color: tc.text,
+        ...(isMobileViewport ? { fontSize: '0.9rem', padding: '4px 6px' } : {})
+    }
     const tControlsPanel = {
         ...dashboardStyles.controlsPanel,
         background: tc.cardBg,
         border: `1px solid ${tc.cardBorder}`,
         ...(isTabletLandscape ? {
-            flex: '0 0 69%',
-            minHeight: '262px',
-            maxHeight: '312px',
+            flex: '0 0 76%',
+            minHeight: '248px',
+            maxHeight: '294px',
             padding: '0 8px 6px 8px',
-        } : {}),
-        ...(isMobileViewport ? {
-            display: showControlsDrawer ? 'block' : 'none',
-            position: 'fixed',
-            top: '56px',
-            left: '8px',
-            right: '8px',
-            bottom: '8px',
-            zIndex: 1201,
-            minHeight: 'auto',
-            maxHeight: 'none',
-            flex: 'unset',
-            width: 'auto',
-            padding: '0 8px 8px 8px',
-            boxShadow: '0 12px 24px rgba(0, 0, 0, 0.45)',
-        } : {})
+        } : {
+            flex: '0 0 80%',
+        })
     }
-    const normalizedControlStyle = {
+    const dataControlBase = {
         width: '100%',
-        minHeight: isMobileViewport ? '36px' : '34px',
-        padding: isMobileViewport ? '7px 8px' : '7px 8px',
+        minHeight: isMobileViewport ? '32px' : '34px',
+        padding: isMobileViewport ? '5px 7px' : '6px 8px',
         fontSize: '12px',
         backgroundColor: tc.inputBg,
         color: tc.text,
@@ -1695,6 +1685,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         style={{
                             ...dashboardStyles.weekTile,
                             ...(isTabletLandscape ? { minHeight: '78px', padding: '4px 5px' } : {}),
+                            ...(snapshot.date === weeklySnapshots[0]?.date ? { paddingLeft: '12px' } : {}),
                             borderColor: isActiveDate ? '#3b82f6' : tc.cardBorder,
                             backgroundColor: isActiveDate ? `${tc.headerBg}` : tc.cardBg,
                             cursor: 'pointer',
@@ -1763,7 +1754,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             targetProductivity={calculateTargetProductivity(daypartKey, getDisplayDaypartSales(daypartKey), selectedTier, daypartWeights)}
                             salesContext="Tier-Based"
                             themeColors={tc}
-                            compact={isMobileViewport}
+                            compactMode={isMobileViewport}
                         />
                     </div>
                     <div style={{ ...dialStyles.inputColumn, ...(isTabletLandscape ? { flex: '0 0 142px', minWidth: '136px', maxWidth: '154px', gap: '5px' } : {}) }}>
@@ -1789,6 +1780,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
     
     return (
+        <>
         <div style={tDashboardContainer}>
             <div style={tMainContent}>
                 {/* Demo Banner - Only show in demo mode */}
@@ -1859,8 +1851,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     enhancedActionMessage={`Cumulative Sales: ${formatCurrencyWithZero(getTotalDaySales())}\nProductivity: ${getTotalDayActual() ? getTotalDayActual().toFixed(1) : '0.0'}\nTarget: ${getTotalDayTarget() ? getTotalDayTarget().toFixed(1) : '0.0'}`}
                                     noDataMessage="Add daypart sales and productivity to unlock total day guidance"
                                     themeColors={tc}
-                                    statusOnRight={true}
-                                    compact={isMobileViewport}
+                                    statusOnRight={false}
+                                    compactMode={true}
+                                    superCompact={true}
                                 />
                             </div>
                         </div>
@@ -1869,37 +1862,18 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     {/* Controls Panel */}
                     <div style={tControlsPanel}>
                         <h4 style={{
-                            fontSize: '1.1rem',
+                            fontSize: isMobileViewport ? '0.95rem' : '1.1rem',
                             color: tc.text,
                             fontWeight: 'bold',
                             textAlign: 'center',
-                            margin: '0 -10px 6px -10px',
-                            padding: '7px',
+                            margin: isMobileViewport ? '0 -10px 4px -10px' : '0 -10px 6px -10px',
+                            padding: isMobileViewport ? '5px' : '7px',
                             backgroundColor: tc.headerBg,
                             borderRadius: '8px 8px 0 0',
                             width: 'calc(100% + 20px)',
                             boxSizing: 'border-box'
                         }}>
                             Operations Control Center
-                            {isMobileViewport && (
-                                <button
-                                    type="button"
-                                    onClick={() => setShowControlsDrawer(false)}
-                                    style={{
-                                        float: 'right',
-                                        background: 'transparent',
-                                        border: 'none',
-                                        color: tc.text,
-                                        fontSize: '18px',
-                                        lineHeight: '1',
-                                        cursor: 'pointer',
-                                        marginTop: '-2px'
-                                    }}
-                                    aria-label="Close controls"
-                                >
-                                    ×
-                                </button>
-                            )}
                         </h4>
                         
                         <div style={{
@@ -1911,7 +1885,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         <div style={{ display: 'grid', gridTemplateColumns: isTabletLandscape ? '1fr 1.1fr' : '1fr 1.25fr', gap: isTabletLandscape ? '4px' : '0px', margin: '0', padding: '4px 0 0 0', width: '100%', height: '100%' }}>
                             {/* Left Column: Data Management + Ambition */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', padding: '0 8px 0 4px', boxSizing: 'border-box', borderRight: `1px solid ${tc.cardBorder}` }}>
-                                <h5 style={{ margin: '0 0 2px 0', color: tc.text, fontSize: '16px', fontWeight: '700', padding: '0 4px', textAlign: 'center' }}>
+                                <h5 style={{ margin: '0 0 2px 0', color: tc.text, fontSize: isMobileViewport ? '14px' : '16px', fontWeight: '700', padding: '0 4px', textAlign: 'center' }}>
                                     Data Management
                                 </h5>
                                 <div style={{ textAlign: 'center', margin: '0', padding: '0 2px 8px', boxSizing: 'border-box', order: 2 }}>
@@ -1946,15 +1920,19 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     value={dataDate}
                                                     onChange={(e) => handleDateChange(e.target.value)}
                                                     onClick={(e) => e.target.showPicker && e.target.showPicker()}
-                                                    style={{ ...normalizedControlStyle, cursor: 'pointer', marginBottom: '16px' }}
+                                                    style={{
+                                                        ...dataControlBase,
+                                                        cursor: 'pointer',
+                                                        marginBottom: '12px'
+                                                    }}
                                                 />
                                             )}
                                             <button
                                                 onClick={handleDataAction}
                                                 style={{
                                                     width: '100%',
-                                                    minHeight: isMobileViewport ? '36px' : '34px',
-                                                    padding: '7px 10px',
+                                                    minHeight: dataControlBase.minHeight,
+                                                    padding: isMobileViewport ? '5px 8px' : '6px 10px',
                                                     backgroundColor: '#3b82f6',
                                                     color: '#ffffff',
                                                     border: 'none',
@@ -1976,7 +1954,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                             <select
                                                 value={exportDateRange}
                                                 onChange={(e) => setExportDateRange(e.target.value)}
-                                                style={{ ...normalizedControlStyle, marginBottom: '16px' }}
+                                                style={{
+                                                    ...dataControlBase,
+                                                    marginBottom: '12px'
+                                                }}
                                             >
                                                 <option value="this-week">This Week</option>
                                                 <option value="this-month">This Month</option>
@@ -1987,8 +1968,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 onClick={handleExportAction}
                                                 style={{
                                                     width: '100%',
-                                                    minHeight: isMobileViewport ? '36px' : '34px',
-                                                    padding: '7px 10px',
+                                                    minHeight: dataControlBase.minHeight,
+                                                    padding: isMobileViewport ? '5px 8px' : '6px 10px',
                                                     backgroundColor: '#059669',
                                                     color: '#ffffff',
                                                     border: 'none',
@@ -2012,7 +1993,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 value={customExportStartDate}
                                                 onChange={(e) => setCustomExportStartDate(e.target.value)}
                                                 onClick={(e) => e.target.showPicker && e.target.showPicker()}
-                                                style={{ ...normalizedControlStyle, fontSize: '11px', cursor: 'pointer' }}
+                                                style={{
+                                                    ...dataControlBase,
+                                                    fontSize: '11px',
+                                                    cursor: 'pointer'
+                                                }}
                                             />
                                             <input
                                                 type="date"
@@ -2020,7 +2005,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 value={customExportEndDate}
                                                 onChange={(e) => setCustomExportEndDate(e.target.value)}
                                                 onClick={(e) => e.target.showPicker && e.target.showPicker()}
-                                                style={{ ...normalizedControlStyle, fontSize: '11px', cursor: 'pointer' }}
+                                                style={{
+                                                    ...dataControlBase,
+                                                    fontSize: '11px',
+                                                    cursor: 'pointer'
+                                                }}
                                             />
                                         </div>
                                     )}
@@ -2028,7 +2017,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     <div style={{ marginTop: '8px', padding: '0 4px' }}>
                                         <button
                                             type="button"
-                                            onClick={() => setShowPicManager((prev) => !prev)}
+                                            onClick={() => setShowPicManager(true)}
                                             style={{
                                                 width: '100%',
                                                 padding: isTabletLandscape ? '6px 8px' : '7px 10px',
@@ -2041,114 +2030,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 cursor: 'pointer'
                                             }}
                                         >
-                                            {showPicManager ? 'Hide PIC Management' : 'Manage PIC Names'}
+                                            Manage PIC Names
                                         </button>
-
-                                        {showPicManager && (
-                                            <div style={{ marginTop: '8px', border: `1px solid ${tc.cardBorder}`, borderRadius: '6px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <h6 style={{ margin: '0', color: tc.text, fontSize: '11px', fontWeight: '700', textAlign: 'left' }}>
-                                                    PIC Directory
-                                                </h6>
-                                                <select
-                                                    value={selectedPicProfile}
-                                                    onChange={(e) => {
-                                                        setSelectedPicProfile(e.target.value)
-                                                        setPicRenameDraft(e.target.value)
-                                                    }}
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '6px 8px',
-                                                        fontSize: '11px',
-                                                        backgroundColor: tc.inputBg,
-                                                        color: tc.text,
-                                                        border: `1px solid ${tc.inputBorder}`,
-                                                        borderRadius: '4px',
-                                                        boxSizing: 'border-box'
-                                                    }}
-                                                >
-                                                    <option value="">Select PIC profile</option>
-                                                    {picProfiles.map((name) => (
-                                                        <option key={name} value={name}>
-                                                            {name}{isPicRetired(name) ? ' (archived)' : ''}
-                                                        </option>
-                                                    ))}
-                                                </select>
-
-                                                <input
-                                                    type="text"
-                                                    value={picRenameDraft}
-                                                    onChange={(e) => setPicRenameDraft(e.target.value)}
-                                                    placeholder="Rename to canonical name"
-                                                    style={{
-                                                        width: '100%',
-                                                        padding: '6px 8px',
-                                                        fontSize: '11px',
-                                                        backgroundColor: tc.inputBg,
-                                                        color: tc.text,
-                                                        border: `1px solid ${tc.inputBorder}`,
-                                                        borderRadius: '4px',
-                                                        boxSizing: 'border-box'
-                                                    }}
-                                                />
-
-                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
-                                                    <button
-                                                        type="button"
-                                                        onClick={handleRenamePicProfile}
-                                                        disabled={!selectedPicProfile || !picRenameDraft.trim()}
-                                                        style={{
-                                                            padding: '6px 4px',
-                                                            backgroundColor: '#2563eb',
-                                                            color: '#fff',
-                                                            border: 'none',
-                                                            borderRadius: '4px',
-                                                            fontSize: '10px',
-                                                            fontWeight: '700',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        Rename
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={retirePicProfile}
-                                                        disabled={!selectedPicProfile || isPicRetired(selectedPicProfile)}
-                                                        style={{
-                                                            padding: '6px 4px',
-                                                            backgroundColor: '#f59e0b',
-                                                            color: '#111827',
-                                                            border: 'none',
-                                                            borderRadius: '4px',
-                                                            fontSize: '10px',
-                                                            fontWeight: '700',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        Archive
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={restorePicProfile}
-                                                        disabled={!selectedPicProfile || !isPicRetired(selectedPicProfile)}
-                                                        style={{
-                                                            padding: '6px 4px',
-                                                            backgroundColor: '#16a34a',
-                                                            color: '#fff',
-                                                            border: 'none',
-                                                            borderRadius: '4px',
-                                                            fontSize: '10px',
-                                                            fontWeight: '700',
-                                                            cursor: 'pointer'
-                                                        }}
-                                                    >
-                                                        Restore
-                                                    </button>
-                                                </div>
-                                                <div style={{ color: tc.textMuted, fontSize: '10px', textAlign: 'left', lineHeight: '1.3' }}>
-                                                    Rename keeps historic records usable by mapping old names to canonical names. Archived profiles are hidden from daypart dropdowns but preserved for history.
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
 
@@ -2162,15 +2045,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 value={selectedTier}
                                                 onChange={(e) => setSelectedTier(e.target.value)}
                                                 style={{
-                                                    width: '100%',
-                                                    padding: '7px 8px',
-                                                    fontSize: '12px',
-                                                    backgroundColor: tc.inputBg,
-                                                    color: tc.text,
-                                                    border: `1px solid ${tc.inputBorder}`,
-                                                    borderRadius: '4px',
-                                                    boxSizing: 'border-box',
-                                                    textAlign: 'center'
+                                                    ...dataControlBase
                                                 }}
                                             >
                                                 <option value="Top 50%">Top 50%</option>
@@ -2187,13 +2062,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 type="button"
                                                 onClick={() => setClosedDaysDropdownOpen((prev) => !prev)}
                                                 style={{
-                                                    width: '100%',
-                                                    border: `1px solid ${tc.inputBorder}`,
-                                                    backgroundColor: tc.inputBg,
-                                                    color: tc.text,
-                                                    borderRadius: '4px',
-                                                    fontSize: '12px',
-                                                    padding: '7px 8px',
+                                                    ...dataControlBase,
                                                     cursor: 'pointer',
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -2239,7 +2108,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 <h5 style={{
                                     margin: '0 0 4px 0',
                                     color: tc.text,
-                                    fontSize: '15px',
+                                    fontSize: isMobileViewport ? '13px' : '15px',
                                     fontWeight: '700',
                                     textAlign: 'center',
                                     padding: '0 10px'
@@ -2258,23 +2127,24 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     return (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 2px' }}>
                                             {[
-                                                { key: 'breakfast', name: 'Breakfast (Default 84%)', desc: 'Low ticket, complex prep, stocking for lunch' },
-                                                { key: 'lunch', name: 'Lunch (Default 121%)', desc: 'Peak volume, highest sales, drives productivity' },
-                                                { key: 'afternoon', name: 'Afternoon (Default 109%)', desc: 'Post-lunch cleanup, dinner prep, moderate sales' },
-                                                { key: 'dinner', name: 'Dinner (Default 86%)', desc: 'Strong volume, end-of-day cleaning & stocking' }
-                                            ].map(({ key, name, desc }) => {
+                                                { key: 'breakfast', name: 'Breakfast', defaultWeight: 0.84, note: 'prep-heavy, low ticket' },
+                                                { key: 'lunch', name: 'Lunch', defaultWeight: 1.21, note: 'peak sales throughput' },
+                                                { key: 'afternoon', name: 'Afternoon', defaultWeight: 1.09, note: 'transition + setup' },
+                                                { key: 'dinner', name: 'Dinner', defaultWeight: 0.86, note: 'rush + close tasks' }
+                                            ].map(({ key, name, defaultWeight, note }) => {
                                                 const weight = daypartWeights[key];
                                                 const deviation = ((weight - 1.0) * 100);
                                                 const devSign = deviation > 0 ? '+' : '';
+                                                const defaultLeftPercent = Math.max(0, Math.min(100, ((defaultWeight * 100) - 50)));
                                                 return (
                                                     <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                                                            <span style={{ color: tc.text, fontSize: '12px', fontWeight: '700' }}>{name}</span>
+                                                            <span style={{ color: tc.text, fontSize: '12px', fontWeight: '700' }}>{name} <span style={{ color: tc.textMuted, fontWeight: '500', fontSize: '10px' }}>({note})</span></span>
                                                             <span style={{ fontSize: '12px', fontWeight: '700', color: tc.text }}>
                                                                 {(weight * 100).toFixed(0)}% <span style={{ fontSize: '10px', fontWeight: '500', color: tc.textMuted }}>({devSign}{deviation.toFixed(0)}%)</span>
                                                             </span>
                                                         </div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative' }}>
                                                             <input
                                                                 type="range"
                                                                 min="50"
@@ -2295,8 +2165,23 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                                     cursor: 'pointer',
                                                                 }}
                                                             />
+                                                            <span
+                                                                aria-hidden="true"
+                                                                style={{
+                                                                    position: 'absolute',
+                                                                    left: `calc(${defaultLeftPercent}% + 2px)`,
+                                                                    top: '50%',
+                                                                    width: '8px',
+                                                                    height: '8px',
+                                                                    borderRadius: '50%',
+                                                                    border: `1px solid ${tc.textMuted}`,
+                                                                    backgroundColor: 'transparent',
+                                                                    transform: 'translate(-50%, -50%)',
+                                                                    opacity: 0.75,
+                                                                    pointerEvents: 'none',
+                                                                }}
+                                                            />
                                                         </div>
-                                                        <div style={{ color: tc.textMuted, fontSize: '10px', lineHeight: '1.15' }}>{desc}</div>
                                                     </div>
                                                 );
                                             })}
@@ -2306,47 +2191,42 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 marginTop: '2px',
                                                 paddingTop: '4px',
                                             }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-                                                    <span style={{ color: tc.text, fontSize: '12px', fontWeight: '700' }}>Total Avg</span>
-                                                    <span style={{ color: balanceColor, fontSize: '12px', fontWeight: '700' }}>
-                                                        {isNaN(avgWeight) ? '0%' : Math.round(avgWeight * 100) + '%'}
-                                                    </span>
-                                                </div>
-                                                <div style={{ position: 'relative', width: '100%', height: '14px' }}>
-                                                    <div style={{
-                                                        width: '100%',
-                                                        height: '6px',
-                                                        backgroundColor: tc.inputBg,
-                                                        borderRadius: '3px',
-                                                        overflow: 'hidden',
-                                                        border: `1px solid ${tc.inputBorder}`,
-                                                        position: 'absolute',
-                                                        top: '4px',
-                                                    }}>
-                                                        <div style={{
-                                                            width: `${barPercent}%`,
-                                                            height: '100%',
-                                                            backgroundColor: balanceColor,
-                                                            borderRadius: '3px',
-                                                            transition: 'width 0.2s, background-color 0.2s',
-                                                        }} />
-                                                    </div>
+                                                <div style={{ position: 'relative', width: '100%', height: '20px', marginBottom: '2px' }}>
                                                     <div style={{
                                                         position: 'absolute',
-                                                        left: '49.5%',
-                                                        top: '0',
+                                                        left: 0,
+                                                        right: 0,
+                                                        top: '9px',
+                                                        height: '2px',
+                                                        backgroundColor: tc.inputBorder,
+                                                        borderRadius: '2px',
+                                                    }} />
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        left: '50%',
+                                                        top: '5px',
                                                         transform: 'translateX(-50%)',
-                                                        width: '18px',
-                                                        height: '14px',
-                                                        backgroundColor: '#22c55ea1',
-                                                        borderRadius: '4px',
-                                                        zIndex: 1,
-                                                        border: '2px solid #22c55e8c',
-                                                        boxSizing: 'border-box',
+                                                        width: '2px',
+                                                        height: '10px',
+                                                        backgroundColor: '#22c55e',
+                                                        borderRadius: '2px',
+                                                    }} />
+                                                    <div style={{
+                                                        position: 'absolute',
+                                                        left: `${barPercent}%`,
+                                                        top: '4px',
+                                                        transform: 'translateX(-50%)',
+                                                        width: '10px',
+                                                        height: '10px',
+                                                        backgroundColor: balanceColor,
+                                                        borderRadius: '50%',
+                                                        border: `1px solid ${tc.cardBg}`,
+                                                        boxShadow: `0 0 0 1px ${balanceColor}44`,
+                                                        transition: 'left 0.2s, background-color 0.2s',
                                                     }} />
                                                 </div>
                                                 <div style={{ textAlign: 'center', color: balanceColor, fontSize: '10px', marginTop: '2px', fontWeight: '600' }}>
-                                                    {isBalanced ? '✓ Balanced' : isAbove ? 'Above target — reduce weights' : 'Below target — increase weights'}
+                                                    {isNaN(avgWeight) ? '0%' : Math.round(avgWeight * 100) + '%'} · {isBalanced ? 'Balanced' : isAbove ? 'Shift left' : 'Shift right'}
                                                 </div>
                                             </div>
 
@@ -2367,7 +2247,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                         transition: 'background-color 0.2s',
                                                     }}
                                                 >
-                                                    {isAutoWeighting ? 'Calculating weights...' : 'Recalculate Weights from History'}
+                                                    {isAutoWeighting ? 'Calculating...' : 'Auto Weights'}
                                                 </button>
                                                 <button
                                                     onClick={saveSettings}
@@ -2384,7 +2264,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                         transition: 'background-color 0.2s',
                                                     }}
                                                 >
-                                                    Save Ambition & Weights
+                                                    Save Settings
                                                 </button>
                                             </div>
                                         </div>
@@ -2395,46 +2275,140 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         </div>
                     </div>
                 </div>
-                {isMobileViewport && showControlsDrawer && (
+            </div>
+
+            {showPicManager && (
+                <div
+                    onClick={() => setShowPicManager(false)}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        backgroundColor: 'rgba(0, 0, 0, 0.55)',
+                        zIndex: 1200,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '16px',
+                    }}
+                >
                     <div
-                        onClick={() => setShowControlsDrawer(false)}
+                        onClick={(e) => e.stopPropagation()}
                         style={{
-                            position: 'fixed',
-                            inset: 0,
-                            backgroundColor: 'rgba(0,0,0,0.5)',
-                            zIndex: 1200,
-                        }}
-                    />
-                )}
-                {isMobileViewport && (
-                    <button
-                        type="button"
-                        onClick={() => setShowControlsDrawer(true)}
-                        style={{
-                            position: 'fixed',
-                            right: '10px',
-                            bottom: '10px',
-                            zIndex: 1202,
-                            border: 'none',
-                            borderRadius: '999px',
-                            minWidth: '44px',
-                            minHeight: '44px',
-                            padding: '0 14px',
-                            backgroundColor: '#2563eb',
-                            color: '#ffffff',
-                            fontSize: '12px',
-                            fontWeight: '700',
-                            boxShadow: '0 6px 16px rgba(0,0,0,0.35)',
-                            cursor: 'pointer',
-                            display: showControlsDrawer ? 'none' : 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
+                            width: 'min(520px, 100%)',
+                            backgroundColor: tc.cardBg,
+                            border: `1px solid ${tc.cardBorder}`,
+                            borderRadius: '10px',
+                            boxShadow: '0 12px 36px rgba(0,0,0,0.35)',
+                            padding: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
                         }}
                     >
-                        Controls
-                    </button>
-                )}
-            </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h6 style={{ margin: 0, color: tc.text, fontSize: '13px', fontWeight: '700' }}>PIC Directory</h6>
+                            <button
+                                type="button"
+                                onClick={() => setShowPicManager(false)}
+                                style={{
+                                    border: `1px solid ${tc.inputBorder}`,
+                                    backgroundColor: tc.inputBg,
+                                    color: tc.text,
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    padding: '4px 8px',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Close
+                            </button>
+                        </div>
+
+                        <select
+                            value={selectedPicProfile}
+                            onChange={(e) => {
+                                setSelectedPicProfile(e.target.value)
+                                setPicRenameDraft(e.target.value)
+                            }}
+                            style={{ ...dataControlBase, minHeight: '34px' }}
+                        >
+                            <option value="">Select PIC profile</option>
+                            {picProfiles.map((name) => (
+                                <option key={name} value={name}>
+                                    {name}{isPicRetired(name) ? ' (archived)' : ''}
+                                </option>
+                            ))}
+                        </select>
+
+                        <input
+                            type="text"
+                            value={picRenameDraft}
+                            onChange={(e) => setPicRenameDraft(e.target.value)}
+                            placeholder="Rename to canonical name"
+                            style={{ ...dataControlBase, textAlign: 'left' }}
+                        />
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                            <button
+                                type="button"
+                                onClick={handleRenamePicProfile}
+                                disabled={!selectedPicProfile || !picRenameDraft.trim()}
+                                style={{
+                                    padding: '7px 6px',
+                                    backgroundColor: '#2563eb',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Rename
+                            </button>
+                            <button
+                                type="button"
+                                onClick={retirePicProfile}
+                                disabled={!selectedPicProfile || isPicRetired(selectedPicProfile)}
+                                style={{
+                                    padding: '7px 6px',
+                                    backgroundColor: '#f59e0b',
+                                    color: '#111827',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Archive
+                            </button>
+                            <button
+                                type="button"
+                                onClick={restorePicProfile}
+                                disabled={!selectedPicProfile || !isPicRetired(selectedPicProfile)}
+                                style={{
+                                    padding: '7px 6px',
+                                    backgroundColor: '#16a34a',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Restore
+                            </button>
+                        </div>
+
+                        <div style={{ color: tc.textMuted, fontSize: '10px', textAlign: 'left', lineHeight: '1.3' }}>
+                            Rename keeps historic records usable by mapping old names to canonical names. Archived profiles are hidden from daypart dropdowns but preserved for history.
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
 
