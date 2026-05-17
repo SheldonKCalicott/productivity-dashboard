@@ -1668,7 +1668,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             <button
                 type="button"
                 onClick={() => shiftWeek(-1)}
-                style={{ ...dashboardStyles.weekNavButton, paddingLeft: '0', ...(isTabletLandscape ? { minHeight: '72px', fontSize: '10px' } : {}) }}
+                style={{ ...dashboardStyles.weekNavButton, paddingLeft: '0', ...(isTabletLandscape ? { minHeight: '42px', fontSize: '9px' } : {}) }}
                 aria-label="Previous week"
             >
                 ◀
@@ -1690,7 +1690,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         onClick={() => handleDateChange(snapshot.date)}
                         style={{
                             ...dashboardStyles.weekTile,
-                            ...(isTabletLandscape ? { minHeight: '72px', padding: '3px 4px' } : {}),
+                            ...(isTabletLandscape ? { minHeight: '42px', padding: '2px 4px' } : {}),
                             ...(snapshot.date === weeklySnapshots[0]?.date ? { paddingLeft: '12px' } : {}),
                             borderColor: isActiveDate ? '#3b82f6' : tc.cardBorder,
                             backgroundColor: isActiveDate ? `${tc.headerBg}` : tc.cardBg,
@@ -1726,7 +1726,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             <button
                 type="button"
                 onClick={() => shiftWeek(1)}
-                style={{ ...dashboardStyles.weekNavButton, ...(isTabletLandscape ? { minHeight: '72px', fontSize: '10px' } : {}) }}
+                style={{ ...dashboardStyles.weekNavButton, ...(isTabletLandscape ? { minHeight: '42px', fontSize: '9px' } : {}) }}
                 aria-label="Next week"
             >
                 ▶
@@ -2531,7 +2531,7 @@ const dashboardStyles = {
         fontSize: '11px',
         fontWeight: '700',
         cursor: 'pointer',
-        minHeight: '74px',
+        minHeight: '44px',
     },
     weekCalendarRow: {
         display: 'grid',
@@ -2543,28 +2543,28 @@ const dashboardStyles = {
     weekTile: {
         border: '1px solid #333',
         borderRadius: '8px',
-        padding: '3px 4px',
-        minHeight: '74px',
+        padding: '2px 4px',
+        minHeight: '44px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-start',
         overflow: 'hidden',
     },
     weekTileHeader: {
-        fontSize: 'clamp(8px, 0.75vw, 10px)',
+        fontSize: 'clamp(7px, 0.65vw, 9px)',
         fontWeight: '700',
-        marginBottom: '2px',
-        lineHeight: '1.1',
+        marginBottom: '1px',
+        lineHeight: '1.0',
         whiteSpace: 'nowrap',
     },
     weekTileBody: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '1px',
+        gap: '0',
     },
     weekTileLine: {
-        fontSize: 'clamp(7px, 0.68vw, 9px)',
-        lineHeight: '1.1',
+        fontSize: 'clamp(6px, 0.6vw, 8px)',
+        lineHeight: '1.0',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'clip',
