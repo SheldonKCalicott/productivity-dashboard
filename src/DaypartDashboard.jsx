@@ -16,21 +16,6 @@ const themes = {
     },
 }
 
-const defaultPicProfiles = [
-    'Chauncey',
-    'Ashley',
-    'Michelle',
-    'Krise',
-    'Dan',
-    'Victor',
-    'Nat',
-    'Alaina',
-    'Madelyn',
-    'Awilda',
-    'Eli',
-    'Toryn'
-]
-
 const defaultDaypartSales = {
     breakfast: 6000,
     lunch: 10000,
@@ -51,8 +36,9 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     const MAX_PRODUCTIVITY = targetProductivity + DIAL_RANGE/2
     
     // Dynamic dial size based on type - SVG viewBox is larger to avoid tick clipping
-    const dialSize = superCompact ? (isDayNight ? 138 : 146) : (compactMode ? (isDayNight ? 166 : 154) : (isDayNight ? 194 : 188))
-    const svgSize = dialSize + 30  // extra padding for outer tick labels
+    const baseDialSize = superCompact ? (isDayNight ? 138 : 146) : (compactMode ? (isDayNight ? 166 : 154) : (isDayNight ? 194 : 188))
+    const dialSize = isDayNight ? baseDialSize : Math.round(baseDialSize * 0.8)
+    const svgSize = dialSize + (isDayNight ? 30 : 24)  // keep daypart cards denser while preserving label room
     const centerX = svgSize / 2
     const centerY = svgSize / 2
     const radius = (dialSize / 2) - 20
@@ -320,14 +306,14 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                             color: currentZone.color,
                             whiteSpace: 'normal',
                             lineHeight: superCompact ? '1.1' : (compactMode ? '1.25' : '1.4'),
-                            fontSize: superCompact ? '10px' : (compactMode ? '12px' : dialStyles.zoneName.fontSize),
+                            fontSize: superCompact ? '12px' : (compactMode ? '16px' : dialStyles.zoneName.fontSize),
                             marginBottom: superCompact ? '0' : (compactMode ? '1px' : dialStyles.zoneName.marginBottom)
                         }}>
                             {currentZone.zone} {laborDelta !== null && currentZone.zone !== "No Data" && `(${laborDelta > 0 ? '+' : ''}${laborDelta.toFixed(1)} hrs)`}
                         </div>
                         <div style={{
                             ...dialStyles.zoneAction,
-                            fontSize: superCompact ? '9px' : (compactMode ? '10px' : (isDayNight ? 'clamp(11px, 1.15vw, 13px)' : dialStyles.zoneAction.fontSize)),
+                            fontSize: superCompact ? '11px' : (compactMode ? '15px' : (isDayNight ? 'clamp(11px, 1.15vw, 15px)' : dialStyles.zoneAction.fontSize)),
                             whiteSpace: 'pre-wrap',
                             wordBreak: 'break-word',
                             overflowWrap: 'anywhere',
@@ -476,7 +462,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         afternoon: '',
         dinner: ''
     })
-    const [picProfiles, setPicProfiles] = useState(defaultPicProfiles)
+    const [picProfiles, setPicProfiles] = useState([])
     const [salesBaselines, setSalesBaselines] = useState(defaultDaypartSales)
     const [showPicModal, setShowPicModal] = useState(false)
     const [pendingPicDaypart, setPendingPicDaypart] = useState('')
@@ -486,6 +472,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const [retiredPicNames, setRetiredPicNames] = useState([])
     const [selectedPicProfile, setSelectedPicProfile] = useState('')
     const [picRenameDraft, setPicRenameDraft] = useState('')
+    const [picProfilesHydrated, setPicProfilesHydrated] = useState(false)
     
     // Export date range selection
     const [exportDateRange, setExportDateRange] = useState('this-week')
@@ -501,6 +488,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     
     // Demo banner state (no saving for demo)
     const [showDemoBanner, setShowDemoBanner] = useState(false)
+
+    const picProfilesStorageKey = `pic-profiles-${effectiveStoreName}`
 
     const weekdayOptions = [
         { value: 0, full: 'Sunday', short: 'Sun' },
@@ -572,6 +561,36 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
 
     const isPicRetired = (name) => retiredPicNames.includes((name || '').toLowerCase())
+
+    useEffect(() => {
+        setPicProfilesHydrated(false)
+        setPicProfiles([])
+        try {
+            const raw = window.localStorage.getItem(picProfilesStorageKey)
+            if (!raw) return
+            const parsed = JSON.parse(raw)
+            if (!Array.isArray(parsed)) return
+            const cleaned = parsed
+                .map((name) => (name || '').toString().trim())
+                .filter(Boolean)
+            if (cleaned.length === 0) return
+            const uniqueSorted = Array.from(new Set(cleaned.map((name) => name))).sort((a, b) => a.localeCompare(b))
+            setPicProfiles(uniqueSorted)
+        } catch (error) {
+            console.warn('Failed loading PIC profiles:', error.message)
+        } finally {
+            setPicProfilesHydrated(true)
+        }
+    }, [picProfilesStorageKey])
+
+    useEffect(() => {
+        if (!picProfilesHydrated) return
+        try {
+            window.localStorage.setItem(picProfilesStorageKey, JSON.stringify(picProfiles))
+        } catch (error) {
+            console.warn('Failed saving PIC profiles:', error.message)
+        }
+    }, [picProfiles, picProfilesStorageKey, picProfilesHydrated])
 
     useEffect(() => {
         const storageKey = `pic-directory-${effectiveStoreName}`
@@ -1028,7 +1047,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
 
     const loadPicProfiles = async () => {
         if (isDemo) {
-            setPicProfiles(defaultPicProfiles)
+            setPicProfiles([])
             return
         }
 
@@ -1543,7 +1562,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         loadDataForDate(dataDate);
         loadWeekSnapshots(dataDate);
         setWeekAnchorDate(dataDate)
-    }, [storeNumber, isDemo])
+    }, [effectiveStoreName, isDemo])
 
     const parseCurrency = (value) => {
         if (!value) return ''
@@ -1572,7 +1591,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
     const tBottomRow = {
         ...dashboardStyles.bottomRow,
-        ...(isTabletLandscape ? { minHeight: '236px', maxHeight: '282px', gap: '6px', width: 'calc(100% - 6px)', margin: '0 auto' } : { minHeight: '252px', maxHeight: '300px', width: 'calc(100% - 6px)', margin: '0 auto' })
+        ...(isMobileViewport
+            ? { minHeight: '244px', maxHeight: '286px', gap: '6px', width: 'calc(100% - 6px)', margin: '0 auto', paddingBottom: '6px' }
+            : isTabletLandscape
+                ? { minHeight: '250px', maxHeight: '298px', gap: '6px', width: 'calc(100% - 6px)', margin: '0 auto', paddingBottom: '8px' }
+                : { minHeight: '268px', maxHeight: '318px', width: 'calc(100% - 6px)', margin: '0 auto', paddingBottom: '10px' })
     }
     const tInputSection = {...dialStyles.inputSection, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
     const tDaypartTitle = {
@@ -1586,7 +1609,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         background: tc.inputBg,
         border: `1px solid ${tc.inputBorder}`,
         color: tc.text,
-        ...(isTabletLandscape ? { padding: '5px 6px', fontSize: '11px' } : {})
+        ...(isTabletLandscape ? { padding: '4px 6px', fontSize: '12px' } : { fontSize: '13px' })
     }
     const tCombinedSection = {
         ...dashboardStyles.combinedSection,
@@ -1596,7 +1619,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         ...dashboardStyles.combinedDial,
         background: tc.cardBg,
         border: `1px solid ${tc.cardBorder}`,
-        ...(isTabletLandscape ? { minHeight: '228px', maxHeight: '274px' } : { minHeight: '246px', maxHeight: '292px' })
+        ...(isMobileViewport
+            ? { minHeight: '236px', maxHeight: '278px' }
+            : isTabletLandscape
+                ? { minHeight: '246px', maxHeight: '292px' }
+                : { minHeight: '266px', maxHeight: '314px' })
     }
     const tCombinedTitle = {
         ...dashboardStyles.combinedTitle,
@@ -1608,13 +1635,20 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         ...dashboardStyles.controlsPanel,
         background: tc.cardBg,
         border: `1px solid ${tc.cardBorder}`,
-        ...(isTabletLandscape ? {
+        ...(isMobileViewport ? {
             flex: '0 0 76%',
-            minHeight: '228px',
-            maxHeight: '274px',
+            minHeight: '236px',
+            maxHeight: '278px',
+            padding: '0 6px 4px 6px',
+        } : isTabletLandscape ? {
+            flex: '0 0 76%',
+            minHeight: '246px',
+            maxHeight: '292px',
             padding: '0 6px 4px 6px',
         } : {
             flex: '0 0 80%',
+            minHeight: '266px',
+            maxHeight: '314px',
         })
     }
     const dataControlBase = {
@@ -1751,7 +1785,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return (
             <div style={tInputSection} key={daypartKey}>
                 <h4 style={tDaypartTitle}>{title}</h4>
-                <div style={{ ...dialStyles.daypartBody, ...(isTabletLandscape ? { gap: '5px', padding: '3px 5px 4px' } : { padding: '4px 6px 5px' }) }}>
+                <div style={{ ...dialStyles.daypartBody, ...(isTabletLandscape ? { gap: '4px', padding: '2px 4px 3px' } : { padding: '3px 5px 4px' }) }}>
                     <div style={{ ...dialStyles.dialContainer, flex: '1 1 auto' }}>
                         <SimplifiedProductivityDial
                             title={title}
@@ -1763,7 +1797,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             compactMode={isMobileViewport}
                         />
                     </div>
-                    <div style={{ ...dialStyles.inputColumn, ...(isTabletLandscape ? { flex: '0 0 132px', minWidth: '126px', maxWidth: '142px', gap: '4px' } : { gap: '5px' }) }}>
+                    <div style={{ ...dialStyles.inputColumn, ...(isTabletLandscape ? { flex: '0 0 122px', minWidth: '116px', maxWidth: '134px', gap: '3px' } : { flex: '0 0 132px', minWidth: '124px', maxWidth: '150px', gap: '4px' }) }}>
                         <input
                             type="text"
                             placeholder="$ Sales"
@@ -2551,7 +2585,7 @@ const dashboardStyles = {
         overflow: 'hidden',
     },
     weekTileHeader: {
-        fontSize: 'clamp(7px, 0.65vw, 9px)',
+        fontSize: 'clamp(10px, 0.65vw, 12px)',
         fontWeight: '700',
         marginBottom: '1px',
         lineHeight: '1.0',
@@ -2563,7 +2597,7 @@ const dashboardStyles = {
         gap: '0',
     },
     weekTileLine: {
-        fontSize: 'clamp(6px, 0.6vw, 8px)',
+        fontSize: 'clamp(10px, 0.6vw, 12px)',
         lineHeight: '1.0',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
@@ -2674,18 +2708,18 @@ const dialStyles = {
     daypartBody: {
         display: 'flex',
         alignItems: 'stretch',
-        gap: '8px',
-        padding: '6px 8px 8px',
+        gap: '5px',
+        padding: '4px 6px 5px',
         minHeight: 0,
         flex: 1,
     },
     daypartTitle: {
-        fontSize: 'clamp(1rem, 1.2vw, 1.2rem)',
+        fontSize: 'clamp(0.9rem, 1vw, 1rem)',
         color: '#fff',
         fontWeight: 'bold',
         textAlign: 'center',
         margin: '0',
-        padding: '6px 8px',
+        padding: '4px 6px',
         backgroundColor: '#2a2a2a',
         borderRadius: '8px 8px 0 0',
         width: '100%',
@@ -2701,18 +2735,18 @@ const dialStyles = {
         alignItems: 'stretch',
     },
     inputColumn: {
-        flex: '0 0 165px',
-        minWidth: '160px',
-        maxWidth: '190px',
+        flex: '0 0 132px',
+        minWidth: '124px',
+        maxWidth: '150px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '6px',
+        gap: '4px',
         justifyContent: 'center',
     },
     rowInput: {
         flex: 1,
-        padding: '7px 8px',
-        fontSize: 'clamp(12px, 1.05vw, 14px)',
+        padding: '4px 6px',
+        fontSize: 'clamp(12px, 1vw, 13px)',
         borderRadius: '4px',
         border: '1px solid #444',
         textAlign: 'center',
