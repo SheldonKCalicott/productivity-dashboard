@@ -133,14 +133,14 @@ export function calculateDaypartTargetPlan({
     return acc;
   }, {});
 
-  const projectedDailyLaborHours = projection.projectedDailySales > 0 && dailyTargetProductivity > 0
-    ? projection.projectedDailySales / dailyTargetProductivity
-    : 0;
-
   const daypartTargets = DAYPART_KEYS.reduce((acc, daypart) => {
-    const shareHours = projectedDailyLaborHours * normalizedWeightedShares[daypart];
-    const sales = projection.projectedByDaypart[daypart];
-    acc[daypart] = shareHours > 0 ? round1(sales / shareHours) : round1(dailyTargetProductivity);
+    const salesShare = salesShares[daypart] || 0;
+    const weightedShare = normalizedWeightedShares[daypart] || 0;
+
+    // Keep daily target as anchor while allowing heavier-weighted dayparts
+    // to carry higher productivity goals than their raw sales share alone.
+    const factor = salesShare > 0 ? (weightedShare / salesShare) : 1;
+    acc[daypart] = round1(dailyTargetProductivity * factor);
     return acc;
   }, {});
 
