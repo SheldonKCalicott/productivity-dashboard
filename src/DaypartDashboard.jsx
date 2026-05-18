@@ -37,7 +37,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
     
     // Dynamic dial size based on type - SVG viewBox is larger to avoid tick clipping
     const baseDialSize = superCompact ? (isDayNight ? 138 : 146) : (compactMode ? (isDayNight ? 166 : 154) : (isDayNight ? 194 : 188))
-    const dialSize = isDayNight ? baseDialSize : Math.round(baseDialSize * 0.8)
+    const dialSize = isDayNight ? baseDialSize : Math.round(baseDialSize * 0.9)
     const svgSize = dialSize + (isDayNight ? 30 : 24)  // keep daypart cards denser while preserving label room
     const centerX = svgSize / 2
     const centerY = svgSize / 2
@@ -1579,7 +1579,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             padding: '3px',
             height: 'calc(100vh - 44px)',
             maxHeight: 'calc(100vh - 44px)',
-        } : {})
+        } : {}),
+        paddingBottom: isMobileViewport ? '12px' : '14px',
     }
     const tMainContent = {
         ...dashboardStyles.mainContent,
@@ -1592,10 +1593,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const tBottomRow = {
         ...dashboardStyles.bottomRow,
         ...(isMobileViewport
-            ? { minHeight: '244px', maxHeight: '286px', gap: '6px', width: 'calc(100% - 6px)', margin: '0 auto', paddingBottom: '6px' }
+            ? { minHeight: '242px', maxHeight: '284px', gap: '6px', width: 'calc(100% - 6px)', margin: '0 auto', paddingBottom: '10px' }
             : isTabletLandscape
-                ? { minHeight: '250px', maxHeight: '298px', gap: '6px', width: 'calc(100% - 6px)', margin: '0 auto', paddingBottom: '8px' }
-                : { minHeight: '268px', maxHeight: '318px', width: 'calc(100% - 6px)', margin: '0 auto', paddingBottom: '10px' })
+                ? { minHeight: '248px', maxHeight: '296px', gap: '6px', width: 'calc(100% - 6px)', margin: '0 auto', paddingBottom: '12px' }
+                : { minHeight: '264px', maxHeight: '314px', width: 'calc(100% - 6px)', margin: '0 auto', paddingBottom: '14px' })
     }
     const tInputSection = {...dialStyles.inputSection, background: tc.cardBg, border: `1px solid ${tc.cardBorder}`}
     const tDaypartTitle = {
@@ -1698,7 +1699,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
 
     const renderWeekCalendar = () => (
-        <div style={{ ...dashboardStyles.weekCalendarWrap, ...(isTabletLandscape ? { gridTemplateColumns: '22px 1fr 22px', gap: '3px' } : {}) }}>
+        <div style={{ ...dashboardStyles.weekCalendarWrap, ...(isTabletLandscape ? { gridTemplateColumns: '26px 1fr 26px', gap: '3px' } : {}) }}>
             <button
                 type="button"
                 onClick={() => shiftWeek(-1)}
@@ -1707,7 +1708,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             >
                 ◀
             </button>
-            <div style={{ ...dashboardStyles.weekCalendarRow, ...(isTabletLandscape ? { gridTemplateColumns: 'repeat(7, minmax(84px, 1fr))', gap: '3px' } : {}) }}>
+            <div style={{ ...dashboardStyles.weekCalendarRow, ...(isTabletLandscape ? { gridTemplateColumns: 'repeat(7, minmax(80px, 1fr))', gap: '3px' } : {}) }}>
                 {weeklySnapshots.map((snapshot) => {
                 const tileDate = new Date(snapshot.date + 'T00:00:00')
                 const dayLabel = tileDate.toLocaleDateString('en-US', { weekday: 'short' })
@@ -1735,7 +1736,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         <div style={dashboardStyles.weekTileBody}>
                             {snapshot.hasData ? (
                                 <>
-                                    <div style={dashboardStyles.weekTileLine}>
+                                    <div style={dashboardStyles.weekTilePicLine}>
                                         PIC: {snapshot.pics.length > 0 ? snapshot.pics.slice(0, 2).join(', ') : 'No PIC'}
                                     </div>
                                     <div style={dashboardStyles.weekTileLine}>Target: {snapshot.target ? snapshot.target.toFixed(1) : '--'}</div>
@@ -1785,7 +1786,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return (
             <div style={tInputSection} key={daypartKey}>
                 <h4 style={tDaypartTitle}>{title}</h4>
-                <div style={{ ...dialStyles.daypartBody, ...(isTabletLandscape ? { gap: '4px', padding: '2px 4px 3px' } : { padding: '3px 5px 4px' }) }}>
+                <div style={{ ...dialStyles.daypartBody, ...(isTabletLandscape ? { gap: '3px', padding: '2px 3px 2px' } : { gap: '4px', padding: '2px 4px 3px' }) }}>
                     <div style={{ ...dialStyles.dialContainer, flex: '1 1 auto' }}>
                         <SimplifiedProductivityDial
                             title={title}
@@ -1797,16 +1798,22 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             compactMode={isMobileViewport}
                         />
                     </div>
-                    <div style={{ ...dialStyles.inputColumn, ...(isTabletLandscape ? { flex: '0 0 122px', minWidth: '116px', maxWidth: '134px', gap: '3px' } : { flex: '0 0 132px', minWidth: '124px', maxWidth: '150px', gap: '4px' }) }}>
+                    <div style={{ ...dialStyles.inputColumn, ...(isTabletLandscape ? { flex: '0 0 112px', minWidth: '106px', maxWidth: '124px', gap: '2px' } : { flex: '0 0 122px', minWidth: '114px', maxWidth: '138px', gap: '3px' }) }}>
                         <input
                             type="text"
-                            placeholder="$ Sales"
+                            inputMode="numeric"
+                            enterKeyHint="next"
+                            autoComplete="off"
+                            placeholder="Sales"
                             value={formatCurrency(salesValues[daypartKey])}
                             onChange={(e) => salesSetters[daypartKey](parseCurrency(e.target.value))}
                             style={{ ...tRowInput, ...dialStyles.mainInput }}
                         />
                         <input
                             type="text"
+                            inputMode="decimal"
+                            enterKeyHint="next"
+                            autoComplete="off"
                             placeholder="Productivity"
                             value={actualProductivity[daypartKey]}
                             onChange={(e) => setActualProductivity((prev) => ({ ...prev, [daypartKey]: e.target.value.replace(/[^0-9.]/g, '') }))}
@@ -2552,7 +2559,7 @@ const dashboardStyles = {
     },
     weekCalendarWrap: {
         display: 'grid',
-        gridTemplateColumns: '24px 1fr 24px',
+        gridTemplateColumns: '28px 1fr 28px',
         gap: '4px',
         width: '100%',
         alignItems: 'stretch',
@@ -2569,7 +2576,7 @@ const dashboardStyles = {
     },
     weekCalendarRow: {
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(92px, 1fr))',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(86px, 1fr))',
         gap: '4px',
         width: '100%',
         minHeight: 0,
@@ -2598,6 +2605,13 @@ const dashboardStyles = {
     },
     weekTileLine: {
         fontSize: 'clamp(10px, 0.6vw, 12px)',
+        lineHeight: '1.0',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'clip',
+    },
+    weekTilePicLine: {
+        fontSize: 'clamp(8px, 0.52vw, 9px)',
         lineHeight: '1.0',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
@@ -2708,8 +2722,8 @@ const dialStyles = {
     daypartBody: {
         display: 'flex',
         alignItems: 'stretch',
-        gap: '5px',
-        padding: '4px 6px 5px',
+        gap: '4px',
+        padding: '3px 5px 4px',
         minHeight: 0,
         flex: 1,
     },
@@ -2719,7 +2733,7 @@ const dialStyles = {
         fontWeight: 'bold',
         textAlign: 'center',
         margin: '0',
-        padding: '4px 6px',
+        padding: '3px 5px',
         backgroundColor: '#2a2a2a',
         borderRadius: '8px 8px 0 0',
         width: '100%',
@@ -2735,17 +2749,17 @@ const dialStyles = {
         alignItems: 'stretch',
     },
     inputColumn: {
-        flex: '0 0 132px',
-        minWidth: '124px',
-        maxWidth: '150px',
+        flex: '0 0 122px',
+        minWidth: '114px',
+        maxWidth: '138px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '4px',
+        gap: '3px',
         justifyContent: 'center',
     },
     rowInput: {
         flex: 1,
-        padding: '4px 6px',
+        padding: '3px 5px',
         fontSize: 'clamp(12px, 1vw, 13px)',
         borderRadius: '4px',
         border: '1px solid #444',
