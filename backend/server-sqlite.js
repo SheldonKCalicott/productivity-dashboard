@@ -48,10 +48,10 @@ db.serialize(() => {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             store_name TEXT UNIQUE NOT NULL,
             ambition_tier TEXT DEFAULT 'Top 50%',
-            weight_breakfast REAL DEFAULT 0.84,
-            weight_lunch REAL DEFAULT 1.21,
-            weight_afternoon REAL DEFAULT 1.09,
-            weight_dinner REAL DEFAULT 0.86,
+            weight_breakfast REAL DEFAULT 0.92,
+            weight_lunch REAL DEFAULT 1.22,
+            weight_afternoon REAL DEFAULT 1.08,
+            weight_dinner REAL DEFAULT 0.94,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);
@@ -174,10 +174,10 @@ app.put('/api/store/:storeName/settings', (req, res) => {
     db.run(query, [
         storeName,
         ambition_tier,
-        weights.breakfast ?? 0.84,
-        weights.lunch ?? 1.21,
-        weights.afternoon ?? 1.09,
-        weights.dinner ?? 0.86
+        weights.breakfast ?? 0.92,
+        weights.lunch ?? 1.22,
+        weights.afternoon ?? 1.08,
+        weights.dinner ?? 0.94
     ], function(err) {
         if (err) {
             return res.status(500).json({ error: err.message });

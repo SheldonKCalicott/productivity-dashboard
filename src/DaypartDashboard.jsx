@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { calculateTargetProductivity } from "./utils/targetUtils"
+import { calculateDaypartTargetPlan, DEFAULT_OPERATIONAL_WEIGHTS } from "./utils/targetUtils"
 import { useTheme } from "./App"
 
 // Light/dark theme color palettes
@@ -422,10 +422,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     
     // Adjustable daypart weights
     const [daypartWeights, setDaypartWeights] = useState({
-        'breakfast': 0.84,   // Low ticket, high prep, stock for lunch
-        'lunch': 1.21,       // Peak volume, high throughput
-        'afternoon': 1.09,   // Post-lunch cleanup + dinner prep
-        'dinner': 0.86       // Peak volume + close-down inefficiency
+        'breakfast': 0.92,   // Prep-heavy startup shift
+        'lunch': 1.22,       // Peak throughput burden
+        'afternoon': 1.08,   // Transition and setup burden
+        'dinner': 0.94       // Close-down and stocking burden
     });
 
     // Guard: fix weights if any are out of range (e.g., 84 instead of 0.84)
@@ -434,7 +434,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         let changed = false;
         for (const k of ['breakfast', 'lunch', 'afternoon', 'dinner']) {
             if (typeof fixed[k] !== 'number' || isNaN(fixed[k]) || fixed[k] < 0.3 || fixed[k] > 2) {
-                fixed[k] = { breakfast: 0.84, lunch: 1.21, afternoon: 1.09, dinner: 0.86 }[k];
+                fixed[k] = DEFAULT_OPERATIONAL_WEIGHTS[k];
                 changed = true;
             }
         }
@@ -472,6 +472,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const [retiredPicNames, setRetiredPicNames] = useState([])
     const [selectedPicProfile, setSelectedPicProfile] = useState('')
     const [picRenameDraft, setPicRenameDraft] = useState('')
+    const [picMergeTarget, setPicMergeTarget] = useState('')
     const [picProfilesHydrated, setPicProfilesHydrated] = useState(false)
     
     // Export date range selection
@@ -685,6 +686,34 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         setPicRenameDraft('')
     }
 
+    const handleMergePicProfiles = () => {
+        const source = (selectedPicProfile || '').trim()
+        const target = normalizePicName(picMergeTarget)
+        if (!source || !target) return
+        if (source.toLowerCase() === target.toLowerCase()) return
+
+        setPicAliasMap((prev) => ({
+            ...prev,
+            [source.toLowerCase()]: target,
+        }))
+
+        mergePicProfiles([target])
+
+        setPicNames((prev) => {
+            const next = { ...prev }
+            orderedDayparts.forEach((daypart) => {
+                if ((next[daypart] || '').toLowerCase() === source.toLowerCase()) {
+                    next[daypart] = target
+                }
+            })
+            return next
+        })
+
+        setRetiredPicNames((prev) => Array.from(new Set([...prev, source.toLowerCase()])))
+        setSelectedPicProfile(target)
+        setPicMergeTarget(target)
+    }
+
     const retirePicProfile = () => {
         const selected = (selectedPicProfile || '').trim()
         if (!selected) return
@@ -703,7 +732,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         setNewPicName('')
     }
 
-    // Use centralized calculateTargetProductivity from utils/targetUtils.js
+    // Target math is derived from projected daily sales and daypart contribution shares.
     const getTotalSales = () => {
         const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0;
         const ln = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0;
@@ -722,12 +751,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         }
         const salesInput = salesInputs[daypartKey]
         return salesInput ? parseInt(salesInput.replace(/[^0-9]/g, '')) : 0
-    }
-
-    const getDisplayDaypartSales = (daypartKey) => {
-        const enteredSales = getDaypartSales(daypartKey)
-        if (enteredSales > 0) return enteredSales
-        return salesBaselines[daypartKey] || defaultDaypartSales[daypartKey] || 0
     }
 
     const getWeekDates = (anchorDateString) => {
@@ -970,16 +993,23 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         const recordDate = new Date(r.record_date).toISOString().split('T')[0];
                         return recordDate === date;
                     });
+
+                    const salesByDaypart = {
+                        breakfast: Number(recordsForDate.find(r => r.daypart === 'breakfast')?.sales_amount) || 0,
+                        lunch: Number(recordsForDate.find(r => r.daypart === 'lunch')?.sales_amount) || 0,
+                        afternoon: Number(recordsForDate.find(r => r.daypart === 'afternoon')?.sales_amount) || 0,
+                        dinner: Number(recordsForDate.find(r => r.daypart === 'dinner')?.sales_amount) || 0,
+                    };
+                    const exportPlan = calculateDaypartTargetPlan({
+                        daypartSales: salesByDaypart,
+                        historicalAverages: salesBaselines,
+                        selectedTier,
+                        daypartWeights,
+                    });
+
                     dayparts.forEach((daypart, index) => {
                         const record = recordsForDate.find(r => r.daypart === daypart);
-                        // Use individual daypart sales for target calculation
-                        const daypartSalesAmount = record ? (parseInt(record.sales_amount) || 0) : 0;
-                        const target = calculateTargetProductivity(
-                            daypart,
-                            daypartSalesAmount,
-                            selectedTier,
-                            daypartWeights
-                        );
+                        const target = exportPlan.daypartTargets?.[daypart] || exportPlan.dailyTargetProductivity;
                         data.push([
                             date,
                             storeName || 'Store',
@@ -1139,132 +1169,27 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         }
     }
 
-    // Performance-based auto-weighting: analyze last 30 days and recalculate weights
+    // Store-history-derived auto-weighting from captured sales distribution.
     const autoWeightFromPerformance = async () => {
         if (isDemo) { showMessage('demo'); return; }
         setIsAutoWeighting(true);
         try {
             const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-            const today = new Date();
-            const start = new Date(today);
-            start.setDate(today.getDate() - 30);
-            const fmt = (d) => d.toISOString().split('T')[0];
-            const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/range/${fmt(start)}/${fmt(today)}`);
+            const response = await fetch(`${apiBase}/store/${effectiveStoreName}`);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const records = await response.json();
+            const storeInfo = await response.json();
+            const recommended = storeInfo?.recommendedWeights;
+            if (!recommended) throw new Error('Recommended weights unavailable');
 
-            if (!records || records.length === 0) {
-                showMessage('error');
-                return;
+            const nextWeights = {
+                breakfast: parseFloat(recommended.breakfast) || DEFAULT_OPERATIONAL_WEIGHTS.breakfast,
+                lunch: parseFloat(recommended.lunch) || DEFAULT_OPERATIONAL_WEIGHTS.lunch,
+                afternoon: parseFloat(recommended.afternoon) || DEFAULT_OPERATIONAL_WEIGHTS.afternoon,
+                dinner: parseFloat(recommended.dinner) || DEFAULT_OPERATIONAL_WEIGHTS.dinner,
             }
 
-            const dayparts = ['breakfast', 'lunch', 'afternoon', 'dinner'];
-            // Step 1: Group by day and daypart
-            const byDate = {};
-            records.forEach(r => {
-                if (!byDate[r.record_date]) byDate[r.record_date] = {};
-                byDate[r.record_date][r.daypart] = {
-                    sales: Number(r.sales_amount) || 0,
-                    actual: Number(r.actual_productivity) || 0,
-                    target: Number(r.target_productivity) || 0
-                };
-            });
-            console.log('[Step 1] Grouped by date and daypart:', byDate);
-
-            // Step 2: Calculate average sales per daypart and total daily sales
-            let totalDaypartSales = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 };
-            let totalSalesDays = 0;
-            let totalDailySalesSum = 0;
-            let totalDays = 0;
-            let daypartActualSum = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 };
-            let daypartTargetSum = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 };
-            let daypartCount = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 };
-
-            Object.entries(byDate).forEach(([date, dpObj]) => {
-                let dayTotal = 0;
-                dayparts.forEach(dp => {
-                    if (dpObj[dp] && dpObj[dp].sales > 0) {
-                        totalDaypartSales[dp] += dpObj[dp].sales;
-                        daypartActualSum[dp] += dpObj[dp].actual;
-                        daypartTargetSum[dp] += dpObj[dp].target;
-                        daypartCount[dp] += 1;
-                        dayTotal += dpObj[dp].sales;
-                    }
-                });
-                if (dayTotal > 0) {
-                    totalSalesDays += 1;
-                    totalDailySalesSum += dayTotal;
-                }
-                totalDays += 1;
-            });
-            console.log('[Step 2] Sums:', { totalDaypartSales, totalSalesDays, totalDailySalesSum, totalDays, daypartActualSum, daypartTargetSum, daypartCount });
-
-            // Step 3: Calculate sales share for each daypart
-            const avgDaypartSales = {};
-            dayparts.forEach(dp => {
-                avgDaypartSales[dp] = daypartCount[dp] > 0 ? totalDaypartSales[dp] / daypartCount[dp] : null;
-            });
-            const avgTotalSales = totalSalesDays > 0 ? totalDailySalesSum / totalSalesDays : null;
-            const salesShare = {};
-            dayparts.forEach(dp => {
-                salesShare[dp] = (avgDaypartSales[dp] !== null && avgTotalSales) ? avgDaypartSales[dp] / avgTotalSales : null;
-            });
-            console.log('[Step 3] Sales share:', { avgDaypartSales, avgTotalSales, salesShare });
-
-            // Step 4: Calculate performance score (average actual / average target)
-            const performanceScore = {};
-            dayparts.forEach(dp => {
-                const avgActual = daypartCount[dp] > 0 ? daypartActualSum[dp] / daypartCount[dp] : null;
-                const avgTarget = daypartCount[dp] > 0 ? daypartTargetSum[dp] / daypartCount[dp] : null;
-                performanceScore[dp] = (avgActual !== null && avgTarget && avgTarget > 0) ? avgActual / avgTarget : null;
-            });
-            console.log('[Step 4] Performance score:', { performanceScore });
-
-            // Step 5: Attainability adjustment
-            const adjustedShare = {};
-            dayparts.forEach(dp => {
-                adjustedShare[dp] = (salesShare[dp] !== null && performanceScore[dp] !== null) ? salesShare[dp] * performanceScore[dp] : null;
-            });
-            console.log('[Step 5] Adjusted share:', { adjustedShare });
-
-            // Step 6: Normalize adjusted shares
-            const totalAdjusted = dayparts.reduce((sum, dp) => sum + (adjustedShare[dp] !== null ? adjustedShare[dp] : 0), 0);
-            const normalizedShare = {};
-            dayparts.forEach(dp => {
-                normalizedShare[dp] = (adjustedShare[dp] !== null && totalAdjusted > 0) ? adjustedShare[dp] / totalAdjusted : null;
-            });
-            console.log('[Step 6] Normalized share:', { totalAdjusted, normalizedShare });
-
-            // Step 7: Apply ambition tier (daily productivity target)
-            const ambitionMap = {
-                'Top 50%': 105,
-                'Top 33%': 108,
-                'Top 25%': 110,
-                'Top 10%': 115
-            };
-            const dailyTarget = ambitionMap[selectedTier] || 105;
-            console.log('[Step 7] Ambition tier:', { selectedTier, dailyTarget });
-
-            // Step 8: Calculate daypart targets (not directly used in weights, but for reference)
-            // const daypartTarget = {};
-            // dayparts.forEach(dp => {
-            //     daypartTarget[dp] = dailyTarget * (normalizedShare[dp] !== null ? normalizedShare[dp] : 0);
-            // });
-
-            // Step 9: Convert to weights (normalized_share * 4.0), fallback to previous or default if missing
-            const newWeights = {};
-            dayparts.forEach(dp => {
-                if (normalizedShare[dp] !== null) {
-                    newWeights[dp] = parseFloat((normalizedShare[dp] * 4.0).toFixed(2));
-                } else {
-                    // Fallback: keep previous weight or default
-                    newWeights[dp] = daypartWeights[dp] || 1.0;
-                }
-            });
-            console.log('[Step 9] Final weights:', { newWeights });
-
-            setDaypartWeights(newWeights);
-            setBannerMessage({ text: 'Weights recalculated from 30-day sales, performance, and ambition!', isError: false });
+            setDaypartWeights(nextWeights);
+            setBannerMessage({ text: 'Applied store-recommended weights from captured sales history.', isError: false });
             setShowDataBanner(true);
             setTimeout(() => setShowDataBanner(false), 3000);
         } catch (error) {
@@ -1408,13 +1333,24 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return getDayCombinedSales() + getNightCombinedSales()
     }
 
+    const getCurrentTargetPlan = () => {
+        const daypartSales = {
+            breakfast: getDaypartSales('breakfast'),
+            lunch: getDaypartSales('lunch'),
+            afternoon: getDaypartSales('afternoon'),
+            dinner: getDaypartSales('dinner'),
+        }
+
+        return calculateDaypartTargetPlan({
+            daypartSales,
+            historicalAverages: salesBaselines,
+            selectedTier,
+            daypartWeights,
+        })
+    }
+
     const getProjectedTotalDaySales = () => {
-        return orderedDayparts
-            .map((daypart) => {
-                const enteredSales = getDaypartSales(daypart)
-                return enteredSales > 0 ? enteredSales : defaultDaypartSales[daypart]
-            })
-            .reduce((sum, value) => sum + value, 0)
+        return getCurrentTargetPlan().projectedDailySales
     }
 
     const getDayCombinedActual = () => {
@@ -1438,50 +1374,56 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
 
     const getTotalDayActual = () => {
-        const projectedDaypartProductivity = orderedDayparts.map((daypart) => {
+        const plan = getCurrentTargetPlan()
+        const projectedSales = plan.projectedByDaypart || {}
+        const totalProjectedSales = plan.projectedDailySales || 0
+
+        if (totalProjectedSales <= 0) return 0
+
+        const weightedProductivity = orderedDayparts.reduce((sum, daypart) => {
             const enteredSales = getDaypartSales(daypart)
             const enteredProductivity = parseFloat(actualProductivity[daypart]) || 0
+            const daypartSales = projectedSales[daypart] || 0
+
             if (enteredSales > 0 && enteredProductivity > 0) {
-                return enteredProductivity
+                return sum + (daypartSales * enteredProductivity)
             }
 
-            const placeholderSales = defaultDaypartSales[daypart]
-            return calculateTargetProductivity(daypart, placeholderSales, selectedTier, daypartWeights)
-        })
+            const fallbackTarget = plan.daypartTargets?.[daypart] || plan.dailyTargetProductivity || 0
+            return sum + (daypartSales * fallbackTarget)
+        }, 0)
 
-        return projectedDaypartProductivity.reduce((sum, value) => sum + value, 0) / orderedDayparts.length
+        return weightedProductivity / totalProjectedSales
     }
 
     const getDayCombinedTarget = () => {
-        const bfSales = getDisplayDaypartSales('breakfast')
-        const lnSales = getDisplayDaypartSales('lunch')
+        const plan = getCurrentTargetPlan()
+        const bfSales = plan.projectedByDaypart?.breakfast || 0
+        const lnSales = plan.projectedByDaypart?.lunch || 0
         const dayCombinedSales = bfSales + lnSales
+        if (dayCombinedSales <= 0) return 0
         
-        const bfTarget = calculateTargetProductivity('breakfast', bfSales, selectedTier, daypartWeights)
-        const lnTarget = calculateTargetProductivity('lunch', lnSales, selectedTier, daypartWeights)
+        const bfTarget = plan.daypartTargets?.breakfast || plan.dailyTargetProductivity || 0
+        const lnTarget = plan.daypartTargets?.lunch || plan.dailyTargetProductivity || 0
         
         return ((bfSales * bfTarget) + (lnSales * lnTarget)) / dayCombinedSales
     }
 
     const getNightCombinedTarget = () => {
-        const afSales = getDisplayDaypartSales('afternoon')
-        const dnSales = getDisplayDaypartSales('dinner')
+        const plan = getCurrentTargetPlan()
+        const afSales = plan.projectedByDaypart?.afternoon || 0
+        const dnSales = plan.projectedByDaypart?.dinner || 0
         const nightCombinedSales = afSales + dnSales
+        if (nightCombinedSales <= 0) return 0
         
-        const afTarget = calculateTargetProductivity('afternoon', afSales, selectedTier, daypartWeights)
-        const dnTarget = calculateTargetProductivity('dinner', dnSales, selectedTier, daypartWeights)
+        const afTarget = plan.daypartTargets?.afternoon || plan.dailyTargetProductivity || 0
+        const dnTarget = plan.daypartTargets?.dinner || plan.dailyTargetProductivity || 0
         
         return ((afSales * afTarget) + (dnSales * dnTarget)) / nightCombinedSales
     }
 
     const getTotalDayTarget = () => {
-        const targetByDaypart = orderedDayparts.map((daypart) => {
-            const enteredSales = getDaypartSales(daypart)
-            const salesForTarget = enteredSales > 0 ? enteredSales : defaultDaypartSales[daypart]
-            return calculateTargetProductivity(daypart, salesForTarget, selectedTier, daypartWeights)
-        })
-
-        return targetByDaypart.reduce((sum, value) => sum + value, 0) / orderedDayparts.length
+        return getCurrentTargetPlan().dailyTargetProductivity
     }
 
     const hasEnteredAnyDaypart = () => {
@@ -1543,11 +1485,19 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 const storeInfo = await response.json();
                 if (storeInfo.weights) {
                     setDaypartWeights({
-                        breakfast: parseFloat(storeInfo.weights.breakfast) || 0.84,
-                        lunch: parseFloat(storeInfo.weights.lunch) || 1.21,
-                        afternoon: parseFloat(storeInfo.weights.afternoon) || 1.09,
-                        dinner: parseFloat(storeInfo.weights.dinner) || 0.86
+                        breakfast: parseFloat(storeInfo.weights.breakfast) || DEFAULT_OPERATIONAL_WEIGHTS.breakfast,
+                        lunch: parseFloat(storeInfo.weights.lunch) || DEFAULT_OPERATIONAL_WEIGHTS.lunch,
+                        afternoon: parseFloat(storeInfo.weights.afternoon) || DEFAULT_OPERATIONAL_WEIGHTS.afternoon,
+                        dinner: parseFloat(storeInfo.weights.dinner) || DEFAULT_OPERATIONAL_WEIGHTS.dinner
                     });
+                }
+                if (storeInfo.recommendedWeights) {
+                    setDaypartWeights({
+                        breakfast: parseFloat(storeInfo.recommendedWeights.breakfast) || DEFAULT_OPERATIONAL_WEIGHTS.breakfast,
+                        lunch: parseFloat(storeInfo.recommendedWeights.lunch) || DEFAULT_OPERATIONAL_WEIGHTS.lunch,
+                        afternoon: parseFloat(storeInfo.recommendedWeights.afternoon) || DEFAULT_OPERATIONAL_WEIGHTS.afternoon,
+                        dinner: parseFloat(storeInfo.recommendedWeights.dinner) || DEFAULT_OPERATIONAL_WEIGHTS.dinner,
+                    })
                 }
                 if (storeInfo.settings?.ambition_tier) {
                     setSelectedTier(storeInfo.settings.ambition_tier);
@@ -1770,6 +1720,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     )
 
     const renderDaypartCard = (daypartKey, title) => {
+        const targetPlan = getCurrentTargetPlan()
         const salesValues = {
             breakfast: breakfastSales,
             lunch: lunchSales,
@@ -1792,7 +1743,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             title={title}
                             salesInput={salesValues[daypartKey]}
                             actualProductivity={parseFloat(actualProductivity[daypartKey]) || 0}
-                            targetProductivity={calculateTargetProductivity(daypartKey, getDisplayDaypartSales(daypartKey), selectedTier, daypartWeights)}
+                            targetProductivity={targetPlan.daypartTargets?.[daypartKey] || targetPlan.dailyTargetProductivity}
                             salesContext="Tier-Based"
                             themeColors={tc}
                             compactMode={isMobileViewport}
@@ -2167,10 +2118,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     return (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 2px' }}>
                                             {[
-                                                { key: 'breakfast', name: 'Breakfast', defaultWeight: 0.84, note: 'prep-heavy, low ticket' },
-                                                { key: 'lunch', name: 'Lunch', defaultWeight: 1.21, note: 'peak sales throughput' },
-                                                { key: 'afternoon', name: 'Afternoon', defaultWeight: 1.09, note: 'transition + setup' },
-                                                { key: 'dinner', name: 'Dinner', defaultWeight: 0.86, note: 'rush + close tasks' }
+                                                { key: 'breakfast', name: 'Breakfast', defaultWeight: 0.92, note: 'prep-heavy startup burden' },
+                                                { key: 'lunch', name: 'Lunch', defaultWeight: 1.22, note: 'peak sales throughput' },
+                                                { key: 'afternoon', name: 'Afternoon', defaultWeight: 1.08, note: 'transition + setup' },
+                                                { key: 'dinner', name: 'Dinner', defaultWeight: 0.94, note: 'rush + close tasks' }
                                             ].map(({ key, name, defaultWeight, note }) => {
                                                 const weight = daypartWeights[key];
                                                 const deviation = ((weight - 1.0) * 100);
@@ -2191,7 +2142,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                                 max="150"
                                                                 step="1"
                                                                 className="daypart-slider"
-                                                                value={Math.round((weight || 0.84) * 100)}
+                                                                value={Math.round((weight || DEFAULT_OPERATIONAL_WEIGHTS[key]) * 100)}
                                                                 onChange={(e) => {
                                                                     let val = parseFloat(e.target.value);
                                                                     if (isNaN(val)) val = 84;
@@ -2398,7 +2349,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
 
             {showPicManager && (
                 <div
-                    onClick={() => setShowPicManager(false)}
+                    onClick={() => {
+                        setShowPicManager(false)
+                        setPicMergeTarget('')
+                    }}
                     style={{
                         position: 'fixed',
                         inset: 0,
@@ -2428,7 +2382,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             <h6 style={{ margin: 0, color: tc.text, fontSize: '13px', fontWeight: '700' }}>PIC Directory</h6>
                             <button
                                 type="button"
-                                onClick={() => setShowPicManager(false)}
+                                onClick={() => {
+                                    setShowPicManager(false)
+                                    setPicMergeTarget('')
+                                }}
                                 style={{
                                     border: `1px solid ${tc.inputBorder}`,
                                     backgroundColor: tc.inputBg,
@@ -2448,6 +2405,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             onChange={(e) => {
                                 setSelectedPicProfile(e.target.value)
                                 setPicRenameDraft(e.target.value)
+                                if (!picMergeTarget) setPicMergeTarget(e.target.value)
                             }}
                             style={{ ...dataControlBase, minHeight: '34px' }}
                         >
@@ -2467,7 +2425,20 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             style={{ ...dataControlBase, textAlign: 'left' }}
                         />
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
+                        <select
+                            value={picMergeTarget}
+                            onChange={(e) => setPicMergeTarget(e.target.value)}
+                            style={{ ...dataControlBase, minHeight: '34px' }}
+                        >
+                            <option value="">Merge selected profile into...</option>
+                            {activePicProfiles
+                                .filter((name) => name.toLowerCase() !== (selectedPicProfile || '').toLowerCase())
+                                .map((name) => (
+                                    <option key={`merge-${name}`} value={name}>{name}</option>
+                                ))}
+                        </select>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '6px' }}>
                             <button
                                 type="button"
                                 onClick={handleRenamePicProfile}
@@ -2484,6 +2455,23 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 }}
                             >
                                 Rename
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleMergePicProfiles}
+                                disabled={!selectedPicProfile || !picMergeTarget}
+                                style={{
+                                    padding: '7px 6px',
+                                    backgroundColor: '#0ea5e9',
+                                    color: '#fff',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: '700',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Merge
                             </button>
                             <button
                                 type="button"
@@ -2522,7 +2510,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         </div>
 
                         <div style={{ color: tc.textMuted, fontSize: '10px', textAlign: 'left', lineHeight: '1.3' }}>
-                            Rename keeps historic records usable by mapping old names to canonical names. Archived profiles are hidden from daypart dropdowns but preserved for history.
+                            Rename or Merge keeps historic records usable by mapping old names to canonical names. Archive hides retired profiles from daypart dropdowns but preserves history.
                         </div>
                     </div>
                 </div>

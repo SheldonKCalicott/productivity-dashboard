@@ -1,83 +1,93 @@
 // Vercel API route: /api/productivity/[store]/range/[startDate]/[endDate]
 const { Pool } = require('pg');
+const {
+    DAYPART_KEYS,
+    DEFAULT_DAYPART_AVERAGES,
+    DEFAULT_OPERATIONAL_WEIGHTS,
+    calculateDaypartTargetPlan,
+} = require('../../../../_targetUtils.js');
 
 let pool;
 function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: false
-      },
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
-    });
-  }
-  return pool;
+    if (!pool) {
+        pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: {
+                rejectUnauthorized: false
+            },
+            max: 20,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 2000,
+        });
+    }
+    return pool;
 }
 
 async function getStoreId(storeName = 'simplified') {
-    const pool = getPool();
-    let result = await pool.query('SELECT id FROM stores WHERE name = $1', [storeName]);
-    
+    const db = getPool();
+    const result = await db.query('SELECT id FROM stores WHERE name = $1', [storeName]);
+
     if (result.rows.length === 0) {
-        const storeLocation = storeName === '04680' ? 'Tuskawilla' : 
-                             storeName === '00661' ? 'Forsyth' : 
-                             storeName === 'simplified' ? 'Demo Location' : 
-                             `Store ${storeName}`;
-        
-        const newStoreResult = await pool.query(
+        const storeLocation = storeName === '04680' ? 'Tuskawilla'
+            : storeName === '00661' ? 'Forsyth'
+                : storeName === 'simplified' ? 'Demo Location'
+                    : `Store ${storeName}`;
+
+        const newStoreResult = await db.query(
             'INSERT INTO stores (name, location) VALUES ($1, $2) RETURNING id',
             [storeName, storeLocation]
         );
-        
+
         const storeId = newStoreResult.rows[0].id;
-        
-        await pool.query(
+
+        await db.query(
             'INSERT INTO operational_weights (store_id, breakfast, lunch, afternoon, dinner) VALUES ($1, $2, $3, $4, $5)',
-            [storeId, 0.84, 1.21, 1.09, 0.86]
+            [
+                storeId,
+                DEFAULT_OPERATIONAL_WEIGHTS.breakfast,
+                DEFAULT_OPERATIONAL_WEIGHTS.lunch,
+                DEFAULT_OPERATIONAL_WEIGHTS.afternoon,
+                DEFAULT_OPERATIONAL_WEIGHTS.dinner,
+            ]
         );
-        
-        await pool.query(
+
+        await db.query(
             'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
             [storeId, 'Top 50%']
         );
-        
-        console.error(`Created new store: ${storeName} (${storeLocation}) with ID: ${storeId}`);
+
         return storeId;
     }
-    
+
     return result.rows[0].id;
 }
 
-// Target calculation logic (matches backend/targetUtils.js)
-const tierOffsets = {
-    'Bottom 50%': -2.0,
-    'Top 50%': 0.0,
-    'Top 33%': 1.6,
-    'Top 20%': 3.2,
-    'Top 10%': 5.6,
-};
-const MIN_SALES_FOR_LOG = 1000;
-const LOG_BENCHMARK_MULTIPLIER = 16.75;
-const LOG_BENCHMARK_INTERCEPT = -84.9;
+async function getHistoricalDaypartAverages(storeId, referenceDate) {
+    const db = getPool();
+    const averages = { ...DEFAULT_DAYPART_AVERAGES };
 
-function benchmarkFromSales(totalDailySales) {
-    const safeSales = Math.max(MIN_SALES_FOR_LOG, Number(totalDailySales) || 0);
-    const benchmark = LOG_BENCHMARK_MULTIPLIER * Math.log(safeSales) + LOG_BENCHMARK_INTERCEPT;
-    return Math.max(60, Math.min(110, benchmark));
-}
+    const result = await db.query(`
+        SELECT daypart, AVG(sales_amount) AS avg_sales
+        FROM productivity_records
+        WHERE store_id = $1
+          AND record_date >= ($2::date - INTERVAL '90 day')
+          AND record_date <= $2::date
+          AND sales_amount > 0
+        GROUP BY daypart
+    `, [storeId, referenceDate]);
 
-function calculateTargetProductivity(daypartKey, salesAmount, selectedTier = 'Top 50%', daypartWeights = { breakfast: 0.84, lunch: 1.21, afternoon: 1.09, dinner: 0.86 }) {
-    const benchmark = benchmarkFromSales(salesAmount);
-    const tierAdjusted = benchmark + (tierOffsets[selectedTier] ?? 0);
-    const weightedTarget = tierAdjusted * (daypartWeights[daypartKey] || 1);
-    return Math.round(weightedTarget * 10) / 10;
+    result.rows.forEach((row) => {
+        if (!DAYPART_KEYS.includes(row.daypart)) return;
+        const avgSales = Number(row.avg_sales);
+        if (Number.isFinite(avgSales) && avgSales > 0) {
+            averages[row.daypart] = Math.round(avgSales);
+        }
+    });
+
+    return averages;
 }
 
 export default async function handler(req, res) {
-    // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -90,18 +100,17 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const pool = getPool();
+    const db = getPool();
     const { store, startDate, endDate } = req.query;
-    
+
     try {
         const storeId = await getStoreId(store);
 
-        // Fetch latest weights and ambition tier for this store
-        const weightsResult = await pool.query(
+        const weightsResult = await db.query(
             'SELECT * FROM operational_weights WHERE store_id = $1',
             [storeId]
         );
-        const settingsResult = await pool.query(
+        const settingsResult = await db.query(
             'SELECT * FROM store_settings WHERE store_id = $1',
             [storeId]
         );
@@ -109,19 +118,18 @@ export default async function handler(req, res) {
         const weightsRow = weightsResult.rows[0] || {};
         const settingsRow = settingsResult.rows[0] || {};
         const daypartWeights = {
-            breakfast: parseFloat(weightsRow.breakfast) || 0.84,
-            lunch: parseFloat(weightsRow.lunch) || 1.21,
-            afternoon: parseFloat(weightsRow.afternoon) || 1.09,
-            dinner: parseFloat(weightsRow.dinner) || 0.86
+            breakfast: Number(weightsRow.breakfast) || DEFAULT_OPERATIONAL_WEIGHTS.breakfast,
+            lunch: Number(weightsRow.lunch) || DEFAULT_OPERATIONAL_WEIGHTS.lunch,
+            afternoon: Number(weightsRow.afternoon) || DEFAULT_OPERATIONAL_WEIGHTS.afternoon,
+            dinner: Number(weightsRow.dinner) || DEFAULT_OPERATIONAL_WEIGHTS.dinner,
         };
         const selectedTier = settingsRow.ambition_tier || 'Top 50%';
+        const historicalAverages = await getHistoricalDaypartAverages(storeId, endDate);
 
-        console.error('[API] Store:', store, '| Tier:', selectedTier, '| Weights:', daypartWeights);
-
-        const result = await pool.query(`
-            SELECT * FROM productivity_records 
+        const result = await db.query(`
+            SELECT * FROM productivity_records
             WHERE store_id = $1 AND record_date BETWEEN $2 AND $3
-            ORDER BY record_date DESC, 
+            ORDER BY record_date DESC,
                 CASE daypart
                     WHEN 'breakfast' THEN 1
                     WHEN 'lunch' THEN 2
@@ -130,24 +138,48 @@ export default async function handler(req, res) {
                 END
         `, [storeId, startDate, endDate]);
 
-        // Recalculate target_productivity for each record using latest tier and weights
-        const recalculatedRows = result.rows.map(record => {
-            const sales = parseInt(record.sales_amount) || 0;
-            const targetProductivity = sales > 0
-                ? calculateTargetProductivity(record.daypart, sales, selectedTier, daypartWeights)
-                : record.target_productivity;
+        const recordsByDate = result.rows.reduce((acc, record) => {
+            const key = record.record_date;
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(record);
+            return acc;
+        }, {});
+
+        const targetPlansByDate = {};
+        Object.entries(recordsByDate).forEach(([dateKey, records]) => {
+            const daypartSales = DAYPART_KEYS.reduce((acc, daypart) => {
+                acc[daypart] = 0;
+                return acc;
+            }, {});
+
+            records.forEach((record) => {
+                if (!DAYPART_KEYS.includes(record.daypart)) return;
+                const sales = Number(record.sales_amount) || 0;
+                daypartSales[record.daypart] = sales > 0 ? sales : 0;
+            });
+
+            targetPlansByDate[dateKey] = calculateDaypartTargetPlan({
+                daypartSales,
+                historicalAverages,
+                selectedTier,
+                daypartWeights,
+            });
+        });
+
+        const recalculatedRows = result.rows.map((record) => {
+            const plan = targetPlansByDate[record.record_date];
+            const targetProductivity = plan?.daypartTargets?.[record.daypart] ?? record.target_productivity;
             return {
                 ...record,
-                target_productivity: targetProductivity
+                target_productivity: targetProductivity,
             };
         });
 
         return res.json(recalculatedRows);
-        
     } catch (error) {
         console.error('Error fetching productivity range data:', error);
-        res.status(500).json({ 
-            error: 'Internal server error', 
+        return res.status(500).json({
+            error: 'Internal server error',
             message: error.message,
             details: process.env.NODE_ENV === 'development' ? error.stack : 'Check server logs'
         });

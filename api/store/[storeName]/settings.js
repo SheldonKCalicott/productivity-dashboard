@@ -47,10 +47,10 @@ module.exports = async function handler(req, res) {
                 SET breakfast = $1, lunch = $2, afternoon = $3, dinner = $4, updated_at = CURRENT_TIMESTAMP
                 WHERE store_id = $5
             `, [
-                weights.breakfast ?? 0.84,
-                weights.lunch ?? 1.21,
-                weights.afternoon ?? 1.09,
-                weights.dinner ?? 0.86,
+                weights.breakfast ?? 0.92,
+                weights.lunch ?? 1.22,
+                weights.afternoon ?? 1.08,
+                weights.dinner ?? 0.94,
                 storeId
             ]);
         } else {
@@ -59,10 +59,10 @@ module.exports = async function handler(req, res) {
                 VALUES ($1, $2, $3, $4, $5)
             `, [
                 storeId,
-                weights.breakfast ?? 0.84,
-                weights.lunch ?? 1.21,
-                weights.afternoon ?? 1.09,
-                weights.dinner ?? 0.86
+                weights.breakfast ?? 0.92,
+                weights.lunch ?? 1.22,
+                weights.afternoon ?? 1.08,
+                weights.dinner ?? 0.94
             ]);
         }
 

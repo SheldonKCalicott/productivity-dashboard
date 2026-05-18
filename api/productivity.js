@@ -1,74 +1,143 @@
 // Vercel API route: /api/productivity (POST)
 const { Pool } = require('pg');
+const {
+    DAYPART_KEYS,
+    DEFAULT_DAYPART_AVERAGES,
+    DEFAULT_OPERATIONAL_WEIGHTS,
+    calculateDaypartTargetPlan,
+} = require('./_targetUtils.js');
 
 let pool;
 function getPool() {
-  if (!pool) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: {
-        rejectUnauthorized: false
-      },
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+    if (!pool) {
+        pool = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: {
+                rejectUnauthorized: false,
+            },
+            max: 20,
+            idleTimeoutMillis: 30000,
+            connectionTimeoutMillis: 2000,
+        });
+    }
+    return pool;
+}
+
+function parseSalesInput(value) {
+    const parsed = Number(String(value ?? '').replace(/[^0-9.]/g, ''));
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+async function getHistoricalDaypartAverages(storeId, referenceDate) {
+    const db = getPool();
+    const averages = { ...DEFAULT_DAYPART_AVERAGES };
+
+    const result = await db.query(`
+        SELECT daypart, AVG(sales_amount) AS avg_sales
+        FROM productivity_records
+        WHERE store_id = $1
+          AND record_date >= ($2::date - INTERVAL '90 day')
+          AND record_date <= $2::date
+          AND sales_amount > 0
+        GROUP BY daypart
+    `, [storeId, referenceDate]);
+
+    result.rows.forEach((row) => {
+        if (!DAYPART_KEYS.includes(row.daypart)) return;
+        const avgSales = Number(row.avg_sales);
+        if (Number.isFinite(avgSales) && avgSales > 0) {
+            averages[row.daypart] = Math.round(avgSales);
+        }
     });
-  }
-  return pool;
+
+    return averages;
+}
+
+function deriveWeightsFromAverages(daypartAverages) {
+    const baselineWeights = { ...DEFAULT_OPERATIONAL_WEIGHTS };
+    const baselineAvg = DAYPART_KEYS.reduce((sum, key) => sum + baselineWeights[key], 0) / DAYPART_KEYS.length;
+    const normalizedBaseline = DAYPART_KEYS.reduce((acc, key) => {
+        acc[key] = baselineAvg > 0 ? (baselineWeights[key] / baselineAvg) : 1;
+        return acc;
+    }, {});
+
+    const totalSales = DAYPART_KEYS.reduce((sum, key) => sum + (Number(daypartAverages[key]) || 0), 0);
+    if (totalSales <= 0) return { ...DEFAULT_OPERATIONAL_WEIGHTS };
+
+    const salesShares = DAYPART_KEYS.reduce((acc, key) => {
+        acc[key] = (Number(daypartAverages[key]) || 0) / totalSales;
+        return acc;
+    }, {});
+
+    const adjusted = DAYPART_KEYS.reduce((acc, key) => {
+        acc[key] = salesShares[key] * normalizedBaseline[key];
+        return acc;
+    }, {});
+
+    const adjustedTotal = DAYPART_KEYS.reduce((sum, key) => sum + adjusted[key], 0);
+    if (adjustedTotal <= 0) return { ...DEFAULT_OPERATIONAL_WEIGHTS };
+
+    return DAYPART_KEYS.reduce((acc, key) => {
+        const normalizedShare = adjusted[key] / adjustedTotal;
+        acc[key] = Number((normalizedShare * DAYPART_KEYS.length).toFixed(3));
+        return acc;
+    }, {});
+}
+
+async function getStoreRecommendedWeights(storeId, referenceDate) {
+    const averages = await getHistoricalDaypartAverages(storeId, referenceDate);
+    return deriveWeightsFromAverages(averages);
 }
 
 async function getStoreId(storeName = 'simplified') {
-    const pool = getPool();
-    
-    try {
-        let result = await pool.query('SELECT id FROM stores WHERE name = $1', [storeName]);
-        
-        if (result.rows.length === 0) {
-            const storeLocation = storeName === '04680' ? 'Tuskawilla' : 
-                                 storeName === '00661' ? 'Forsyth' : 
-                                 storeName === 'simplified' ? 'Demo Location' : 
-                                 `Store ${storeName}`;
-            
-            const newStoreResult = await pool.query(
-                'INSERT INTO stores (name, location) VALUES ($1, $2) RETURNING id',
-                [storeName, storeLocation]
+    const db = getPool();
+    let result = await db.query('SELECT id FROM stores WHERE name = $1', [storeName]);
+
+    if (result.rows.length === 0) {
+        const storeLocation = storeName === '04680' ? 'Tuskawilla'
+            : storeName === '00661' ? 'Forsyth'
+                : storeName === 'simplified' ? 'Demo Location'
+                    : `Store ${storeName}`;
+
+        const newStoreResult = await db.query(
+            'INSERT INTO stores (name, location) VALUES ($1, $2) RETURNING id',
+            [storeName, storeLocation]
+        );
+
+        const storeId = newStoreResult.rows[0].id;
+
+        try {
+            await db.query(
+                'INSERT INTO operational_weights (store_id, breakfast, lunch, afternoon, dinner) VALUES ($1, $2, $3, $4, $5)',
+                [
+                    storeId,
+                    DEFAULT_OPERATIONAL_WEIGHTS.breakfast,
+                    DEFAULT_OPERATIONAL_WEIGHTS.lunch,
+                    DEFAULT_OPERATIONAL_WEIGHTS.afternoon,
+                    DEFAULT_OPERATIONAL_WEIGHTS.dinner,
+                ]
             );
-            
-            const storeId = newStoreResult.rows[0].id;
-            
-            // Try to insert operational weights, but don't fail if table doesn't exist or constraint fails
-            try {
-                await pool.query(
-                    'INSERT INTO operational_weights (store_id, breakfast, lunch, afternoon, dinner) VALUES ($1, $2, $3, $4, $5)',
-                    [storeId, 0.84, 1.21, 1.09, 0.86]
-                );
-            } catch (weightError) {
-                console.log('Warning: Could not insert operational weights:', weightError.message);
-            }
-            
-            // Try to insert store settings, but don't fail if table doesn't exist or constraint fails
-            try {
-                await pool.query(
-                    'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
-                    [storeId, 'Top 50%']
-                );
-            } catch (settingsError) {
-                console.log('Warning: Could not insert store settings:', settingsError.message);
-            }
-            
-            console.log(`Created new store: ${storeName} (${storeLocation}) with ID: ${storeId}`);
-            return storeId;
+        } catch (weightError) {
+            console.log('Warning: Could not insert operational weights:', weightError.message);
         }
-        
-        return result.rows[0].id;
-    } catch (error) {
-        console.error('Error in getStoreId:', error.message);
-        throw error;
+
+        try {
+            await db.query(
+                'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
+                [storeId, 'Top 50%']
+            );
+        } catch (settingsError) {
+            console.log('Warning: Could not insert store settings:', settingsError.message);
+        }
+
+        console.log(`Created new store: ${storeName} (${storeLocation}) with ID: ${storeId}`);
+        return storeId;
     }
+
+    return result.rows[0].id;
 }
 
 module.exports = async function handler(req, res) {
-    // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -81,23 +150,7 @@ module.exports = async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const pool = getPool();
-
-    // Log incoming request body for debugging
-    console.log('Incoming request body:', JSON.stringify(req.body, null, 2));
-
-    // Test database connectivity
-    try {
-        const testResult = await pool.query('SELECT NOW() as test_time');
-        console.log('Database test successful:', testResult.rows[0].test_time);
-    } catch (dbError) {
-        console.error('Database connectivity test failed:', dbError);
-        return res.status(500).json({ 
-            error: 'Database connection failed',
-            message: dbError.message,
-            stack: dbError.stack
-        });
-    }
+    const db = getPool();
 
     try {
         const {
@@ -106,38 +159,64 @@ module.exports = async function handler(req, res) {
             daypartsData,
             operationalWeights,
             ambitionTier,
-            // Also accept legacy single-record format
             store_number,
             daypart,
             sales_amount,
             actual_productivity,
             target_productivity,
             pic_name,
-            record_date
+            record_date,
         } = req.body;
 
-        // Batch format: { storeName, date, daypartsData: { breakfast: {...}, ... } }
         if (daypartsData && date) {
             const effectiveStoreName = storeName || 'simplified';
             const storeId = await getStoreId(effectiveStoreName);
-            console.log('Store ID:', storeId, '| Batch save for', effectiveStoreName, date);
+
+            const selectedTier = ambitionTier || 'Top 50%';
+            const normalizedWeights = {
+                breakfast: Number(operationalWeights?.breakfast) || DEFAULT_OPERATIONAL_WEIGHTS.breakfast,
+                lunch: Number(operationalWeights?.lunch) || DEFAULT_OPERATIONAL_WEIGHTS.lunch,
+                afternoon: Number(operationalWeights?.afternoon) || DEFAULT_OPERATIONAL_WEIGHTS.afternoon,
+                dinner: Number(operationalWeights?.dinner) || DEFAULT_OPERATIONAL_WEIGHTS.dinner,
+            };
+
+            const historicalAverages = await getHistoricalDaypartAverages(storeId, date);
+            const existingRows = await db.query(
+                'SELECT daypart, sales_amount FROM productivity_records WHERE store_id = $1 AND record_date = $2',
+                [storeId, date]
+            );
+
+            const daypartSales = DAYPART_KEYS.reduce((acc, key) => {
+                acc[key] = 0;
+                return acc;
+            }, {});
+
+            existingRows.rows.forEach((row) => {
+                if (!DAYPART_KEYS.includes(row.daypart)) return;
+                const sales = Number(row.sales_amount) || 0;
+                daypartSales[row.daypart] = sales > 0 ? sales : 0;
+            });
+
+            Object.entries(daypartsData).forEach(([key, data]) => {
+                if (!DAYPART_KEYS.includes(key)) return;
+                const parsedSales = parseSalesInput(data.sales);
+                daypartSales[key] = parsedSales > 0 ? parsedSales : 0;
+            });
+
+            const targetPlan = calculateDaypartTargetPlan({
+                daypartSales,
+                historicalAverages,
+                selectedTier,
+                daypartWeights: normalizedWeights,
+            });
 
             for (const [dp, data] of Object.entries(daypartsData)) {
                 if (data.sales || data.actualProductivity || data.picName) {
-                    const daypartWeights = data.daypartWeights || operationalWeights || { breakfast: 0.84, lunch: 1.21, afternoon: 1.09, dinner: 0.86 };
-                    const tier = data.selectedTier || ambitionTier || 'Top 50%';
-                    const sales = data.sales ? parseInt(data.sales.toString().replace(/[^0-9]/g, '')) : 0;
+                    const sales = parseSalesInput(data.sales);
+                    const targetProd = targetPlan.daypartTargets[dp] ?? targetPlan.dailyTargetProductivity;
 
-                    // Calculate target using same formula as backend
-                    const tierOffsets = { 'Bottom 50%': -2.0, 'Top 50%': 0.0, 'Top 33%': 1.6, 'Top 20%': 3.2, 'Top 10%': 5.6 };
-                    const safeSales = Math.max(1000, Number(sales) || 0);
-                    const benchmark = (16.75 * Math.log(safeSales)) - 84.9;
-                    const boundedBenchmark = Math.max(60, Math.min(110, benchmark));
-                    const tierAdjusted = boundedBenchmark + (tierOffsets[tier] ?? 0);
-                    const targetProd = Math.round((tierAdjusted * (daypartWeights[dp] || 1)) * 10) / 10;
-
-                    await pool.query(`
-                        INSERT INTO productivity_records 
+                    await db.query(`
+                        INSERT INTO productivity_records
                         (store_id, record_date, daypart, sales_amount, actual_productivity, target_productivity, pic_name)
                         VALUES ($1, $2, $3, $4, $5, $6, $7)
                         ON CONFLICT (store_id, record_date, daypart)
@@ -151,58 +230,46 @@ module.exports = async function handler(req, res) {
                         storeId,
                         date,
                         dp,
-                        sales || null,
+                        sales > 0 ? Math.round(sales) : null,
                         data.actualProductivity ? parseFloat(data.actualProductivity) : null,
                         targetProd,
-                        data.picName || null
+                        data.picName || null,
                     ]);
                 }
             }
 
-            // Update operational weights if provided
-            if (operationalWeights) {
-                try {
-                    await pool.query(`
-                        UPDATE operational_weights 
-                        SET breakfast = $2, lunch = $3, afternoon = $4, dinner = $5, updated_at = CURRENT_TIMESTAMP
-                        WHERE store_id = $1
-                    `, [storeId, operationalWeights.breakfast, operationalWeights.lunch, operationalWeights.afternoon, operationalWeights.dinner]);
-                } catch (weightErr) {
-                    console.log('Warning: Could not update weights:', weightErr.message);
-                }
-            }
+            const recommendedWeights = await getStoreRecommendedWeights(storeId, date);
 
-            // Update ambition tier if provided
+            await db.query(`
+                UPDATE operational_weights
+                SET breakfast = $2, lunch = $3, afternoon = $4, dinner = $5, updated_at = CURRENT_TIMESTAMP
+                WHERE store_id = $1
+            `, [
+                storeId,
+                recommendedWeights.breakfast,
+                recommendedWeights.lunch,
+                recommendedWeights.afternoon,
+                recommendedWeights.dinner,
+            ]);
+
             if (ambitionTier) {
-                try {
-                    await pool.query(`
-                        UPDATE store_settings SET ambition_tier = $2, updated_at = CURRENT_TIMESTAMP WHERE store_id = $1
-                    `, [storeId, ambitionTier]);
-                } catch (tierErr) {
-                    console.log('Warning: Could not update tier:', tierErr.message);
-                }
+                await db.query(
+                    'UPDATE store_settings SET ambition_tier = $2, updated_at = CURRENT_TIMESTAMP WHERE store_id = $1',
+                    [storeId, ambitionTier]
+                );
             }
 
-            console.log('✅ Batch data saved successfully for', effectiveStoreName, date);
-            return res.json({ success: true, message: 'Data saved successfully' });
+            return res.json({ success: true, message: 'Data saved successfully', recommendedWeights });
         }
 
-        // Legacy single-record format: { store_number, daypart, sales_amount, ... }
         const legacyStoreName = store_number || 'simplified';
         const legacyDate = record_date;
-
-        if (!legacyDate) {
-            throw new Error('Missing required field: date');
-        }
-        if (!daypart) {
-            throw new Error('Missing required field: daypart');
-        }
+        if (!legacyDate) throw new Error('Missing required field: date');
+        if (!daypart) throw new Error('Missing required field: daypart');
 
         const storeId = await getStoreId(legacyStoreName);
-        console.log('Store ID:', storeId);
-
-        await pool.query(`
-            INSERT INTO productivity_records 
+        await db.query(`
+            INSERT INTO productivity_records
             (store_id, record_date, daypart, sales_amount, actual_productivity, target_productivity, pic_name)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (store_id, record_date, daypart)
@@ -216,22 +283,19 @@ module.exports = async function handler(req, res) {
             storeId,
             legacyDate,
             daypart,
-            sales_amount != null ? parseInt(sales_amount) : null,
+            sales_amount != null ? parseInt(sales_amount, 10) : null,
             actual_productivity != null ? parseFloat(actual_productivity) : null,
             target_productivity != null ? parseFloat(target_productivity) : null,
-            pic_name || null
+            pic_name || null,
         ]);
 
-        console.log('✅ Data saved successfully for', legacyStoreName, legacyDate, daypart);
-        res.json({ success: true, message: 'Data saved successfully' });
-
+        return res.json({ success: true, message: 'Data saved successfully' });
     } catch (error) {
         console.error('Error saving productivity data:', error);
-        res.status(500).json({ 
+        return res.status(500).json({
             error: 'Failed to save data',
             message: error.message,
-            stack: error.stack,
-            details: error
+            details: error,
         });
     }
-}
+};
