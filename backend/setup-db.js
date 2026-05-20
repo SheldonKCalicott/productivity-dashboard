@@ -67,7 +67,7 @@ async function setupDatabase() {
             CREATE TABLE IF NOT EXISTS store_settings (
                 id SERIAL PRIMARY KEY,
                 store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE UNIQUE,
-                ambition_tier VARCHAR(20) DEFAULT 'Balanced',
+                ambition_tier VARCHAR(20) DEFAULT 'Top 50',
                 manual_weight_override BOOLEAN DEFAULT FALSE,
                 closed_weekdays JSONB DEFAULT '[0]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -134,7 +134,7 @@ async function setupDatabase() {
         if (settingsResult.rows.length === 0) {
             await client.query(
                 'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
-                [storeId, 'Balanced']
+                [storeId, 'Top 50']
             );
             console.log('Created default store settings');
         }

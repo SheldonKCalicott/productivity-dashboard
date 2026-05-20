@@ -4,11 +4,8 @@ import dotenv from 'dotenv';
 import pkg from 'pg';
 import {
     DAYPART_KEYS,
-    DEFAULT_DAYPART_AVERAGES,
     DEFAULT_DAYPART_SALES_SHARES,
     DEFAULT_OPERATIONAL_WEIGHTS,
-    calculateAdaptiveLearningProfile,
-    calculateForecastFromHistoryRecords,
     calculateDaypartTargetPlan,
 } from './targetUtils.js';
 
@@ -235,7 +232,7 @@ app.put('/api/store/:storeName/settings', async (req, res) => {
                 manual_weight_override = EXCLUDED.manual_weight_override,
                 closed_weekdays = EXCLUDED.closed_weekdays,
                 updated_at = CURRENT_TIMESTAMP
-        `, [storeId, ambition_tier || 'Balanced', true, JSON.stringify(closedWeekdays)]);
+        `, [storeId, ambition_tier || 'Top 50', true, JSON.stringify(closedWeekdays)]);
 
         if (weights) {
             const existing = await pool.query('SELECT id FROM operational_weights WHERE store_id = $1', [storeId]);
@@ -285,7 +282,7 @@ app.post('/api/productivity', async (req, res) => {
         const storeId = await getStoreId(storeName);
         const { settingsRow, weightsRow, adaptiveProfile } = await getStoreLearningContext(client, storeId);
 
-        const selectedTier = ambitionTier || settingsRow.ambition_tier || 'Balanced';
+        const selectedTier = ambitionTier || settingsRow.ambition_tier || 'Top 50';
         const closedWeekdays = parseClosedWeekdays(settingsRow.closed_weekdays);
         const manualOverride = !!settingsRow.manual_weight_override;
 
@@ -315,41 +312,11 @@ app.post('/api/productivity', async (req, res) => {
             ORDER BY record_date DESC
         `, [storeId, date]);
 
-        const forecast = calculateForecastFromHistoryRecords(historyResult.rows, date, {
-            defaultAverages: DEFAULT_DAYPART_AVERAGES,
-            closedWeekdays,
-        });
-
-        const existingRows = await client.query(
-            'SELECT daypart, sales_amount FROM productivity_records WHERE store_id = $1 AND record_date = $2',
-            [storeId, date]
-        );
-
-        const daypartSales = DAYPART_KEYS.reduce((acc, key) => {
-            acc[key] = 0;
-            return acc;
-        }, {});
-
-        existingRows.rows.forEach((row) => {
-            if (!DAYPART_KEYS.includes(row.daypart)) return;
-            const sales = Number(row.sales_amount) || 0;
-            daypartSales[row.daypart] = sales > 0 ? sales : 0;
-        });
-
-        Object.entries(daypartsData).forEach(([key, data]) => {
-            if (!DAYPART_KEYS.includes(key)) return;
-            const parsedSales = parseSalesInput(data.sales);
-            daypartSales[key] = parsedSales > 0 ? parsedSales : 0;
-        });
-
         const targetPlan = calculateDaypartTargetPlan({
-            daypartSales,
-            historicalAverages: forecast.daypartAverages,
-            forecastDailySales: forecast.dailyAverage,
-            selectedTier,
-            daypartWeights: effectiveWeights,
-            adaptiveTargets: adaptiveProfile?.adaptive_targets || null,
-            learningPhase: adaptiveProfile?.phase || 'default',
+            records: historyResult.rows,
+            referenceDate: date,
+            closedWeekdays,
+            ambitionTier: selectedTier,
         });
 
         for (const [daypart, data] of Object.entries(daypartsData)) {
@@ -380,39 +347,6 @@ app.post('/api/productivity', async (req, res) => {
             }
         }
 
-        const learningRows = await client.query(`
-            SELECT record_date, daypart, sales_amount, actual_productivity, target_productivity
-            FROM productivity_records
-            WHERE store_id = $1
-              AND record_date >= ($2::date - INTERVAL '240 day')
-              AND record_date <= $2::date
-            ORDER BY record_date DESC
-        `, [storeId, date]);
-
-        const refreshedProfile = calculateAdaptiveLearningProfile({
-            records: learningRows.rows,
-            previousProfile: adaptiveProfile,
-            selectedTier,
-            closedWeekdays,
-        });
-
-        await upsertAdaptiveProfile(client, storeId, refreshedProfile);
-
-        if (!manualOverride && refreshedProfile.phase !== 'default') {
-            const learnedOperationalWeights = toOperationalWeightsFromAdaptiveShares(refreshedProfile.adaptive_weights);
-            await client.query(`
-                UPDATE operational_weights
-                SET breakfast = $2, lunch = $3, afternoon = $4, dinner = $5, updated_at = CURRENT_TIMESTAMP
-                WHERE store_id = $1
-            `, [
-                storeId,
-                learnedOperationalWeights.breakfast,
-                learnedOperationalWeights.lunch,
-                learnedOperationalWeights.afternoon,
-                learnedOperationalWeights.dinner,
-            ]);
-        }
-
         await client.query(`
             INSERT INTO store_settings (store_id, ambition_tier, manual_weight_override, closed_weekdays, updated_at)
             VALUES ($1, $2, $3, $4::jsonb, CURRENT_TIMESTAMP)
@@ -431,8 +365,8 @@ app.post('/api/productivity', async (req, res) => {
         res.json({
             success: true,
             message: 'Data saved successfully',
-            adaptiveProfile: refreshedProfile,
-            notifications: refreshedProfile.notifications || [],
+            adaptiveProfile,
+            notifications: [],
             targetPlan,
         });
     } catch (error) {
@@ -484,7 +418,7 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
         const storeId = await getStoreId(storeName);
 
         const { settingsRow, weightsRow, adaptiveProfile } = await getStoreLearningContext(pool, storeId);
-        const selectedTier = settingsRow.ambition_tier || 'Balanced';
+        const selectedTier = settingsRow.ambition_tier || 'Top 50';
         const closedWeekdays = parseClosedWeekdays(settingsRow.closed_weekdays);
         const manualOverride = !!settingsRow.manual_weight_override;
 
@@ -526,31 +460,12 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
         }, {});
 
         const targetPlansByDate = {};
-        Object.entries(recordsByDate).forEach(([dateKey, records]) => {
-            const daypartSales = DAYPART_KEYS.reduce((acc, key) => {
-                acc[key] = 0;
-                return acc;
-            }, {});
-
-            records.forEach((record) => {
-                if (!DAYPART_KEYS.includes(record.daypart)) return;
-                const sales = Number(record.sales_amount) || 0;
-                daypartSales[record.daypart] = sales > 0 ? sales : 0;
-            });
-
-            const forecast = calculateForecastFromHistoryRecords(historyRows, dateKey, {
-                defaultAverages: DEFAULT_DAYPART_AVERAGES,
-                closedWeekdays,
-            });
-
+        Object.keys(recordsByDate).forEach((dateKey) => {
             targetPlansByDate[dateKey] = calculateDaypartTargetPlan({
-                daypartSales,
-                historicalAverages: forecast.daypartAverages,
-                forecastDailySales: forecast.dailyAverage,
-                selectedTier,
-                daypartWeights: effectiveWeights,
-                adaptiveTargets: adaptiveProfile?.adaptive_targets || null,
-                learningPhase: adaptiveProfile?.phase || 'default',
+                records: historyRows,
+                referenceDate: dateKey,
+                closedWeekdays,
+                ambitionTier: selectedTier,
             });
         });
 

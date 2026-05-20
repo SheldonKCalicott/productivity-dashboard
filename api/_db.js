@@ -46,7 +46,7 @@ async function getStoreId(storeName = 'simplified') {
         // Create default store settings for the new store
         await pool.query(
             'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
-          [storeId, 'Balanced']
+          [storeId, 'Top 50']
         );
 
         await pool.query(

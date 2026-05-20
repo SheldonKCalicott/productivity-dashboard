@@ -2,10 +2,8 @@
 const { Pool } = require('pg');
 const {
     DAYPART_KEYS,
-    DEFAULT_DAYPART_AVERAGES,
     DEFAULT_DAYPART_SALES_SHARES,
     DEFAULT_OPERATIONAL_WEIGHTS,
-    calculateForecastFromHistoryRecords,
     calculateDaypartTargetPlan,
 } = require('../../../../_targetUtils.js');
 
@@ -118,7 +116,7 @@ async function getStoreId(storeName = 'simplified') {
 
         await db.query(
             'INSERT INTO store_settings (store_id, ambition_tier, manual_weight_override, closed_weekdays) VALUES ($1, $2, $3, $4::jsonb)',
-            [storeId, 'Balanced', false, JSON.stringify([0])]
+            [storeId, 'Top 50', false, JSON.stringify([0])]
         );
 
         await db.query(
@@ -162,7 +160,7 @@ export default async function handler(req, res) {
 
         const manualOverride = !!settingsRow.manual_weight_override;
         const closedWeekdays = parseClosedWeekdays(settingsRow.closed_weekdays);
-        const selectedTier = settingsRow.ambition_tier || 'Balanced';
+        const selectedTier = settingsRow.ambition_tier || 'Top 50';
 
         const manualWeights = readOperationalWeights(weightsRow);
         const learnedWeights = adaptiveProfile?.adaptive_weights
@@ -202,31 +200,12 @@ export default async function handler(req, res) {
         }, {});
 
         const targetPlansByDate = {};
-        Object.entries(recordsByDate).forEach(([dateKey, records]) => {
-            const daypartSales = DAYPART_KEYS.reduce((acc, key) => {
-                acc[key] = 0;
-                return acc;
-            }, {});
-
-            records.forEach((record) => {
-                if (!DAYPART_KEYS.includes(record.daypart)) return;
-                const sales = Number(record.sales_amount) || 0;
-                daypartSales[record.daypart] = sales > 0 ? sales : 0;
-            });
-
-            const forecast = calculateForecastFromHistoryRecords(historyRows, dateKey, {
-                defaultAverages: DEFAULT_DAYPART_AVERAGES,
-                closedWeekdays,
-            });
-
+        Object.keys(recordsByDate).forEach((dateKey) => {
             targetPlansByDate[dateKey] = calculateDaypartTargetPlan({
-                daypartSales,
-                historicalAverages: forecast.daypartAverages,
-                forecastDailySales: forecast.dailyAverage,
-                selectedTier,
-                daypartWeights: effectiveWeights,
-                adaptiveTargets: adaptiveProfile?.adaptive_targets || null,
-                learningPhase: adaptiveProfile?.phase || 'default',
+                records: historyRows,
+                referenceDate: dateKey,
+                closedWeekdays,
+                ambitionTier: selectedTier,
             });
         });
 

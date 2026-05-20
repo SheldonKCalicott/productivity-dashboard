@@ -2,11 +2,8 @@
 const { Pool } = require('pg');
 const {
     DAYPART_KEYS,
-    DEFAULT_DAYPART_AVERAGES,
     DEFAULT_DAYPART_SALES_SHARES,
     DEFAULT_OPERATIONAL_WEIGHTS,
-    calculateAdaptiveLearningProfile,
-    calculateForecastFromHistoryRecords,
     calculateDaypartTargetPlan,
 } = require('./_targetUtils.js');
 
@@ -130,7 +127,7 @@ async function getStoreId(storeName = 'simplified') {
 
         await db.query(
             'INSERT INTO store_settings (store_id, ambition_tier, manual_weight_override, closed_weekdays) VALUES ($1, $2, $3, $4::jsonb)',
-            [storeId, 'Balanced', false, JSON.stringify([0])]
+            [storeId, 'Top 50', false, JSON.stringify([0])]
         );
 
         await db.query(
@@ -236,7 +233,7 @@ module.exports = async function handler(req, res) {
                 const storeId = await getStoreId(effectiveStoreName);
                 const { settingsRow, weightsRow, adaptiveProfile } = await getStoreLearningContext(db, storeId);
 
-                const selectedTier = ambitionTier || settingsRow.ambition_tier || 'Balanced';
+                const selectedTier = ambitionTier || settingsRow.ambition_tier || 'Top 50';
                 const manualOverride = !!settingsRow.manual_weight_override;
                 const closedWeekdays = parseClosedWeekdays(settingsRow.closed_weekdays);
 
@@ -266,41 +263,11 @@ module.exports = async function handler(req, res) {
                     ORDER BY record_date DESC
                 `, [storeId, date]);
 
-                const forecast = calculateForecastFromHistoryRecords(historyResult.rows, date, {
-                    defaultAverages: DEFAULT_DAYPART_AVERAGES,
-                    closedWeekdays,
-                });
-
-                const existingRows = await db.query(
-                    'SELECT daypart, sales_amount FROM productivity_records WHERE store_id = $1 AND record_date = $2',
-                    [storeId, date]
-                );
-
-                const daypartSales = DAYPART_KEYS.reduce((acc, key) => {
-                    acc[key] = 0;
-                    return acc;
-                }, {});
-
-                existingRows.rows.forEach((row) => {
-                    if (!DAYPART_KEYS.includes(row.daypart)) return;
-                    const sales = Number(row.sales_amount) || 0;
-                    daypartSales[row.daypart] = sales > 0 ? sales : 0;
-                });
-
-                Object.entries(daypartsData).forEach(([key, data]) => {
-                    if (!DAYPART_KEYS.includes(key)) return;
-                    const parsedSales = parseSalesInput(data.sales);
-                    daypartSales[key] = parsedSales > 0 ? parsedSales : 0;
-                });
-
                 const targetPlan = calculateDaypartTargetPlan({
-                    daypartSales,
-                    historicalAverages: forecast.daypartAverages,
-                    forecastDailySales: forecast.dailyAverage,
-                    selectedTier,
-                    daypartWeights: effectiveWeights,
-                    adaptiveTargets: adaptiveProfile?.adaptive_targets || null,
-                    learningPhase: adaptiveProfile?.phase || 'default',
+                    records: historyResult.rows,
+                    referenceDate: date,
+                    closedWeekdays,
+                    ambitionTier: selectedTier,
                 });
 
                 for (const [dp, data] of Object.entries(daypartsData)) {
@@ -331,39 +298,6 @@ module.exports = async function handler(req, res) {
                     }
                 }
 
-                const learningRows = await db.query(`
-                    SELECT record_date, daypart, sales_amount, actual_productivity, target_productivity
-                    FROM productivity_records
-                    WHERE store_id = $1
-                      AND record_date >= ($2::date - INTERVAL '240 day')
-                      AND record_date <= $2::date
-                    ORDER BY record_date DESC
-                `, [storeId, date]);
-
-                const refreshedProfile = calculateAdaptiveLearningProfile({
-                    records: learningRows.rows,
-                    previousProfile: adaptiveProfile,
-                    selectedTier,
-                    closedWeekdays,
-                });
-
-                await upsertAdaptiveProfile(db, storeId, refreshedProfile);
-
-                if (!manualOverride && refreshedProfile.phase !== 'default') {
-                    const learnedOperationalWeights = toOperationalWeightsFromAdaptiveShares(refreshedProfile.adaptive_weights);
-                    await db.query(`
-                        UPDATE operational_weights
-                        SET breakfast = $2, lunch = $3, afternoon = $4, dinner = $5, updated_at = CURRENT_TIMESTAMP
-                        WHERE store_id = $1
-                    `, [
-                        storeId,
-                        learnedOperationalWeights.breakfast,
-                        learnedOperationalWeights.lunch,
-                        learnedOperationalWeights.afternoon,
-                        learnedOperationalWeights.dinner,
-                    ]);
-                }
-
                 await db.query(`
                     INSERT INTO store_settings (store_id, ambition_tier, manual_weight_override, closed_weekdays, updated_at)
                     VALUES ($1, $2, $3, $4::jsonb, CURRENT_TIMESTAMP)
@@ -382,8 +316,8 @@ module.exports = async function handler(req, res) {
                 return res.json({
                     success: true,
                     message: 'Data saved successfully',
-                    adaptiveProfile: refreshedProfile,
-                    notifications: refreshedProfile.notifications || [],
+                    adaptiveProfile,
+                    notifications: [],
                     targetPlan,
                 });
             } catch (transactionError) {
