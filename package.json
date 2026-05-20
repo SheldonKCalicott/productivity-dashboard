@@ -6,6 +6,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "test:calc": "node --test tests/calculation-engine.test.cjs",
     "preview": "vite preview",
     "server": "node backend/server.js",
     "dev:full": "concurrently \"npm run server\" \"npm run dev\"",

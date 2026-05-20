@@ -7,6 +7,7 @@ import {
     DAYPART_KEYS,
     DEFAULT_DAYPART_AVERAGES,
     DEFAULT_OPERATIONAL_WEIGHTS,
+    calculateForecastFromHistoryRecords,
     calculateDaypartTargetPlan,
 } from './targetUtils.js';
 
@@ -69,6 +70,24 @@ async function getHistoricalDaypartAverages(client, storeId, referenceDate) {
     });
 
     return averages;
+}
+
+async function getForecastDaypartAverages(client, storeId, referenceDate) {
+    const result = await client.query(`
+        SELECT record_date, daypart, sales_amount
+        FROM productivity_records
+        WHERE store_id = $1
+          AND record_date < $2::date
+          AND record_date >= ($2::date - INTERVAL '180 day')
+          AND sales_amount > 0
+        ORDER BY record_date DESC
+    `, [storeId, referenceDate]);
+
+    const forecast = calculateForecastFromHistoryRecords(result.rows, referenceDate, {
+        defaultAverages: DEFAULT_DAYPART_AVERAGES,
+    });
+
+    return forecast.daypartAverages;
 }
 
 function deriveWeightsFromAverages(daypartAverages) {
@@ -174,7 +193,7 @@ app.post('/api/productivity', async (req, res) => {
             dinner: Number(operationalWeights?.dinner) || DEFAULT_OPERATIONAL_WEIGHTS.dinner,
         };
         const selectedTier = ambitionTier || 'Top 50%';
-        const historicalAverages = await getHistoricalDaypartAverages(client, storeId, date);
+        const historicalAverages = await getForecastDaypartAverages(client, storeId, date);
 
         const existingRows = await client.query(
             'SELECT daypart, sales_amount FROM productivity_records WHERE store_id = $1 AND record_date = $2',
@@ -330,7 +349,6 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
             dinner: Number(weightsRow.dinner) || DEFAULT_OPERATIONAL_WEIGHTS.dinner
         };
         const selectedTier = settingsRow.ambition_tier || 'Top 50%';
-        const historicalAverages = await getHistoricalDaypartAverages(pool, storeId, endDate);
 
         console.log('[API] /api/productivity/:storeName/range/:startDate/:endDate');
         console.log('  Store:', storeName, 'Tier:', selectedTier, 'Weights:', daypartWeights);
@@ -346,6 +364,18 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
                     WHEN 'dinner' THEN 4
                 END
         `, [storeId, startDate, endDate]);
+
+                const historyResult = await pool.query(`
+                        SELECT record_date, daypart, sales_amount
+                        FROM productivity_records
+                        WHERE store_id = $1
+                            AND record_date < $2::date
+                            AND record_date >= ($2::date - INTERVAL '180 day')
+                            AND sales_amount > 0
+                        ORDER BY record_date DESC
+                `, [storeId, endDate]);
+
+                const forecastHistory = historyResult.rows || [];
 
         // Calculate total daily sales for each date
         const recordsByDate = {};
@@ -367,6 +397,10 @@ app.get('/api/productivity/:storeName/range/:startDate/:endDate', async (req, re
                 const sales = Number(record.sales_amount) || 0;
                 daypartSales[record.daypart] = sales > 0 ? sales : 0;
             });
+
+            const historicalAverages = calculateForecastFromHistoryRecords(forecastHistory, dateKey, {
+                defaultAverages: DEFAULT_DAYPART_AVERAGES,
+            }).daypartAverages;
 
             targetPlansByDate[dateKey] = calculateDaypartTargetPlan({
                 daypartSales,

@@ -4,6 +4,7 @@ const {
     DAYPART_KEYS,
     DEFAULT_DAYPART_AVERAGES,
     DEFAULT_OPERATIONAL_WEIGHTS,
+    calculateForecastFromHistoryRecords,
     calculateDaypartTargetPlan,
 } = require('./_targetUtils.js');
 
@@ -51,6 +52,25 @@ async function getHistoricalDaypartAverages(storeId, referenceDate) {
     });
 
     return averages;
+}
+
+async function getForecastDaypartAverages(storeId, referenceDate) {
+    const db = getPool();
+    const result = await db.query(`
+        SELECT record_date, daypart, sales_amount
+        FROM productivity_records
+        WHERE store_id = $1
+          AND record_date < $2::date
+          AND record_date >= ($2::date - INTERVAL '180 day')
+          AND sales_amount > 0
+        ORDER BY record_date DESC
+    `, [storeId, referenceDate]);
+
+    const forecast = calculateForecastFromHistoryRecords(result.rows, referenceDate, {
+        defaultAverages: DEFAULT_DAYPART_AVERAGES,
+    });
+
+    return forecast.daypartAverages;
 }
 
 function deriveWeightsFromAverages(daypartAverages) {
@@ -180,7 +200,7 @@ module.exports = async function handler(req, res) {
                 dinner: Number(operationalWeights?.dinner) || DEFAULT_OPERATIONAL_WEIGHTS.dinner,
             };
 
-            const historicalAverages = await getHistoricalDaypartAverages(storeId, date);
+            const historicalAverages = await getForecastDaypartAverages(storeId, date);
             const existingRows = await db.query(
                 'SELECT daypart, sales_amount FROM productivity_records WHERE store_id = $1 AND record_date = $2',
                 [storeId, date]

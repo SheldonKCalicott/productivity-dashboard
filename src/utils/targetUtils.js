@@ -28,12 +28,14 @@ export const DEFAULT_OPERATIONAL_WEIGHTS = {
 export const tierOffsets = {
   'Bottom 50%': -2.0,
   'Top 50%': 0.0,
-  'Top 33%': 2.0,
-  'Top 20%': 4.0,
-  'Top 10%': 7.0,
+  'Top 33%': 2.4,
+  'Top 20%': 5.2,
+  'Top 10%': 8.5,
 };
 
 export const MIN_SALES_FOR_BENCHMARK = 1000;
+export const WEEKDAY_SAMPLE_SIZE = 4;
+export const FALLBACK_LOOKBACK_DAYS = 30;
 
 function toSalesNumber(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
@@ -47,9 +49,129 @@ function round1(value) {
 
 export function benchmarkFromSales(totalDailySales) {
   const safeSales = Math.max(MIN_SALES_FOR_BENCHMARK, toSalesNumber(totalDailySales));
-  // Use sales in thousands so the curve behaves operationally at store-scale volumes.
-  const benchmark = 58 + (7.2 * Math.log(safeSales / 1000));
+  const salesInThousands = safeSales / 1000;
+  // Calibrated to operational benchmark anchors:
+  // 10k ~69, 25k ~85, 30k ~87, 35k ~88.5, 40k ~89.5
+  const benchmark = 91 - (57 * Math.exp(-0.095 * salesInThousands));
   return Math.min(90, Math.max(60, benchmark));
+}
+
+function toDateKey(value) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().split('T')[0];
+}
+
+function daysBetween(a, b) {
+  const ms = 24 * 60 * 60 * 1000;
+  return Math.floor((b.getTime() - a.getTime()) / ms);
+}
+
+function weekdayOf(dateKey) {
+  return new Date(`${dateKey}T00:00:00`).getDay();
+}
+
+export function getProjectionState(enteredByDaypart = {}) {
+  const enteredCount = DAYPART_KEYS.filter((daypart) => enteredByDaypart[daypart]).length;
+  if (enteredCount === 0) return 'pre-day';
+  if (enteredCount === DAYPART_KEYS.length) return 'finalized';
+  return 'live-day';
+}
+
+export function calculateForecastFromHistoryRecords(records = [], referenceDate, options = {}) {
+  const referenceKey = toDateKey(referenceDate);
+  if (!referenceKey) {
+    return {
+      source: 'defaults',
+      daypartAverages: { ...DEFAULT_DAYPART_AVERAGES },
+      dailyAverage: DEFAULT_PLACEHOLDER_DAILY_SALES,
+      sampleDates: [],
+    };
+  }
+
+  const targetWeekday = weekdayOf(referenceKey);
+  const weekdaySampleSize = options.weekdaySampleSize || WEEKDAY_SAMPLE_SIZE;
+  const fallbackDays = options.fallbackDays || FALLBACK_LOOKBACK_DAYS;
+  const fallbackAverages = options.defaultAverages || DEFAULT_DAYPART_AVERAGES;
+
+  const byDate = {};
+  ;(records || []).forEach((record) => {
+    const recordDateKey = toDateKey(record.record_date || record.recordDate);
+    if (!recordDateKey || recordDateKey >= referenceKey) return;
+    const daypart = (record.daypart || '').toLowerCase();
+    if (!DAYPART_KEYS.includes(daypart)) return;
+    const sales = toSalesNumber(record.sales_amount ?? record.salesAmount ?? record.sales);
+    if (sales <= 0) return;
+
+    if (!byDate[recordDateKey]) byDate[recordDateKey] = {};
+    byDate[recordDateKey][daypart] = sales;
+  });
+
+  const allDateKeys = Object.keys(byDate).sort((a, b) => (a < b ? 1 : -1));
+  const weekdayDates = allDateKeys.filter((dateKey) => weekdayOf(dateKey) === targetWeekday).slice(0, weekdaySampleSize);
+
+  let selectedDates = weekdayDates;
+  let source = 'matching-weekday';
+
+  if (weekdayDates.length < weekdaySampleSize) {
+    const referenceDateObj = new Date(`${referenceKey}T00:00:00`);
+    selectedDates = allDateKeys.filter((dateKey) => {
+      const dateObj = new Date(`${dateKey}T00:00:00`);
+      return daysBetween(dateObj, referenceDateObj) <= fallbackDays;
+    });
+    source = selectedDates.length > 0 ? 'last-30-days' : 'defaults';
+  }
+
+  if (selectedDates.length === 0) {
+    return {
+      source,
+      daypartAverages: { ...fallbackAverages },
+      dailyAverage: DAYPART_KEYS.reduce((sum, daypart) => sum + fallbackAverages[daypart], 0),
+      sampleDates: [],
+    };
+  }
+
+  const daypartTotals = DAYPART_KEYS.reduce((acc, daypart) => {
+    acc[daypart] = 0;
+    return acc;
+  }, {});
+  const daypartCounts = DAYPART_KEYS.reduce((acc, daypart) => {
+    acc[daypart] = 0;
+    return acc;
+  }, {});
+  let dailyTotal = 0;
+
+  selectedDates.forEach((dateKey) => {
+    const salesByDaypart = byDate[dateKey] || {};
+    let dayTotal = 0;
+    DAYPART_KEYS.forEach((daypart) => {
+      const sales = toSalesNumber(salesByDaypart[daypart]);
+      if (sales > 0) {
+        daypartTotals[daypart] += sales;
+        daypartCounts[daypart] += 1;
+      }
+      dayTotal += sales;
+    });
+    dailyTotal += dayTotal;
+  });
+
+  const daypartAverages = DAYPART_KEYS.reduce((acc, daypart) => {
+    if (daypartCounts[daypart] > 0) {
+      acc[daypart] = Math.round(daypartTotals[daypart] / daypartCounts[daypart]);
+    } else {
+      acc[daypart] = fallbackAverages[daypart];
+    }
+    return acc;
+  }, {});
+
+  const dailyAverage = Math.round(dailyTotal / selectedDates.length);
+
+  return {
+    source,
+    daypartAverages,
+    dailyAverage,
+    sampleDates: selectedDates,
+  };
 }
 
 export function calculateProjectedDailySales(daypartSales = {}, historicalAverages = DEFAULT_DAYPART_AVERAGES) {
@@ -71,6 +193,7 @@ export function calculateProjectedDailySales(daypartSales = {}, historicalAverag
     projectedDailySales,
     projectedByDaypart,
     enteredByDaypart,
+    state: getProjectionState(enteredByDaypart),
   };
 }
 
@@ -133,23 +256,49 @@ export function calculateDaypartTargetPlan({
     return acc;
   }, {});
 
-  const daypartTargets = DAYPART_KEYS.reduce((acc, daypart) => {
+  const rawDaypartTargets = DAYPART_KEYS.reduce((acc, daypart) => {
     const salesShare = salesShares[daypart] || 0;
     const weightedShare = normalizedWeightedShares[daypart] || 0;
-
-    // Keep daily target as anchor while allowing heavier-weighted dayparts
-    // to carry higher productivity goals than their raw sales share alone.
     const factor = salesShare > 0 ? (weightedShare / salesShare) : 1;
-    acc[daypart] = round1(dailyTargetProductivity * factor);
+    acc[daypart] = dailyTargetProductivity * factor;
     return acc;
   }, {});
+
+  const roundedTargets = DAYPART_KEYS.reduce((acc, daypart) => {
+    acc[daypart] = round1(rawDaypartTargets[daypart]);
+    return acc;
+  }, {});
+
+  const weightedAverage = DAYPART_KEYS.reduce((sum, daypart) => {
+    return sum + ((salesShares[daypart] || 0) * (roundedTargets[daypart] || 0));
+  }, 0);
+  const delta = dailyTargetProductivity - weightedAverage;
+
+  let daypartTargets = roundedTargets;
+  if (Math.abs(delta) >= 0.05) {
+    const anchorDaypart = DAYPART_KEYS.reduce((best, daypart) => {
+      return (salesShares[daypart] || 0) > (salesShares[best] || 0) ? daypart : best;
+    }, DAYPART_KEYS[0]);
+    const anchorShare = salesShares[anchorDaypart] || 1;
+    const adjustment = delta / anchorShare;
+    daypartTargets = {
+      ...roundedTargets,
+      [anchorDaypart]: round1((roundedTargets[anchorDaypart] || dailyTargetProductivity) + adjustment),
+    };
+  }
+
+  const reconciledDailyTarget = DAYPART_KEYS.reduce((sum, daypart) => {
+    return sum + ((salesShares[daypart] || 0) * (daypartTargets[daypart] || 0));
+  }, 0);
 
   return {
     benchmark: round1(benchmark),
     dailyTargetProductivity: round1(dailyTargetProductivity),
+    reconciledDailyTarget: round1(reconciledDailyTarget),
     projectedDailySales: projection.projectedDailySales,
     projectedByDaypart: projection.projectedByDaypart,
     enteredByDaypart: projection.enteredByDaypart,
+    state: projection.state,
     salesShares,
     normalizedWeights,
     normalizedWeightedShares,

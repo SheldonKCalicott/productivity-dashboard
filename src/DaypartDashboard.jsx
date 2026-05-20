@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react"
-import { calculateDaypartTargetPlan, DEFAULT_OPERATIONAL_WEIGHTS } from "./utils/targetUtils"
+import {
+    calculateDaypartTargetPlan,
+    calculateForecastFromHistoryRecords,
+    DEFAULT_OPERATIONAL_WEIGHTS,
+} from "./utils/targetUtils"
 import { useTheme } from "./App"
 
 // Light/dark theme color palettes
@@ -464,6 +468,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     })
     const [picProfiles, setPicProfiles] = useState([])
     const [salesBaselines, setSalesBaselines] = useState(defaultDaypartSales)
+    const [forecastSource, setForecastSource] = useState('defaults')
     const [showPicModal, setShowPicModal] = useState(false)
     const [pendingPicDaypart, setPendingPicDaypart] = useState('')
     const [newPicName, setNewPicName] = useState('')
@@ -848,7 +853,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             mergePicProfiles(picNames)
             if (success) {
                 loadWeekSnapshots(dataDate)
-                loadSalesBaselines()
+                loadSalesBaselines(dataDate)
             }
             
             showMessage(success ? 'data' : 'error')
@@ -1098,48 +1103,38 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         }
     }
 
-    const loadSalesBaselines = async () => {
+    const loadSalesBaselines = async (referenceDate = dataDate) => {
         if (isDemo) {
             setSalesBaselines(defaultDaypartSales)
+            setForecastSource('defaults')
             return
         }
 
         try {
             const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
-            const today = new Date()
-            const start = new Date(today)
-            start.setDate(today.getDate() - 90)
+            const reference = new Date(`${referenceDate}T00:00:00`)
+            const start = new Date(reference)
+            start.setDate(reference.getDate() - 180)
             const fmt = (d) => d.toISOString().split('T')[0]
 
-            const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/range/${fmt(start)}/${fmt(today)}`)
+            const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/range/${fmt(start)}/${fmt(reference)}`)
             if (!response.ok) {
                 setSalesBaselines(defaultDaypartSales)
+                setForecastSource('defaults')
                 return
             }
 
             const records = await response.json()
-            const totals = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 }
-            const counts = { breakfast: 0, lunch: 0, afternoon: 0, dinner: 0 }
-
-            ;(records || []).forEach((record) => {
-                if (!totals.hasOwnProperty(record.daypart)) return
-                const sales = Number(record.sales_amount) || 0
-                if (sales <= 0) return
-                totals[record.daypart] += sales
-                counts[record.daypart] += 1
+            const forecast = calculateForecastFromHistoryRecords(records || [], referenceDate, {
+                defaultAverages: defaultDaypartSales,
             })
 
-            const computed = { ...defaultDaypartSales }
-            Object.keys(computed).forEach((daypart) => {
-                if (counts[daypart] > 0) {
-                    computed[daypart] = Math.round(totals[daypart] / counts[daypart])
-                }
-            })
-
-            setSalesBaselines(computed)
+            setSalesBaselines(forecast.daypartAverages || defaultDaypartSales)
+            setForecastSource(forecast.source || 'defaults')
         } catch (error) {
             console.warn('Failed to load sales baselines:', error.message)
             setSalesBaselines(defaultDaypartSales)
+            setForecastSource('defaults')
         }
     }
 
@@ -1278,6 +1273,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         setDataDate(newDate)
         setWeekAnchorDate(newDate)
         loadDataForDate(newDate)
+        loadSalesBaselines(newDate)
         loadWeekSnapshots(newDate)
     }
     
@@ -1351,6 +1347,19 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
 
     const getProjectedTotalDaySales = () => {
         return getCurrentTargetPlan().projectedDailySales
+    }
+
+    const getForecastSourceLabel = () => {
+        if (forecastSource === 'matching-weekday') return 'Last 4 matching weekdays'
+        if (forecastSource === 'last-30-days') return 'Last 30 day fallback'
+        return 'Default baseline'
+    }
+
+    const getPlanStateLabel = () => {
+        const planState = getCurrentTargetPlan().state
+        if (planState === 'finalized') return 'Finalized'
+        if (planState === 'live-day') return 'Projected (live-day)'
+        return 'Projected (pre-day)'
     }
 
     const getDayCombinedActual = () => {
@@ -1508,7 +1517,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         };
         loadStoreSettings();
         loadPicProfiles();
-        loadSalesBaselines();
+        loadSalesBaselines(dataDate);
         loadDataForDate(dataDate);
         loadWeekSnapshots(dataDate);
         setWeekAnchorDate(dataDate)
@@ -1846,7 +1855,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     salesContext="Total Day"
                                     isDayNight={true}
                                     showNeedle={hasEnteredAnyDaypart()}
-                                    enhancedActionMessage={`Cumulative Sales: ${formatCurrencyWithZero(getTotalDaySales())}\nProductivity: ${getTotalDayActual() ? getTotalDayActual().toFixed(1) : '0.0'}\nTarget: ${getTotalDayTarget() ? getTotalDayTarget().toFixed(1) : '0.0'}`}
+                                    enhancedActionMessage={`${getPlanStateLabel()}\nForecast: ${getForecastSourceLabel()}\nCumulative Sales: ${formatCurrencyWithZero(getTotalDaySales())}\nProductivity: ${getTotalDayActual() ? getTotalDayActual().toFixed(1) : '0.0'}\nTarget: ${getTotalDayTarget() ? getTotalDayTarget().toFixed(1) : '0.0'}`}
                                     noDataMessage="Add daypart sales and productivity to unlock total day guidance"
                                     themeColors={tc}
                                     statusOnRight={false}
