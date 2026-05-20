@@ -32,7 +32,7 @@ const orderedDayparts = ['breakfast', 'lunch', 'afternoon', 'dinner']
 const fallbackTotalDaySales = Object.values(defaultDaypartSales).reduce((sum, value) => sum + value, 0)
 
 // Simplified Productivity Dial - focused on ONE job: actual vs target
-function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, noDataMessage = "Enter sales and actual productivity below", themeColors = null, statusOnRight = false, compactMode = false, superCompact = false }) {
+function SimplifiedProductivityDial({ title, salesInput, actualProductivity, targetProductivity, salesContext, isDayNight = false, showNeedle = true, enhancedActionMessage = null, actionRows = null, noDataMessage = "Enter sales and actual productivity below", themeColors = null, statusOnRight = false, compactMode = false, superCompact = false }) {
     const tc = themeColors || themes.dark
     // Sales-driven dial configuration - focused range for granular measurement
     const DIAL_RANGE = 20  // +/- 10 points from target for precise measurement
@@ -323,7 +323,23 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                             overflowWrap: 'anywhere',
                             lineHeight: superCompact ? '1.1' : (compactMode ? '1.2' : '1.4')
                         }}>
-                            {currentZone.action}
+                            {Array.isArray(actionRows) && actionRows.length > 0 ? (
+                                actionRows.map((row, index) => (
+                                    <div
+                                        key={`${row.label || 'row'}-${index}`}
+                                        style={{
+                                            color: row.color || tc.text,
+                                            backgroundColor: row.backgroundColor || 'transparent',
+                                            borderRadius: row.backgroundColor ? '4px' : '0',
+                                            padding: row.backgroundColor ? '1px 4px' : '0',
+                                            marginBottom: index === actionRows.length - 1 ? 0 : 2,
+                                            fontWeight: row.fontWeight || 600,
+                                        }}
+                                    >
+                                        {row.label ? `${row.label}: ${row.value}` : row.value}
+                                    </div>
+                                ))
+                            ) : currentZone.action}
                         </div>
                         {/* Action message displayed directly below dial, no sales */}
                     </div>
@@ -422,7 +438,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const isMobileViewport = viewportSize.width <= 900
     
     // Tier selection state
-    const [selectedTier, setSelectedTier] = useState('Top 50%')
+    const [selectedTier, setSelectedTier] = useState('Balanced')
     
     // Adjustable daypart weights
     const [daypartWeights, setDaypartWeights] = useState({
@@ -469,6 +485,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const [picProfiles, setPicProfiles] = useState([])
     const [salesBaselines, setSalesBaselines] = useState(defaultDaypartSales)
     const [forecastSource, setForecastSource] = useState('defaults')
+    const [adaptiveProfile, setAdaptiveProfile] = useState(null)
+    const [adaptiveToast, setAdaptiveToast] = useState('')
     const [showPicModal, setShowPicModal] = useState(false)
     const [pendingPicDaypart, setPendingPicDaypart] = useState('')
     const [newPicName, setNewPicName] = useState('')
@@ -849,14 +867,21 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             }
             
             // Save to database (upserts — overwrites existing data for the same date)
-            const success = await saveToDatabase(storeData)
+            const saveResult = await saveToDatabase(storeData)
             mergePicProfiles(picNames)
-            if (success) {
+            if (saveResult.success) {
                 loadWeekSnapshots(dataDate)
                 loadSalesBaselines(dataDate)
+                if (saveResult.adaptiveProfile) {
+                    setAdaptiveProfile(saveResult.adaptiveProfile)
+                }
+                if (Array.isArray(saveResult.notifications) && saveResult.notifications.length > 0) {
+                    setAdaptiveToast(saveResult.notifications[0])
+                    setTimeout(() => setAdaptiveToast(''), 5000)
+                }
             }
             
-            showMessage(success ? 'data' : 'error')
+            showMessage(saveResult.success ? 'data' : 'error')
             
             // Note: Manual save does NOT clear input fields
         }
@@ -896,6 +921,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             ));
 
             // Only POST if there are dayparts with data
+            let savePayloadResponse = null
             if (toSave.length > 0) {
                 const daypartsData = {};
                 toSave.forEach(dp => {
@@ -923,13 +949,18 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     const err = await resp.json().catch(() => ({}));
                     throw new Error(err.message || `HTTP ${resp.status}`);
                 }
+                savePayloadResponse = await resp.json().catch(() => null)
             }
 
             console.log(`✅ Data saved to database for ${dataDate} (${toSave.length} upserted, ${toDelete.length} cleared)`);
-            return true;
+            return {
+                success: true,
+                notifications: savePayloadResponse?.notifications || [],
+                adaptiveProfile: savePayloadResponse?.adaptiveProfile || null,
+            };
         } catch (error) {
             console.warn('Database save failed:', error.message);
-            return false;
+            return { success: false, notifications: [], adaptiveProfile: null };
         }
     }
     
@@ -1042,9 +1073,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         }
     }
     
-    // Auto-weight loading state
-    const [isAutoWeighting, setIsAutoWeighting] = useState(false)
-
     const loadWeekSnapshots = async (anchorDate = dataDate) => {
         const weekDates = getWeekDates(anchorDate)
         if (isDemo) {
@@ -1127,6 +1155,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             const records = await response.json()
             const forecast = calculateForecastFromHistoryRecords(records || [], referenceDate, {
                 defaultAverages: defaultDaypartSales,
+                closedWeekdays,
             })
 
             setSalesBaselines(forecast.daypartAverages || defaultDaypartSales)
@@ -1146,7 +1175,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             const resp = await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ambition_tier: selectedTier, weights: daypartWeights })
+                body: JSON.stringify({ ambition_tier: selectedTier, weights: daypartWeights, closed_weekdays: closedWeekdays })
             });
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
@@ -1161,37 +1190,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             setBannerMessage({ text: 'Failed to save settings — check connection', isError: true });
             setShowDataBanner(true);
             setTimeout(() => setShowDataBanner(false), 4000);
-        }
-    }
-
-    // Store-history-derived auto-weighting from captured sales distribution.
-    const autoWeightFromPerformance = async () => {
-        if (isDemo) { showMessage('demo'); return; }
-        setIsAutoWeighting(true);
-        try {
-            const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-            const response = await fetch(`${apiBase}/store/${effectiveStoreName}`);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const storeInfo = await response.json();
-            const recommended = storeInfo?.recommendedWeights;
-            if (!recommended) throw new Error('Recommended weights unavailable');
-
-            const nextWeights = {
-                breakfast: parseFloat(recommended.breakfast) || DEFAULT_OPERATIONAL_WEIGHTS.breakfast,
-                lunch: parseFloat(recommended.lunch) || DEFAULT_OPERATIONAL_WEIGHTS.lunch,
-                afternoon: parseFloat(recommended.afternoon) || DEFAULT_OPERATIONAL_WEIGHTS.afternoon,
-                dinner: parseFloat(recommended.dinner) || DEFAULT_OPERATIONAL_WEIGHTS.dinner,
-            }
-
-            setDaypartWeights(nextWeights);
-            setBannerMessage({ text: 'Applied store-recommended weights from captured sales history.', isError: false });
-            setShowDataBanner(true);
-            setTimeout(() => setShowDataBanner(false), 3000);
-        } catch (error) {
-            console.warn('Auto-weighting failed:', error.message);
-            showMessage('error');
-        } finally {
-            setIsAutoWeighting(false);
         }
     }
 
@@ -1329,6 +1327,15 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return getDayCombinedSales() + getNightCombinedSales()
     }
 
+    const getAdaptiveDailySalesEstimate = () => {
+        const dateKey = new Date(`${dataDate}T00:00:00`)
+        if (Number.isNaN(dateKey.getTime())) return null
+        const weekday = dateKey.getDay()
+        const adaptiveWeekday = adaptiveProfile?.weekday_sales_averages?.[weekday]
+        if (adaptiveWeekday && Number(adaptiveWeekday) > 0) return Number(adaptiveWeekday)
+        return null
+    }
+
     const getCurrentTargetPlan = () => {
         const daypartSales = {
             breakfast: getDaypartSales('breakfast'),
@@ -1342,6 +1349,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             historicalAverages: salesBaselines,
             selectedTier,
             daypartWeights,
+            forecastDailySales: getAdaptiveDailySalesEstimate(),
+            adaptiveTargets: adaptiveProfile?.adaptive_targets || null,
+            learningPhase: adaptiveProfile?.phase || 'default',
         })
     }
 
@@ -1360,6 +1370,25 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         if (planState === 'finalized') return 'Finalized'
         if (planState === 'live-day') return 'Projected (live-day)'
         return 'Projected (pre-day)'
+    }
+
+    const getTotalDayActionRows = () => {
+        const target = getTotalDayTarget()
+        const actual = getTotalDayActual()
+        const isOnTarget = actual >= target
+
+        return [
+            { label: null, value: getPlanStateLabel(), color: tc.text },
+            { label: null, value: `Forecast Source: ${getForecastSourceLabel()}`, color: tc.textMuted },
+            { label: 'Cumulative Sales', value: formatCurrencyWithZero(getTotalDaySales()), color: tc.text },
+            { label: 'Target', value: target ? target.toFixed(1) : '0.0', color: tc.textSubtle },
+            {
+                label: 'Actual Productivity',
+                value: actual ? actual.toFixed(1) : '0.0',
+                color: isOnTarget ? '#16a34a' : '#dc2626',
+                backgroundColor: isOnTarget ? 'rgba(22,163,74,0.14)' : 'rgba(220,38,38,0.14)',
+            },
+        ]
     }
 
     const getDayCombinedActual = () => {
@@ -1492,24 +1521,26 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 const response = await fetch(`${apiBase}/store/${effectiveStoreName}`);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 const storeInfo = await response.json();
-                if (storeInfo.weights) {
+                if (storeInfo.activeWeights) {
                     setDaypartWeights({
-                        breakfast: parseFloat(storeInfo.weights.breakfast) || DEFAULT_OPERATIONAL_WEIGHTS.breakfast,
-                        lunch: parseFloat(storeInfo.weights.lunch) || DEFAULT_OPERATIONAL_WEIGHTS.lunch,
-                        afternoon: parseFloat(storeInfo.weights.afternoon) || DEFAULT_OPERATIONAL_WEIGHTS.afternoon,
-                        dinner: parseFloat(storeInfo.weights.dinner) || DEFAULT_OPERATIONAL_WEIGHTS.dinner
+                        breakfast: parseFloat(storeInfo.activeWeights.breakfast) || DEFAULT_OPERATIONAL_WEIGHTS.breakfast,
+                        lunch: parseFloat(storeInfo.activeWeights.lunch) || DEFAULT_OPERATIONAL_WEIGHTS.lunch,
+                        afternoon: parseFloat(storeInfo.activeWeights.afternoon) || DEFAULT_OPERATIONAL_WEIGHTS.afternoon,
+                        dinner: parseFloat(storeInfo.activeWeights.dinner) || DEFAULT_OPERATIONAL_WEIGHTS.dinner
                     });
-                }
-                if (storeInfo.recommendedWeights) {
-                    setDaypartWeights({
-                        breakfast: parseFloat(storeInfo.recommendedWeights.breakfast) || DEFAULT_OPERATIONAL_WEIGHTS.breakfast,
-                        lunch: parseFloat(storeInfo.recommendedWeights.lunch) || DEFAULT_OPERATIONAL_WEIGHTS.lunch,
-                        afternoon: parseFloat(storeInfo.recommendedWeights.afternoon) || DEFAULT_OPERATIONAL_WEIGHTS.afternoon,
-                        dinner: parseFloat(storeInfo.recommendedWeights.dinner) || DEFAULT_OPERATIONAL_WEIGHTS.dinner,
-                    })
                 }
                 if (storeInfo.settings?.ambition_tier) {
                     setSelectedTier(storeInfo.settings.ambition_tier);
+                }
+                if (Array.isArray(storeInfo.settings?.closed_weekdays)) {
+                    setClosedWeekdays(storeInfo.settings.closed_weekdays)
+                }
+                if (storeInfo.adaptiveProfile) {
+                    setAdaptiveProfile(storeInfo.adaptiveProfile)
+                }
+                if (Array.isArray(storeInfo.notifications) && storeInfo.notifications.length > 0) {
+                    setAdaptiveToast(storeInfo.notifications[0])
+                    setTimeout(() => setAdaptiveToast(''), 5000)
                 }
             } catch (error) {
                 console.warn('Failed to load store settings:', error.message);
@@ -1855,7 +1886,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     salesContext="Total Day"
                                     isDayNight={true}
                                     showNeedle={hasEnteredAnyDaypart()}
-                                    enhancedActionMessage={`${getPlanStateLabel()}\nForecast: ${getForecastSourceLabel()}\nCumulative Sales: ${formatCurrencyWithZero(getTotalDaySales())}\nProductivity: ${getTotalDayActual() ? getTotalDayActual().toFixed(1) : '0.0'}\nTarget: ${getTotalDayTarget() ? getTotalDayTarget().toFixed(1) : '0.0'}`}
+                                    actionRows={getTotalDayActionRows()}
                                     noDataMessage="Add daypart sales and productivity to unlock total day guidance"
                                     themeColors={tc}
                                     statusOnRight={false}
@@ -2019,41 +2050,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                         </div>
                                     )}
 
-                                    <div style={{ marginTop: '6px', padding: '0 2px' }}>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPicManager(true)}
-                                            style={{
-                                                ...dataControlBase,
-                                                fontSize: '11px',
-                                                fontWeight: '700',
-                                                cursor: 'pointer'
-                                            }}
-                                        >
-                                            Manage PIC Names
-                                        </button>
-                                    </div>
                                 </div>
 
                                 <div style={{ textAlign: 'center', margin: '0', padding: '3px 4px 5px', boxSizing: 'border-box', order: 1, borderBottom: `1px solid ${tc.cardBorder}` }}>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '6px', alignItems: 'start' }}>
-                                        <div style={{ textAlign: 'left' }}>
-                                            <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '700', textAlign: 'left' }}>
-                                                Ambition Tier
-                                            </h6>
-                                            <select
-                                                value={selectedTier}
-                                                onChange={(e) => setSelectedTier(e.target.value)}
-                                                style={{
-                                                    ...dataControlBase
-                                                }}
-                                            >
-                                                <option value="Top 50%">Top 50%</option>
-                                                <option value="Top 33%">Top 33%</option>
-                                                <option value="Top 20%">Top 20%</option>
-                                                <option value="Top 10%">Top 10%</option>
-                                            </select>
-                                        </div>
                                         <div style={{ position: 'relative', textAlign: 'left' }}>
                                             <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '700', textAlign: 'left' }}>
                                                 Days Closed
@@ -2098,6 +2098,23 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     ))}
                                                 </div>
                                             )}
+                                        </div>
+                                        <div style={{ textAlign: 'left' }}>
+                                            <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '700', textAlign: 'left' }}>
+                                                PIC Names
+                                            </h6>
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPicManager(true)}
+                                                style={{
+                                                    ...dataControlBase,
+                                                    fontSize: '10.5px',
+                                                    fontWeight: '700',
+                                                    cursor: 'pointer',
+                                                }}
+                                            >
+                                                Manage PIC Names
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -2229,43 +2246,113 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     {isNaN(avgWeight) ? '0%' : Math.round(avgWeight * 100) + '%'} · {isBalanced ? 'Balanced' : isAbove ? 'Shift left' : 'Shift right'}
                                                 </div>
                                             </div>
-
-                                            <div style={{ display: 'flex', gap: isTabletLandscape ? '6px' : '8px', marginTop: '6px', width: '100%' }}>
-                                                <button
-                                                    onClick={autoWeightFromPerformance}
-                                                    disabled={isAutoWeighting}
-                                                    style={{
-                                                        flex: '1 1 0',
-                                                        padding: '6px 0',
-                                                        backgroundColor: isAutoWeighting ? '#475569' : '#2563eb',
-                                                        color: '#fff',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        fontSize: '11px',
-                                                        fontWeight: '700',
-                                                        cursor: isAutoWeighting ? 'wait' : 'pointer',
-                                                        transition: 'background-color 0.2s',
-                                                    }}
-                                                >
-                                                    {isAutoWeighting ? 'Calculating...' : 'Auto Weights'}
-                                                </button>
-                                                <button
-                                                    onClick={saveSettings}
-                                                    style={{
-                                                        flex: '1 1 0',
-                                                        padding: '6px 0',
-                                                        backgroundColor: '#299965',
-                                                        color: '#ffffff',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        fontSize: '11px',
-                                                        fontWeight: '700',
-                                                        cursor: 'pointer',
-                                                        transition: 'background-color 0.2s',
-                                                    }}
-                                                >
-                                                    Save Settings
-                                                </button>
+                                            {/* Three-item row: Ambition Tier | Manual Override | Auto Weights */}
+                                            <div style={{ display: 'flex', gap: isTabletLandscape ? '6px' : '12px', marginTop: '10px', width: '100%', alignItems: 'flex-end' }}>
+                                                {/* Ambition Tier (left) */}
+                                                <div style={{ flex: '1 1 0', textAlign: 'left' }}>
+                                                    <h6 style={{ margin: '0 0 4px 0', color: tc.text, fontSize: '12px', fontWeight: '700', textAlign: 'left' }}>
+                                                        Ambition Tier
+                                                    </h6>
+                                                    <select
+                                                        value={selectedTier}
+                                                        onChange={(e) => setSelectedTier(e.target.value)}
+                                                        style={{
+                                                            ...dataControlBase,
+                                                            marginBottom: 0,
+                                                        }}
+                                                    >
+                                                        <option value="Conservative">Conservative</option>
+                                                        <option value="Balanced">Balanced</option>
+                                                        <option value="Ambitious">Ambitious</option>
+                                                        <option value="Elite">Elite</option>
+                                                    </select>
+                                                </div>
+                                                {/* Manual Override (center) */}
+                                                <div style={{ flex: '1 1 0', textAlign: 'center' }}>
+                                                    <button
+                                                        onClick={async () => {
+                                                            // Set manual override ON and save
+                                                            if (isDemo) return;
+                                                            try {
+                                                                const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+                                                                await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
+                                                                    method: 'PUT',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({
+                                                                        ambition_tier: selectedTier,
+                                                                        weights: daypartWeights,
+                                                                        closed_weekdays: closedWeekdays,
+                                                                        manual_weight_override: true
+                                                                    })
+                                                                });
+                                                                setBannerMessage({ text: 'Manual override enabled', isError: false });
+                                                                setShowDataBanner(true);
+                                                                setTimeout(() => setShowDataBanner(false), 3000);
+                                                            } catch (error) {
+                                                                setBannerMessage({ text: 'Failed to enable manual override', isError: true });
+                                                                setShowDataBanner(true);
+                                                                setTimeout(() => setShowDataBanner(false), 4000);
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            width: '100%',
+                                                            minHeight: dataControlBase.minHeight,
+                                                            backgroundColor: '#6366f1',
+                                                            color: '#fff',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: '11px',
+                                                            fontWeight: '700',
+                                                            cursor: 'pointer',
+                                                            transition: 'background-color 0.2s',
+                                                        }}
+                                                    >
+                                                        Apply Manual Weights
+                                                    </button>
+                                                </div>
+                                                {/* Auto Weights (right) */}
+                                                <div style={{ flex: '1 1 0', textAlign: 'right' }}>
+                                                    <button
+                                                        onClick={async () => {
+                                                            // Set manual override OFF and save (auto weights)
+                                                            if (isDemo) return;
+                                                            try {
+                                                                const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+                                                                await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
+                                                                    method: 'PUT',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify({
+                                                                        ambition_tier: selectedTier,
+                                                                        weights: daypartWeights,
+                                                                        closed_weekdays: closedWeekdays,
+                                                                        manual_weight_override: false
+                                                                    })
+                                                                });
+                                                                setBannerMessage({ text: 'Auto weights enabled', isError: false });
+                                                                setShowDataBanner(true);
+                                                                setTimeout(() => setShowDataBanner(false), 3000);
+                                                            } catch (error) {
+                                                                setBannerMessage({ text: 'Failed to enable auto weights', isError: true });
+                                                                setShowDataBanner(true);
+                                                                setTimeout(() => setShowDataBanner(false), 4000);
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            width: '100%',
+                                                            minHeight: dataControlBase.minHeight,
+                                                            backgroundColor: '#0ea5e9',
+                                                            color: '#fff',
+                                                            border: 'none',
+                                                            borderRadius: '4px',
+                                                            fontSize: '11px',
+                                                            fontWeight: '700',
+                                                            cursor: 'pointer',
+                                                            transition: 'background-color 0.2s',
+                                                        }}
+                                                    >
+                                                        Recalculate Weights
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     );
@@ -2276,6 +2363,28 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     </div>
                 </div>
             </div>
+
+            {adaptiveToast && (
+                <div style={{
+                    position: 'fixed',
+                    left: '50%',
+                    bottom: '14px',
+                    transform: 'translateX(-50%)',
+                    backgroundColor: '#0f766e',
+                    color: '#ecfeff',
+                    border: '1px solid rgba(236,254,255,0.35)',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    zIndex: 1400,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                    maxWidth: 'min(92vw, 560px)',
+                    textAlign: 'center',
+                }}>
+                    {adaptiveToast}
+                </div>
+            )}
 
             {showPicModal && (
                 <div

@@ -22,10 +22,22 @@ test('A: benchmark curve matches calibrated anchors', () => {
 
 test('B: matching weekday forecasting uses last 4 matching weekdays', () => {
   const records = [
-    { record_date: '2026-02-02', daypart: 'breakfast', sales_amount: 9000 },
-    { record_date: '2026-01-26', daypart: 'breakfast', sales_amount: 9100 },
-    { record_date: '2026-01-19', daypart: 'breakfast', sales_amount: 9200 },
-    { record_date: '2026-01-12', daypart: 'breakfast', sales_amount: 9300 },
+    { record_date: '2026-02-02', daypart: 'breakfast', sales_amount: 9000, actual_productivity: 108 },
+    { record_date: '2026-02-02', daypart: 'lunch', sales_amount: 11000, actual_productivity: 114 },
+    { record_date: '2026-02-02', daypart: 'afternoon', sales_amount: 6000, actual_productivity: 105 },
+    { record_date: '2026-02-02', daypart: 'dinner', sales_amount: 7000, actual_productivity: 103 },
+    { record_date: '2026-01-26', daypart: 'breakfast', sales_amount: 9100, actual_productivity: 109 },
+    { record_date: '2026-01-26', daypart: 'lunch', sales_amount: 10900, actual_productivity: 113 },
+    { record_date: '2026-01-26', daypart: 'afternoon', sales_amount: 6100, actual_productivity: 104 },
+    { record_date: '2026-01-26', daypart: 'dinner', sales_amount: 7200, actual_productivity: 102 },
+    { record_date: '2026-01-19', daypart: 'breakfast', sales_amount: 9200, actual_productivity: 110 },
+    { record_date: '2026-01-19', daypart: 'lunch', sales_amount: 11200, actual_productivity: 115 },
+    { record_date: '2026-01-19', daypart: 'afternoon', sales_amount: 5900, actual_productivity: 106 },
+    { record_date: '2026-01-19', daypart: 'dinner', sales_amount: 7100, actual_productivity: 101 },
+    { record_date: '2026-01-12', daypart: 'breakfast', sales_amount: 9300, actual_productivity: 111 },
+    { record_date: '2026-01-12', daypart: 'lunch', sales_amount: 11100, actual_productivity: 116 },
+    { record_date: '2026-01-12', daypart: 'afternoon', sales_amount: 6200, actual_productivity: 107 },
+    { record_date: '2026-01-12', daypart: 'dinner', sales_amount: 7300, actual_productivity: 100 },
     { record_date: '2026-02-01', daypart: 'breakfast', sales_amount: 2000 },
     { record_date: '2026-01-31', daypart: 'breakfast', sales_amount: 1800 },
   ];
@@ -42,8 +54,9 @@ test('C: partial-day projection uses entered sales and historical fallback', () 
     selectedTier: 'Top 50%',
   });
 
-  const expectedProjectedSales = 7200 + DEFAULT_DAYPART_AVERAGES.lunch + DEFAULT_DAYPART_AVERAGES.afternoon + DEFAULT_DAYPART_AVERAGES.dinner;
-  assert.equal(plan.projectedDailySales, expectedProjectedSales);
+  assert.equal(plan.forecastDailySales, 31000);
+  assert.equal(plan.projectedDailySales, 31000);
+  assert.equal(plan.remainingForecast, 23800);
   assert.equal(plan.enteredByDaypart.breakfast, true);
   assert.equal(plan.enteredByDaypart.lunch, false);
 });

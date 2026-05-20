@@ -67,7 +67,37 @@ async function setupDatabase() {
             CREATE TABLE IF NOT EXISTS store_settings (
                 id SERIAL PRIMARY KEY,
                 store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE UNIQUE,
-                ambition_tier VARCHAR(20) DEFAULT 'Top 50%',
+                ambition_tier VARCHAR(20) DEFAULT 'Balanced',
+                manual_weight_override BOOLEAN DEFAULT FALSE,
+                closed_weekdays JSONB DEFAULT '[0]'::jsonb,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+
+        await client.query(`
+            ALTER TABLE store_settings
+            ADD COLUMN IF NOT EXISTS manual_weight_override BOOLEAN DEFAULT FALSE;
+        `);
+
+        await client.query(`
+            ALTER TABLE store_settings
+            ADD COLUMN IF NOT EXISTS closed_weekdays JSONB DEFAULT '[0]'::jsonb;
+        `);
+
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS adaptive_learning_profiles (
+                id SERIAL PRIMARY KEY,
+                store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE UNIQUE,
+                phase VARCHAR(20) DEFAULT 'default',
+                completed_operational_days INTEGER DEFAULT 0,
+                adaptive_weights JSONB DEFAULT '{}'::jsonb,
+                adaptive_targets JSONB DEFAULT '{}'::jsonb,
+                weekday_sales_averages JSONB DEFAULT '{}'::jsonb,
+                rolling_productivity_averages JSONB DEFAULT '{}'::jsonb,
+                historical_variance_adjustments JSONB DEFAULT '{}'::jsonb,
+                forecast_accuracy_scores JSONB DEFAULT '{}'::jsonb,
+                learning_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -104,7 +134,7 @@ async function setupDatabase() {
         if (settingsResult.rows.length === 0) {
             await client.query(
                 'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
-                [storeId, 'Top 50%']
+                [storeId, 'Balanced']
             );
             console.log('Created default store settings');
         }
