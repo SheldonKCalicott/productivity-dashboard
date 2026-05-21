@@ -48,12 +48,6 @@ async function getStoreId(storeName = 'simplified') {
             'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
           [storeId, 'Top 50']
         );
-
-        await pool.query(
-          'INSERT INTO adaptive_learning_profiles (store_id, phase, completed_operational_days) VALUES ($1, $2, $3) ON CONFLICT (store_id) DO NOTHING',
-          [storeId, 'default', 0]
-        );
-        
         console.error(`Created new store: ${storeName} (${storeLocation}) with ID: ${storeId}`);
         return storeId;
     }

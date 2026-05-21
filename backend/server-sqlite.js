@@ -47,7 +47,7 @@ db.serialize(() => {
         CREATE TABLE IF NOT EXISTS store_settings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             store_name TEXT UNIQUE NOT NULL,
-            ambition_tier TEXT DEFAULT 'Top 50%',
+            ambition_tier TEXT DEFAULT 'Top 50',
             weight_breakfast REAL DEFAULT 0.92,
             weight_lunch REAL DEFAULT 1.22,
             weight_afternoon REAL DEFAULT 1.08,

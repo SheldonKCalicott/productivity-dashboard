@@ -338,7 +338,7 @@ function CombinedProductivityDial({ title, combinedSales, combinedActual, target
 // Main Dashboard Component
 export default function SimplifiedDashboard({ onNavigateToReports }) {
     // Tier selection state
-    const [selectedTier, setSelectedTier] = useState('Top 50%')
+    const [selectedTier, setSelectedTier] = useState('Top 50')
     
     // Adjustable daypart weights
     const [daypartWeights, setDaypartWeights] = useState({
@@ -850,10 +850,10 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                 </h5>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', padding: '0 0px', alignItems: 'center' }}>
                                     {[
-                                        { value: 'Top 50%', label: 'Top 50%' },
-                                        { value: 'Top 33%', label: 'Top 33%' },
-                                        { value: 'Top 20%', label: 'Top 20%' },
-                                        { value: 'Top 10%', label: 'Top 10%' }
+                                        { value: 'Top 50', label: 'Top 50' },
+                                        { value: 'Top 33', label: 'Top 33' },
+                                        { value: 'Top 25', label: 'Top 25' },
+                                        { value: 'Top 10', label: 'Top 10' }
                                     ].map(tier => (
                                         <label key={tier.value} style={{
                                             display: 'flex',

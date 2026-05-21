@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useMemo } from "react"
 import {
     calculateDaypartTargetPlan,
-    calculateForecastFromHistoryRecords,
+    getStableBenchmarks,
     DEFAULT_OPERATIONAL_WEIGHTS,
 } from "./utils/targetUtils"
 import { useTheme } from "./App"
@@ -438,7 +438,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const isMobileViewport = viewportSize.width <= 900
     
     // Tier selection state
-    const [selectedTier, setSelectedTier] = useState('Balanced')
+    const [selectedTier, setSelectedTier] = useState('Top 50')
     
     // Adjustable daypart weights
     const [daypartWeights, setDaypartWeights] = useState({
@@ -484,9 +484,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     })
     const [picProfiles, setPicProfiles] = useState([])
     const [salesBaselines, setSalesBaselines] = useState(defaultDaypartSales)
-    const [forecastSource, setForecastSource] = useState('defaults')
-    const [adaptiveProfile, setAdaptiveProfile] = useState(null)
-    const [adaptiveToast, setAdaptiveToast] = useState('')
+    const [benchmarkSource, setBenchmarkSource] = useState('defaults')
+    const [historicalRecords, setHistoricalRecords] = useState([])
     const [showPicModal, setShowPicModal] = useState(false)
     const [pendingPicDaypart, setPendingPicDaypart] = useState('')
     const [newPicName, setNewPicName] = useState('')
@@ -755,6 +754,20 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         setNewPicName('')
     }
 
+    const normalizeTierLabel = (tier) => {
+        const tierMap = {
+            Conservative: 'Top 50',
+            Balanced: 'Top 50',
+            Ambitious: 'Top 25',
+            Elite: 'Top 10',
+            'Top 50%': 'Top 50',
+            'Top 33%': 'Top 33',
+            'Top 20%': 'Top 25',
+            'Top 10%': 'Top 10',
+        }
+        return tierMap[tier] || tier || 'Top 50'
+    }
+
     // Target math is derived from projected daily sales and daypart contribution shares.
     const getTotalSales = () => {
         const bf = breakfastSales ? parseInt(breakfastSales.replace(/[^0-9]/g, '')) : 0;
@@ -872,13 +885,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             if (saveResult.success) {
                 loadWeekSnapshots(dataDate)
                 loadSalesBaselines(dataDate)
-                if (saveResult.adaptiveProfile) {
-                    setAdaptiveProfile(saveResult.adaptiveProfile)
-                }
-                if (Array.isArray(saveResult.notifications) && saveResult.notifications.length > 0) {
-                    setAdaptiveToast(saveResult.notifications[0])
-                    setTimeout(() => setAdaptiveToast(''), 5000)
-                }
             }
             
             showMessage(saveResult.success ? 'data' : 'error')
@@ -956,11 +962,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             return {
                 success: true,
                 notifications: savePayloadResponse?.notifications || [],
-                adaptiveProfile: savePayloadResponse?.adaptiveProfile || null,
             };
         } catch (error) {
             console.warn('Database save failed:', error.message);
-            return { success: false, notifications: [], adaptiveProfile: null };
+            return { success: false, notifications: [] };
         }
     }
     
@@ -1030,17 +1035,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                         return recordDate === date;
                     });
 
-                    const salesByDaypart = {
-                        breakfast: Number(recordsForDate.find(r => r.daypart === 'breakfast')?.sales_amount) || 0,
-                        lunch: Number(recordsForDate.find(r => r.daypart === 'lunch')?.sales_amount) || 0,
-                        afternoon: Number(recordsForDate.find(r => r.daypart === 'afternoon')?.sales_amount) || 0,
-                        dinner: Number(recordsForDate.find(r => r.daypart === 'dinner')?.sales_amount) || 0,
-                    };
                     const exportPlan = calculateDaypartTargetPlan({
-                        daypartSales: salesByDaypart,
-                        historicalAverages: salesBaselines,
-                        selectedTier,
-                        daypartWeights,
+                        records: databaseRecords,
+                        referenceDate: date,
+                        closedWeekdays,
+                        ambitionTier: selectedTier,
                     });
 
                     dayparts.forEach((daypart, index) => {
@@ -1134,7 +1133,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const loadSalesBaselines = async (referenceDate = dataDate) => {
         if (isDemo) {
             setSalesBaselines(defaultDaypartSales)
-            setForecastSource('defaults')
+            setBenchmarkSource('defaults')
+            setHistoricalRecords([])
             return
         }
 
@@ -1148,22 +1148,22 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/range/${fmt(start)}/${fmt(reference)}`)
             if (!response.ok) {
                 setSalesBaselines(defaultDaypartSales)
-                setForecastSource('defaults')
+                setBenchmarkSource('defaults')
+                setHistoricalRecords([])
                 return
             }
 
             const records = await response.json()
-            const forecast = calculateForecastFromHistoryRecords(records || [], referenceDate, {
-                defaultAverages: defaultDaypartSales,
-                closedWeekdays,
-            })
+            const stable = getStableBenchmarks(records || [], referenceDate, closedWeekdays)
 
-            setSalesBaselines(forecast.daypartAverages || defaultDaypartSales)
-            setForecastSource(forecast.source || 'defaults')
+            setHistoricalRecords(records || [])
+            setSalesBaselines(stable.daypartAverages || defaultDaypartSales)
+            setBenchmarkSource((stable.sampleDates || []).length > 0 ? 'stable-weekday' : 'defaults')
         } catch (error) {
             console.warn('Failed to load sales baselines:', error.message)
             setSalesBaselines(defaultDaypartSales)
-            setForecastSource('defaults')
+            setBenchmarkSource('defaults')
+            setHistoricalRecords([])
         }
     }
 
@@ -1327,49 +1327,24 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return getDayCombinedSales() + getNightCombinedSales()
     }
 
-    const getAdaptiveDailySalesEstimate = () => {
-        const dateKey = new Date(`${dataDate}T00:00:00`)
-        if (Number.isNaN(dateKey.getTime())) return null
-        const weekday = dateKey.getDay()
-        const adaptiveWeekday = adaptiveProfile?.weekday_sales_averages?.[weekday]
-        if (adaptiveWeekday && Number(adaptiveWeekday) > 0) return Number(adaptiveWeekday)
-        return null
-    }
-
-    const getCurrentTargetPlan = () => {
-        const daypartSales = {
-            breakfast: getDaypartSales('breakfast'),
-            lunch: getDaypartSales('lunch'),
-            afternoon: getDaypartSales('afternoon'),
-            dinner: getDaypartSales('dinner'),
-        }
-
+    const currentTargetPlan = useMemo(() => {
         return calculateDaypartTargetPlan({
-            daypartSales,
+            records: historicalRecords,
+            referenceDate: dataDate,
+            closedWeekdays,
+            ambitionTier: selectedTier,
             historicalAverages: salesBaselines,
-            selectedTier,
-            daypartWeights,
-            forecastDailySales: getAdaptiveDailySalesEstimate(),
-            adaptiveTargets: adaptiveProfile?.adaptive_targets || null,
-            learningPhase: adaptiveProfile?.phase || 'default',
         })
-    }
+    }, [historicalRecords, dataDate, closedWeekdays, selectedTier, salesBaselines])
 
-    const getProjectedTotalDaySales = () => {
-        return getCurrentTargetPlan().projectedDailySales
-    }
-
-    const getForecastSourceLabel = () => {
-        if (forecastSource === 'matching-weekday') return 'Last 4 matching weekdays'
-        if (forecastSource === 'last-30-days') return 'Last 30 day fallback'
+    const getBenchmarkSourceLabel = () => {
+        if (benchmarkSource === 'stable-weekday') return 'Historical weekday baseline'
         return 'Default baseline'
     }
 
     const getPlanStateLabel = () => {
-        const planState = getCurrentTargetPlan().state
-        if (planState === 'finalized') return 'Finalized'
-        if (planState === 'live-day') return 'Projected (live-day)'
-        return 'Projected (pre-day)'
+        if (currentTargetPlan.state === 'closed') return 'Closed day'
+        return 'Static daily target'
     }
 
     const getTotalDayActionRows = () => {
@@ -1379,7 +1354,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
 
         return [
             { label: null, value: getPlanStateLabel(), color: tc.text },
-            { label: null, value: `Forecast Source: ${getForecastSourceLabel()}`, color: tc.textMuted },
+            { label: null, value: `Benchmark Source: ${getBenchmarkSourceLabel()}`, color: tc.textMuted },
             { label: 'Cumulative Sales', value: formatCurrencyWithZero(getTotalDaySales()), color: tc.text },
             { label: 'Target', value: target ? target.toFixed(1) : '0.0', color: tc.textSubtle },
             {
@@ -1412,56 +1387,46 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
 
     const getTotalDayActual = () => {
-        const plan = getCurrentTargetPlan()
-        const projectedSales = plan.projectedByDaypart || {}
-        const totalProjectedSales = plan.projectedDailySales || 0
-
-        if (totalProjectedSales <= 0) return 0
-
-        const weightedProductivity = orderedDayparts.reduce((sum, daypart) => {
+        const enteredTotals = orderedDayparts.reduce((acc, daypart) => {
             const enteredSales = getDaypartSales(daypart)
             const enteredProductivity = parseFloat(actualProductivity[daypart]) || 0
-            const daypartSales = projectedSales[daypart] || 0
-
             if (enteredSales > 0 && enteredProductivity > 0) {
-                return sum + (daypartSales * enteredProductivity)
+                acc.weighted += enteredSales * enteredProductivity
+                acc.sales += enteredSales
             }
+            return acc
+        }, { weighted: 0, sales: 0 })
 
-            const fallbackTarget = plan.daypartTargets?.[daypart] || plan.dailyTargetProductivity || 0
-            return sum + (daypartSales * fallbackTarget)
-        }, 0)
-
-        return weightedProductivity / totalProjectedSales
+        if (enteredTotals.sales <= 0) return 0
+        return enteredTotals.weighted / enteredTotals.sales
     }
 
     const getDayCombinedTarget = () => {
-        const plan = getCurrentTargetPlan()
-        const bfSales = plan.projectedByDaypart?.breakfast || 0
-        const lnSales = plan.projectedByDaypart?.lunch || 0
+        const bfSales = salesBaselines.breakfast || defaultDaypartSales.breakfast
+        const lnSales = salesBaselines.lunch || defaultDaypartSales.lunch
         const dayCombinedSales = bfSales + lnSales
         if (dayCombinedSales <= 0) return 0
         
-        const bfTarget = plan.daypartTargets?.breakfast || plan.dailyTargetProductivity || 0
-        const lnTarget = plan.daypartTargets?.lunch || plan.dailyTargetProductivity || 0
+        const bfTarget = currentTargetPlan.daypartTargets?.breakfast || currentTargetPlan.dailyTargetProductivity || 0
+        const lnTarget = currentTargetPlan.daypartTargets?.lunch || currentTargetPlan.dailyTargetProductivity || 0
         
         return ((bfSales * bfTarget) + (lnSales * lnTarget)) / dayCombinedSales
     }
 
     const getNightCombinedTarget = () => {
-        const plan = getCurrentTargetPlan()
-        const afSales = plan.projectedByDaypart?.afternoon || 0
-        const dnSales = plan.projectedByDaypart?.dinner || 0
+        const afSales = salesBaselines.afternoon || defaultDaypartSales.afternoon
+        const dnSales = salesBaselines.dinner || defaultDaypartSales.dinner
         const nightCombinedSales = afSales + dnSales
         if (nightCombinedSales <= 0) return 0
         
-        const afTarget = plan.daypartTargets?.afternoon || plan.dailyTargetProductivity || 0
-        const dnTarget = plan.daypartTargets?.dinner || plan.dailyTargetProductivity || 0
+        const afTarget = currentTargetPlan.daypartTargets?.afternoon || currentTargetPlan.dailyTargetProductivity || 0
+        const dnTarget = currentTargetPlan.daypartTargets?.dinner || currentTargetPlan.dailyTargetProductivity || 0
         
         return ((afSales * afTarget) + (dnSales * dnTarget)) / nightCombinedSales
     }
 
     const getTotalDayTarget = () => {
-        return getCurrentTargetPlan().dailyTargetProductivity
+        return currentTargetPlan.dailyTargetProductivity
     }
 
     const hasEnteredAnyDaypart = () => {
@@ -1530,17 +1495,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     });
                 }
                 if (storeInfo.settings?.ambition_tier) {
-                    setSelectedTier(storeInfo.settings.ambition_tier);
+                    setSelectedTier(normalizeTierLabel(storeInfo.settings.ambition_tier));
                 }
                 if (Array.isArray(storeInfo.settings?.closed_weekdays)) {
                     setClosedWeekdays(storeInfo.settings.closed_weekdays)
-                }
-                if (storeInfo.adaptiveProfile) {
-                    setAdaptiveProfile(storeInfo.adaptiveProfile)
-                }
-                if (Array.isArray(storeInfo.notifications) && storeInfo.notifications.length > 0) {
-                    setAdaptiveToast(storeInfo.notifications[0])
-                    setTimeout(() => setAdaptiveToast(''), 5000)
                 }
             } catch (error) {
                 console.warn('Failed to load store settings:', error.message);
@@ -1760,7 +1718,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     )
 
     const renderDaypartCard = (daypartKey, title) => {
-        const targetPlan = getCurrentTargetPlan()
+        const targetPlan = currentTargetPlan
         const salesValues = {
             breakfast: breakfastSales,
             lunch: lunchSales,
@@ -2261,10 +2219,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                             marginBottom: 0,
                                                         }}
                                                     >
-                                                        <option value="Conservative">Conservative</option>
-                                                        <option value="Balanced">Balanced</option>
-                                                        <option value="Ambitious">Ambitious</option>
-                                                        <option value="Elite">Elite</option>
+                                                        <option value="Top 50">Top 50</option>
+                                                        <option value="Top 33">Top 33</option>
+                                                        <option value="Top 25">Top 25</option>
+                                                        <option value="Top 10">Top 10</option>
                                                     </select>
                                                 </div>
                                                 {/* Manual Override (center) */}
@@ -2363,28 +2321,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     </div>
                 </div>
             </div>
-
-            {adaptiveToast && (
-                <div style={{
-                    position: 'fixed',
-                    left: '50%',
-                    bottom: '14px',
-                    transform: 'translateX(-50%)',
-                    backgroundColor: '#0f766e',
-                    color: '#ecfeff',
-                    border: '1px solid rgba(236,254,255,0.35)',
-                    borderRadius: '8px',
-                    padding: '10px 14px',
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    zIndex: 1400,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
-                    maxWidth: 'min(92vw, 560px)',
-                    textAlign: 'center',
-                }}>
-                    {adaptiveToast}
-                </div>
-            )}
 
             {showPicModal && (
                 <div

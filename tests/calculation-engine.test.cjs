@@ -53,7 +53,7 @@ test('B: stable weekday averages are returned from history', () => {
 test('C: legacy call shape remains compatible and returns static plan', () => {
   const plan = calculateDaypartTargetPlan({
     historicalAverages: DEFAULT_DAYPART_AVERAGES,
-    selectedTier: 'Top 50%',
+    selectedTier: 'Top 50',
   });
 
   assert.equal(plan.state, 'static');

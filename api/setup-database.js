@@ -86,24 +86,6 @@ module.exports = async function handler(req, res) {
             ADD COLUMN IF NOT EXISTS closed_weekdays JSONB DEFAULT '[0]'::jsonb;
         `);
 
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS adaptive_learning_profiles (
-                id SERIAL PRIMARY KEY,
-                store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE UNIQUE,
-                phase VARCHAR(20) DEFAULT 'default',
-                completed_operational_days INTEGER DEFAULT 0,
-                adaptive_weights JSONB DEFAULT '{}'::jsonb,
-                adaptive_targets JSONB DEFAULT '{}'::jsonb,
-                weekday_sales_averages JSONB DEFAULT '{}'::jsonb,
-                rolling_productivity_averages JSONB DEFAULT '{}'::jsonb,
-                historical_variance_adjustments JSONB DEFAULT '{}'::jsonb,
-                forecast_accuracy_scores JSONB DEFAULT '{}'::jsonb,
-                learning_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        `);
-
         // Insert default store if it doesn't exist
         const storeResult = await pool.query('SELECT id FROM stores WHERE name = $1', ['simplified']);
         let storeId;

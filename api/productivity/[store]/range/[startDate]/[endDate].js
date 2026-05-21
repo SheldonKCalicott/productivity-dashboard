@@ -2,7 +2,6 @@
 const { Pool } = require('pg');
 const {
     DAYPART_KEYS,
-    DEFAULT_DAYPART_SALES_SHARES,
     DEFAULT_OPERATIONAL_WEIGHTS,
     calculateDaypartTargetPlan,
 } = require('../../../../_targetUtils.js');
@@ -38,24 +37,6 @@ async function ensureAdaptiveSchema(db) {
         ADD COLUMN IF NOT EXISTS closed_weekdays JSONB DEFAULT '[0]'::jsonb;
     `);
 
-    await db.query(`
-        CREATE TABLE IF NOT EXISTS adaptive_learning_profiles (
-            id SERIAL PRIMARY KEY,
-            store_id INTEGER REFERENCES stores(id) ON DELETE CASCADE UNIQUE,
-            phase VARCHAR(20) DEFAULT 'default',
-            completed_operational_days INTEGER DEFAULT 0,
-            adaptive_weights JSONB DEFAULT '{}'::jsonb,
-            adaptive_targets JSONB DEFAULT '{}'::jsonb,
-            weekday_sales_averages JSONB DEFAULT '{}'::jsonb,
-            rolling_productivity_averages JSONB DEFAULT '{}'::jsonb,
-            historical_variance_adjustments JSONB DEFAULT '{}'::jsonb,
-            forecast_accuracy_scores JSONB DEFAULT '{}'::jsonb,
-            learning_updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-    `);
-
     schemaEnsured = true;
 }
 
@@ -73,23 +54,6 @@ function parseClosedWeekdays(value) {
         return value.map((v) => Number(v)).filter((v) => Number.isInteger(v) && v >= 0 && v <= 6);
     }
     return [0];
-}
-
-function toOperationalWeightsFromAdaptiveShares(shareWeights = DEFAULT_DAYPART_SALES_SHARES) {
-    return DAYPART_KEYS.reduce((acc, daypart) => {
-        const share = Number(shareWeights?.[daypart]) || DEFAULT_DAYPART_SALES_SHARES[daypart];
-        acc[daypart] = Number((share * DAYPART_KEYS.length).toFixed(3));
-        return acc;
-    }, {});
-}
-
-function normalizeAdaptiveProfile(row) {
-    if (!row) return null;
-    return {
-        phase: row.phase || 'default',
-        adaptive_weights: row.adaptive_weights || {},
-        adaptive_targets: row.adaptive_targets || {},
-    };
 }
 
 async function getStoreId(storeName = 'simplified') {
@@ -117,11 +81,6 @@ async function getStoreId(storeName = 'simplified') {
         await db.query(
             'INSERT INTO store_settings (store_id, ambition_tier, manual_weight_override, closed_weekdays) VALUES ($1, $2, $3, $4::jsonb)',
             [storeId, 'Top 50', false, JSON.stringify([0])]
-        );
-
-        await db.query(
-            'INSERT INTO adaptive_learning_profiles (store_id, phase, completed_operational_days) VALUES ($1, $2, $3) ON CONFLICT (store_id) DO NOTHING',
-            [storeId, 'default', 0]
         );
 
         return storeId;
@@ -152,23 +111,15 @@ export default async function handler(req, res) {
 
         const weightsResult = await db.query('SELECT * FROM operational_weights WHERE store_id = $1', [storeId]);
         const settingsResult = await db.query('SELECT * FROM store_settings WHERE store_id = $1', [storeId]);
-        const adaptiveResult = await db.query('SELECT * FROM adaptive_learning_profiles WHERE store_id = $1', [storeId]);
-
         const weightsRow = weightsResult.rows[0] || {};
         const settingsRow = settingsResult.rows[0] || {};
-        const adaptiveProfile = normalizeAdaptiveProfile(adaptiveResult.rows[0]);
 
         const manualOverride = !!settingsRow.manual_weight_override;
         const closedWeekdays = parseClosedWeekdays(settingsRow.closed_weekdays);
         const selectedTier = settingsRow.ambition_tier || 'Top 50';
 
         const manualWeights = readOperationalWeights(weightsRow);
-        const learnedWeights = adaptiveProfile?.adaptive_weights
-            ? toOperationalWeightsFromAdaptiveShares(adaptiveProfile.adaptive_weights)
-            : null;
-        const effectiveWeights = (!manualOverride && adaptiveProfile?.phase && adaptiveProfile.phase !== 'default' && learnedWeights)
-            ? learnedWeights
-            : manualWeights;
+        const effectiveWeights = manualWeights;
 
         const result = await db.query(`
             SELECT * FROM productivity_records
@@ -215,7 +166,7 @@ export default async function handler(req, res) {
             return {
                 ...record,
                 target_productivity: targetProductivity,
-                learning_phase: adaptiveProfile?.phase || 'default',
+                learning_phase: 'static',
             };
         });
 

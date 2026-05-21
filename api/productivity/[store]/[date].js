@@ -41,7 +41,7 @@ async function getStoreId(storeName = 'simplified') {
         
         await pool.query(
             'INSERT INTO store_settings (store_id, ambition_tier) VALUES ($1, $2)',
-            [storeId, 'Top 50%']
+            [storeId, 'Top 50']
         );
         
         console.error(`Created new store: ${storeName} (${storeLocation}) with ID: ${storeId}`);
