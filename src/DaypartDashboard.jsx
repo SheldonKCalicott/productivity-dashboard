@@ -484,7 +484,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     })
     const [picProfiles, setPicProfiles] = useState([])
     const [salesBaselines, setSalesBaselines] = useState(defaultDaypartSales)
-    const [benchmarkSource, setBenchmarkSource] = useState('defaults')
     const [historicalRecords, setHistoricalRecords] = useState([])
     const [showPicModal, setShowPicModal] = useState(false)
     const [pendingPicDaypart, setPendingPicDaypart] = useState('')
@@ -804,6 +803,40 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return dates
     }
 
+    const applyOperationalWeightsToPlan = (basePlan, baselineByDaypart = salesBaselines) => {
+        if (!basePlan || basePlan.state === 'closed') {
+            return basePlan
+        }
+
+        const adjustedTargets = {}
+        let weightedSum = 0
+        let totalSalesWeight = 0
+
+        orderedDayparts.forEach((daypart) => {
+            const baseTarget = basePlan.daypartTargets?.[daypart] || basePlan.dailyTargetProductivity || 0
+            const opWeight = Number(daypartWeights[daypart]) || DEFAULT_OPERATIONAL_WEIGHTS[daypart]
+            const clampedWeight = Math.max(0.5, Math.min(1.5, opWeight))
+            const adjusted = baseTarget > 0 ? (baseTarget / clampedWeight) : 0
+            adjustedTargets[daypart] = adjusted
+
+            const salesWeight = Number(baselineByDaypart?.[daypart]) || defaultDaypartSales[daypart] || 0
+            if (salesWeight > 0 && adjusted > 0) {
+                weightedSum += adjusted * salesWeight
+                totalSalesWeight += salesWeight
+            }
+        })
+
+        const dailyTargetProductivity = totalSalesWeight > 0
+            ? (weightedSum / totalSalesWeight)
+            : basePlan.dailyTargetProductivity
+
+        return {
+            ...basePlan,
+            daypartTargets: adjustedTargets,
+            dailyTargetProductivity,
+        }
+    }
+
     const buildWeeklySnapshots = (dates, records) => {
         return dates.map(date => {
             const weekday = new Date(date + 'T00:00:00').getDay()
@@ -821,7 +854,15 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 .filter(Boolean)
 
             const actual = totalSales > 0 ? (weightedActual / totalSales) : 0
-            const target = totalSales > 0 ? (weightedTarget / totalSales) : 0
+            const basePlanForDate = calculateDaypartTargetPlan({
+                records: records || [],
+                referenceDate: date,
+                closedWeekdays,
+                ambitionTier: selectedTier,
+            })
+            const stableForDate = getStableBenchmarks(records || [], date, closedWeekdays)
+            const weightedPlanForDate = applyOperationalWeightsToPlan(basePlanForDate, stableForDate.daypartAverages || defaultDaypartSales)
+            const target = weightedPlanForDate?.dailyTargetProductivity || (totalSales > 0 ? (weightedTarget / totalSales) : 0)
 
             return {
                 date,
@@ -845,20 +886,24 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
 
     // Store-aware data management functions
     const [showDataBanner, setShowDataBanner] = useState(false)
-    const [bannerMessage, setBannerMessage] = useState({ text: 'Data saved successfully!', isError: false })
+    const [bannerMessage, setBannerMessage] = useState({ text: 'Data saved successfully!', isError: false, scope: 'data' })
+
+    const triggerBanner = (text, isError = false, scope = 'data', durationMs = null) => {
+        setBannerMessage({ text, isError, scope })
+        setShowDataBanner(true)
+        setTimeout(() => setShowDataBanner(false), durationMs ?? (isError ? 4000 : 3000))
+    }
     
     const showMessage = (type) => {
         if (type === 'demo') {
             setShowDemoBanner(true)
             setTimeout(() => setShowDemoBanner(false), 3000)
         } else if (type === 'data') {
-            setBannerMessage({ text: 'Data saved successfully!', isError: false })
-            setShowDataBanner(true)
-            setTimeout(() => setShowDataBanner(false), 3000)
+            triggerBanner('Data saved successfully!', false, 'data')
         } else if (type === 'error') {
-            setBannerMessage({ text: 'Save failed — check connection', isError: true })
-            setShowDataBanner(true)
-            setTimeout(() => setShowDataBanner(false), 4000)
+            triggerBanner('Save failed — check connection', true, 'data')
+        } else if (type === 'export-error') {
+            triggerBanner('Export failed — check connection', true, 'data')
         }
     }
     
@@ -1133,7 +1178,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const loadSalesBaselines = async (referenceDate = dataDate) => {
         if (isDemo) {
             setSalesBaselines(defaultDaypartSales)
-            setBenchmarkSource('defaults')
             setHistoricalRecords([])
             return
         }
@@ -1148,7 +1192,6 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             const response = await fetch(`${apiBase}/productivity/${effectiveStoreName}/range/${fmt(start)}/${fmt(reference)}`)
             if (!response.ok) {
                 setSalesBaselines(defaultDaypartSales)
-                setBenchmarkSource('defaults')
                 setHistoricalRecords([])
                 return
             }
@@ -1158,11 +1201,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
 
             setHistoricalRecords(records || [])
             setSalesBaselines(stable.daypartAverages || defaultDaypartSales)
-            setBenchmarkSource((stable.sampleDates || []).length > 0 ? 'stable-weekday' : 'defaults')
         } catch (error) {
             console.warn('Failed to load sales baselines:', error.message)
             setSalesBaselines(defaultDaypartSales)
-            setBenchmarkSource('defaults')
             setHistoricalRecords([])
         }
     }
@@ -1182,14 +1223,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 throw new Error(err.message || `HTTP ${resp.status}`);
             }
             console.log('✅ Ambition & weights saved');
-            setBannerMessage({ text: 'Ambition & weights saved!', isError: false });
-            setShowDataBanner(true);
-            setTimeout(() => setShowDataBanner(false), 3000);
+            triggerBanner('Ambition & weights saved!', false, 'data');
         } catch (error) {
             console.warn('Failed to save settings:', error.message);
-            setBannerMessage({ text: 'Failed to save settings — check connection', isError: true });
-            setShowDataBanner(true);
-            setTimeout(() => setShowDataBanner(false), 4000);
+            triggerBanner('Failed to save settings — check connection', true, 'data');
         }
     }
 
@@ -1328,24 +1365,15 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     }
 
     const currentTargetPlan = useMemo(() => {
-        return calculateDaypartTargetPlan({
+        const basePlan = calculateDaypartTargetPlan({
             records: historicalRecords,
             referenceDate: dataDate,
             closedWeekdays,
             ambitionTier: selectedTier,
             historicalAverages: salesBaselines,
         })
-    }, [historicalRecords, dataDate, closedWeekdays, selectedTier, salesBaselines])
-
-    const getBenchmarkSourceLabel = () => {
-        if (benchmarkSource === 'stable-weekday') return 'Historical weekday baseline'
-        return 'Default baseline'
-    }
-
-    const getPlanStateLabel = () => {
-        if (currentTargetPlan.state === 'closed') return 'Closed day'
-        return 'Static daily target'
-    }
+        return applyOperationalWeightsToPlan(basePlan, salesBaselines)
+    }, [historicalRecords, dataDate, closedWeekdays, selectedTier, salesBaselines, daypartWeights])
 
     const getTotalDayActionRows = () => {
         const target = getTotalDayTarget()
@@ -1353,12 +1381,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         const isOnTarget = actual >= target
 
         return [
-            { label: null, value: getPlanStateLabel(), color: tc.text },
-            { label: null, value: `Benchmark Source: ${getBenchmarkSourceLabel()}`, color: tc.textMuted },
-            { label: 'Cumulative Sales', value: formatCurrencyWithZero(getTotalDaySales()), color: tc.text },
+            { label: 'Sales', value: formatCurrencyWithZero(getTotalDaySales()), color: tc.text },
             { label: 'Target', value: target ? target.toFixed(1) : '0.0', color: tc.textSubtle },
             {
-                label: 'Actual Productivity',
+                label: 'Actual',
                 value: actual ? actual.toFixed(1) : '0.0',
                 color: isOnTarget ? '#16a34a' : '#dc2626',
                 backgroundColor: isOnTarget ? 'rgba(22,163,74,0.14)' : 'rgba(220,38,38,0.14)',
@@ -1886,7 +1912,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                 </h5>
                                 <div style={{ textAlign: 'center', margin: '0', padding: '0 1px 4px', boxSizing: 'border-box', order: 2 }}>
 
-                                    {!isDemo && showDataBanner && (
+                                    {!isDemo && showDataBanner && bannerMessage.scope === 'data' && (
                                         <div style={{
                                             backgroundColor: bannerMessage.isError ? '#ef4444' : '#10b981',
                                             color: '#fff',
@@ -1929,7 +1955,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     width: '100%',
                                                     minHeight: dataControlBase.minHeight,
                                                     padding: isMobileViewport ? '5px 8px' : '6px 10px',
-                                                    backgroundColor: '#3b82f6',
+                                                    backgroundColor: '#16a34a',
                                                     color: '#ffffff',
                                                     border: 'none',
                                                     borderRadius: '4px',
@@ -1966,7 +1992,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     width: '100%',
                                                     minHeight: dataControlBase.minHeight,
                                                     padding: isMobileViewport ? '5px 8px' : '6px 10px',
-                                                    backgroundColor: '#059669',
+                                                    backgroundColor: '#2563eb',
                                                     color: '#ffffff',
                                                     border: 'none',
                                                     borderRadius: '4px',
@@ -2229,11 +2255,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                 <div style={{ flex: '1 1 0', textAlign: 'center' }}>
                                                     <button
                                                         onClick={async () => {
-                                                            // Set manual override ON and save
                                                             if (isDemo) return;
                                                             try {
                                                                 const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-                                                                await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
+                                                                const response = await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
                                                                     method: 'PUT',
                                                                     headers: { 'Content-Type': 'application/json' },
                                                                     body: JSON.stringify({
@@ -2243,19 +2268,18 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                                         manual_weight_override: true
                                                                     })
                                                                 });
-                                                                setBannerMessage({ text: 'Manual override enabled', isError: false });
-                                                                setShowDataBanner(true);
-                                                                setTimeout(() => setShowDataBanner(false), 3000);
+                                                                if (!response.ok) throw new Error(`HTTP ${response.status}`)
+                                                                triggerBanner('Weights saved!', false, 'weights');
+                                                                await loadSalesBaselines(dataDate)
+                                                                await loadWeekSnapshots(weekAnchorDate)
                                                             } catch (error) {
-                                                                setBannerMessage({ text: 'Failed to enable manual override', isError: true });
-                                                                setShowDataBanner(true);
-                                                                setTimeout(() => setShowDataBanner(false), 4000);
+                                                                triggerBanner('Failed to save manual weights', true, 'weights');
                                                             }
                                                         }}
                                                         style={{
                                                             width: '100%',
                                                             minHeight: dataControlBase.minHeight,
-                                                            backgroundColor: '#6366f1',
+                                                            backgroundColor: '#16a34a',
                                                             color: '#fff',
                                                             border: 'none',
                                                             borderRadius: '4px',
@@ -2265,40 +2289,40 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                             transition: 'background-color 0.2s',
                                                         }}
                                                     >
-                                                        Apply Manual Weights
+                                                        Save Manual Weights
                                                     </button>
                                                 </div>
                                                 {/* Auto Weights (right) */}
                                                 <div style={{ flex: '1 1 0', textAlign: 'right' }}>
                                                     <button
                                                         onClick={async () => {
-                                                            // Set manual override OFF and save (auto weights)
                                                             if (isDemo) return;
                                                             try {
                                                                 const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-                                                                await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
+                                                                const recalculatedWeights = { ...DEFAULT_OPERATIONAL_WEIGHTS }
+                                                                const response = await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
                                                                     method: 'PUT',
                                                                     headers: { 'Content-Type': 'application/json' },
                                                                     body: JSON.stringify({
                                                                         ambition_tier: selectedTier,
-                                                                        weights: daypartWeights,
+                                                                        weights: recalculatedWeights,
                                                                         closed_weekdays: closedWeekdays,
                                                                         manual_weight_override: false
                                                                     })
                                                                 });
-                                                                setBannerMessage({ text: 'Auto weights enabled', isError: false });
-                                                                setShowDataBanner(true);
-                                                                setTimeout(() => setShowDataBanner(false), 3000);
+                                                                if (!response.ok) throw new Error(`HTTP ${response.status}`)
+                                                                setDaypartWeights(recalculatedWeights)
+                                                                triggerBanner('Weights recalculated!', false, 'weights');
+                                                                await loadSalesBaselines(dataDate)
+                                                                await loadWeekSnapshots(weekAnchorDate)
                                                             } catch (error) {
-                                                                setBannerMessage({ text: 'Failed to enable auto weights', isError: true });
-                                                                setShowDataBanner(true);
-                                                                setTimeout(() => setShowDataBanner(false), 4000);
+                                                                triggerBanner('Failed to recalculate weights', true, 'weights');
                                                             }
                                                         }}
                                                         style={{
                                                             width: '100%',
                                                             minHeight: dataControlBase.minHeight,
-                                                            backgroundColor: '#0ea5e9',
+                                                            backgroundColor: '#7c3aed',
                                                             color: '#fff',
                                                             border: 'none',
                                                             borderRadius: '4px',

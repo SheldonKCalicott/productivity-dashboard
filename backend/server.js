@@ -126,7 +126,7 @@ app.put('/api/store/:storeName/settings', async (req, res) => {
     try {
         await ensureAdaptiveSchema();
         const { storeName } = req.params;
-        const { ambition_tier, weights, closed_weekdays } = req.body;
+        const { ambition_tier, weights, closed_weekdays, manual_weight_override } = req.body;
 
         const storeId = await getStoreId(storeName);
         const closedWeekdays = parseClosedWeekdays(closed_weekdays);
@@ -139,7 +139,7 @@ app.put('/api/store/:storeName/settings', async (req, res) => {
                 manual_weight_override = EXCLUDED.manual_weight_override,
                 closed_weekdays = EXCLUDED.closed_weekdays,
                 updated_at = CURRENT_TIMESTAMP
-        `, [storeId, ambition_tier || 'Top 50', true, JSON.stringify(closedWeekdays)]);
+        `, [storeId, ambition_tier || 'Top 50', !!manual_weight_override, JSON.stringify(closedWeekdays)]);
 
         if (weights) {
             const existing = await pool.query('SELECT id FROM operational_weights WHERE store_id = $1', [storeId]);

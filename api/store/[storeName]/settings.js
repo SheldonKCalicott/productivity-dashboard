@@ -16,7 +16,7 @@ module.exports = async function handler(req, res) {
     }
 
         const { storeName } = req.query;
-        const { ambition_tier, weights, closed_weekdays } = req.body;
+        const { ambition_tier, weights, closed_weekdays, manual_weight_override } = req.body;
 
     if (!storeName || !ambition_tier || !weights) {
         return res.status(400).json({ error: 'Missing storeName, ambition_tier, or weights' });
@@ -50,7 +50,7 @@ module.exports = async function handler(req, res) {
                 manual_weight_override = EXCLUDED.manual_weight_override,
                 closed_weekdays = EXCLUDED.closed_weekdays,
                 updated_at = CURRENT_TIMESTAMP
-        `, [storeId, ambition_tier, true, JSON.stringify(closedWeekdays)]);
+        `, [storeId, ambition_tier, !!manual_weight_override, JSON.stringify(closedWeekdays)]);
 
         // Update or insert weights in operational_weights (no unique constraint, so check first)
         const existingWeights = await pool.query(
