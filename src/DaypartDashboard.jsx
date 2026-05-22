@@ -803,38 +803,106 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return dates
     }
 
-    const applyOperationalWeightsToPlan = (basePlan, baselineByDaypart = salesBaselines) => {
+    const applyOperationalWeightsToPlan = (basePlan) => {
         if (!basePlan || basePlan.state === 'closed') {
             return basePlan
         }
 
         const adjustedTargets = {}
-        let weightedSum = 0
-        let totalSalesWeight = 0
 
         orderedDayparts.forEach((daypart) => {
             const baseTarget = basePlan.daypartTargets?.[daypart] || basePlan.dailyTargetProductivity || 0
             const opWeight = Number(daypartWeights[daypart]) || DEFAULT_OPERATIONAL_WEIGHTS[daypart]
             const clampedWeight = Math.max(0.5, Math.min(1.5, opWeight))
-            const adjusted = baseTarget > 0 ? (baseTarget / clampedWeight) : 0
+            // Lower weight should lower target; higher weight should raise it.
+            const adjusted = baseTarget > 0 ? (baseTarget * clampedWeight) : 0
             adjustedTargets[daypart] = adjusted
-
-            const salesWeight = Number(baselineByDaypart?.[daypart]) || defaultDaypartSales[daypart] || 0
-            if (salesWeight > 0 && adjusted > 0) {
-                weightedSum += adjusted * salesWeight
-                totalSalesWeight += salesWeight
-            }
         })
-
-        const dailyTargetProductivity = totalSalesWeight > 0
-            ? (weightedSum / totalSalesWeight)
-            : basePlan.dailyTargetProductivity
 
         return {
             ...basePlan,
             daypartTargets: adjustedTargets,
-            dailyTargetProductivity,
+            // Keep total-day target stable to the benchmark; do not recascade from weights.
+            dailyTargetProductivity: basePlan.dailyTargetProductivity,
         }
+    }
+
+    const calculateAutoWeights = (records, referenceDate) => {
+        if (!Array.isArray(records) || records.length === 0) {
+            return { ...DEFAULT_OPERATIONAL_WEIGHTS }
+        }
+
+        const reference = new Date(`${referenceDate}T00:00:00`)
+        const referenceWeekday = reference.getDay()
+
+        const byDaypart = {
+            breakfast: [],
+            lunch: [],
+            afternoon: [],
+            dinner: [],
+        }
+
+        records.forEach((record) => {
+            const dateKey = new Date(record.record_date).toISOString().split('T')[0]
+            const recordDate = new Date(`${dateKey}T00:00:00`)
+            const weekday = recordDate.getDay()
+            const daypart = (record.daypart || '').toLowerCase()
+            const sales = Number(record.sales_amount) || 0
+            const actual = Number(record.actual_productivity) || 0
+
+            if (!orderedDayparts.includes(daypart)) return
+            if (weekday !== referenceWeekday) return
+            if (dateKey >= referenceDate) return
+            if (closedWeekdays.includes(weekday)) return
+            if (sales <= 0 || actual <= 0) return
+
+            byDaypart[daypart].push({ sales, actual })
+        })
+
+        const productivityByDaypart = {}
+        let weightedTotal = 0
+        let totalSales = 0
+
+        orderedDayparts.forEach((daypart) => {
+            const rows = byDaypart[daypart]
+            const salesSum = rows.reduce((sum, row) => sum + row.sales, 0)
+            const weightedProd = rows.reduce((sum, row) => sum + (row.sales * row.actual), 0)
+
+            if (salesSum > 0) {
+                const avgProd = weightedProd / salesSum
+                productivityByDaypart[daypart] = avgProd
+                weightedTotal += weightedProd
+                totalSales += salesSum
+            }
+        })
+
+        if (totalSales <= 0) {
+            return { ...DEFAULT_OPERATIONAL_WEIGHTS }
+        }
+
+        const dayBenchmark = weightedTotal / totalSales
+        if (!Number.isFinite(dayBenchmark) || dayBenchmark <= 0) {
+            return { ...DEFAULT_OPERATIONAL_WEIGHTS }
+        }
+
+        const computed = {}
+        orderedDayparts.forEach((daypart) => {
+            const ratio = productivityByDaypart[daypart] ? (productivityByDaypart[daypart] / dayBenchmark) : DEFAULT_OPERATIONAL_WEIGHTS[daypart]
+            computed[daypart] = Math.max(0.75, Math.min(1.25, ratio))
+        })
+
+        // Keep total-day impact balanced by normalizing mean weight to 1.00.
+        const mean = orderedDayparts.reduce((sum, daypart) => sum + computed[daypart], 0) / orderedDayparts.length
+        if (!Number.isFinite(mean) || mean <= 0) {
+            return { ...DEFAULT_OPERATIONAL_WEIGHTS }
+        }
+
+        const normalized = {}
+        orderedDayparts.forEach((daypart) => {
+            normalized[daypart] = Math.max(0.75, Math.min(1.25, computed[daypart] / mean))
+        })
+
+        return normalized
     }
 
     const buildWeeklySnapshots = (dates, records) => {
@@ -860,8 +928,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 closedWeekdays,
                 ambitionTier: selectedTier,
             })
-            const stableForDate = getStableBenchmarks(records || [], date, closedWeekdays)
-            const weightedPlanForDate = applyOperationalWeightsToPlan(basePlanForDate, stableForDate.daypartAverages || defaultDaypartSales)
+            const weightedPlanForDate = applyOperationalWeightsToPlan(basePlanForDate)
             const target = weightedPlanForDate?.dailyTargetProductivity || (totalSales > 0 ? (weightedTarget / totalSales) : 0)
 
             return {
@@ -1372,7 +1439,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             ambitionTier: selectedTier,
             historicalAverages: salesBaselines,
         })
-        return applyOperationalWeightsToPlan(basePlan, salesBaselines)
+        return applyOperationalWeightsToPlan(basePlan)
     }, [historicalRecords, dataDate, closedWeekdays, selectedTier, salesBaselines, daypartWeights])
 
     const getTotalDayActionRows = () => {
@@ -2299,7 +2366,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                             if (isDemo) return;
                                                             try {
                                                                 const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-                                                                const recalculatedWeights = { ...DEFAULT_OPERATIONAL_WEIGHTS }
+                                                                const recalculatedWeights = calculateAutoWeights(historicalRecords, dataDate)
                                                                 const response = await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
                                                                     method: 'PUT',
                                                                     headers: { 'Content-Type': 'application/json' },
@@ -2312,11 +2379,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                                 });
                                                                 if (!response.ok) throw new Error(`HTTP ${response.status}`)
                                                                 setDaypartWeights(recalculatedWeights)
-                                                                triggerBanner('Weights recalculated!', false, 'weights');
+                                                                triggerBanner('Auto weights calculated!', false, 'weights');
                                                                 await loadSalesBaselines(dataDate)
                                                                 await loadWeekSnapshots(weekAnchorDate)
                                                             } catch (error) {
-                                                                triggerBanner('Failed to recalculate weights', true, 'weights');
+                                                                triggerBanner('Failed to auto calculate weights', true, 'weights');
                                                             }
                                                         }}
                                                         style={{
@@ -2332,7 +2399,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                             transition: 'background-color 0.2s',
                                                         }}
                                                     >
-                                                        Recalculate Weights
+                                                        Auto Calculate Weights
                                                     </button>
                                                 </div>
                                             </div>
