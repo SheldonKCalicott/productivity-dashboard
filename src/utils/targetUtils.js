@@ -45,10 +45,10 @@ export const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thur
 
 // New ambition tiers (operational percentiles)
 export const AMBITION_TIERS = {
-  'Top 50': 0,
-  'Top 33': 2,
-  'Top 25': 4,
-  'Top 10': 7,
+  'Top 50': 'Top 50',
+  'Top 33': 'Top 33',
+  'Top 20': 'Top 20',
+  'Top 10': 'Top 10',
 };
 
 
@@ -103,21 +103,45 @@ function normalizeShareMap(valueMap = {}) {
 }
 
 
-// Map ambition tier label to offset
-export function getAmbitionOffset(selectedTier = 'Top 50') {
-  return AMBITION_TIERS[selectedTier] ?? 0;
+function estimateBenchmarkFromDailySales(dailySales = DEFAULT_PLACEHOLDER_DAILY_SALES) {
+  const sales = Math.max(0, toSalesNumber(dailySales));
+
+  if (sales <= 10000) {
+    const lowRangeBenchmark = 69.3 - ((10000 - sales) / 10000) * 4.0;
+    return Math.max(65, Math.min(90, lowRangeBenchmark));
+  }
+
+  const saturationBenchmark = 69.3 + (22.0 * (1 - Math.exp(-(sales - 10000) / 12000)));
+  return Math.max(65, Math.min(90, saturationBenchmark));
+}
+
+// Map ambition tier label to calibrated offset derived from baseline benchmark.
+export function getAmbitionOffset(selectedTier = 'Top 50', baseBenchmark = 87.7) {
+  const benchmark = Number(baseBenchmark) || 87.7;
+  const tier = AMBITION_TIERS[selectedTier] !== undefined ? selectedTier : 'Top 50';
+
+  if (tier === 'Top 33') {
+    return Math.max(1.8, Math.min(3.0, (-0.06 + (0.0284 * benchmark))));
+  }
+  if (tier === 'Top 20') {
+    return Math.max(3.0, Math.min(6.5, (-4.54 + (0.112 * benchmark))));
+  }
+  if (tier === 'Top 10') {
+    return Math.max(4.0, Math.min(10.5, (-12.06 + (0.234 * benchmark))));
+  }
+  return 0;
 }
 
 function mapLegacyTier(selectedTier = 'Top 50') {
   const legacyMap = {
     Conservative: 'Top 50',
     Balanced: 'Top 50',
-    Ambitious: 'Top 25',
+    Ambitious: 'Top 20',
     Elite: 'Top 10',
     'Bottom 50%': 'Top 50',
     'Top 50%': 'Top 50',
     'Top 33%': 'Top 33',
-    'Top 20%': 'Top 25',
+    'Top 20%': 'Top 20',
     'Top 10%': 'Top 10',
   };
   return AMBITION_TIERS[selectedTier] !== undefined
@@ -328,16 +352,24 @@ export function calculateDaypartTargetPlan({
     return { daypartTargets: {}, dailyTargetProductivity: null, state: 'closed' };
   }
 
-  const daypartAverages = (records && records.length > 0)
-    ? getStableBenchmarks(records, referenceKey, closedWeekdays).daypartAverages
-    : (historicalAverages || DEFAULT_DAYPART_AVERAGES);
+  const stableBenchmarks = (records && records.length > 0)
+    ? getStableBenchmarks(records, referenceKey, closedWeekdays)
+    : {
+      daypartAverages: historicalAverages || DEFAULT_DAYPART_AVERAGES,
+      dailyAverage: DAYPART_KEYS.reduce((sum, key) => sum + toSalesNumber((historicalAverages || DEFAULT_DAYPART_AVERAGES)[key]), 0),
+    };
+  const daypartAverages = stableBenchmarks.daypartAverages || (historicalAverages || DEFAULT_DAYPART_AVERAGES);
 
-  // Use previous benchmark or calculate new
-  const observedProductivity = DAYPART_KEYS.reduce((sum, key) => sum + (daypartAverages[key] || 0), 0) / DAYPART_KEYS.length;
-  const prevBenchmark = previousBenchmarks[weekdayLabel] || observedProductivity;
-  const benchmark = calculateBenchmark({ previousBenchmark: prevBenchmark, observedProductivity });
-  // Apply ambition tier
-  const ambitionOffset = getAmbitionOffset(resolvedTier);
+  const observedBenchmark = estimateBenchmarkFromDailySales(stableBenchmarks.dailyAverage);
+  const prevBenchmark = previousBenchmarks[weekdayLabel] || observedBenchmark;
+  const benchmark = calculateBenchmark({
+    previousBenchmark: prevBenchmark,
+    observedProductivity: observedBenchmark,
+    min: 65,
+    max: 90,
+  });
+
+  const ambitionOffset = getAmbitionOffset(resolvedTier, benchmark);
   const adjustedBenchmark = benchmark + ambitionOffset;
   // Use previous or default multipliers
   const multipliers = previousMultipliers[weekdayLabel] || DEFAULT_BENCHMARK_MULTIPLIERS[weekdayLabel] || DEFAULT_BENCHMARK_MULTIPLIERS.Monday;

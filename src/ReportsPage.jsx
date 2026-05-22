@@ -18,31 +18,31 @@ const reportThemes = {
 // --- Demo data for showcase ---
 const DEMO_REPORT_DATA = [
   {
-    id: 1, picName: 'Alex Rivera', daypart: 'Breakfast', date: '2026-03-01', actualSales: 1200, actualProductivity: 32, targetProductivity: 30, performanceScore: 106.7, tier: 'Top 25', improvement: 4.2
+    id: 1, picName: 'Alex Rivera', daypart: 'Breakfast', date: '2026-03-01', actualSales: 1200, actualProductivity: 32, targetProductivity: 30, performanceScore: 106.7, tier: 'Top 20', improvement: 4.2
   },
   {
-    id: 2, picName: 'Morgan Lee', daypart: 'Lunch', date: '2026-03-02', actualSales: 2100, actualProductivity: 29, targetProductivity: 28, performanceScore: 103.6, tier: 'Top 25', improvement: 2.1
+    id: 2, picName: 'Morgan Lee', daypart: 'Lunch', date: '2026-03-02', actualSales: 2100, actualProductivity: 29, targetProductivity: 28, performanceScore: 103.6, tier: 'Top 20', improvement: 2.1
   },
   {
-    id: 3, picName: 'Jamie Chen', daypart: 'Dinner', date: '2026-03-03', actualSales: 1800, actualProductivity: 27, targetProductivity: 26, performanceScore: 103.8, tier: 'Top 25', improvement: 3.7
+    id: 3, picName: 'Jamie Chen', daypart: 'Dinner', date: '2026-03-03', actualSales: 1800, actualProductivity: 27, targetProductivity: 26, performanceScore: 103.8, tier: 'Top 20', improvement: 3.7
   },
   {
     id: 4, picName: 'Taylor Smith', daypart: 'Lunch', date: '2026-03-04', actualSales: 1950, actualProductivity: 25, targetProductivity: 28, performanceScore: 89.3, tier: 'Top 50', improvement: -1.2
   },
   {
-    id: 5, picName: 'Jordan Patel', daypart: 'Breakfast', date: '2026-03-05', actualSales: 1100, actualProductivity: 31, targetProductivity: 30, performanceScore: 103.3, tier: 'Top 25', improvement: 1.8
+    id: 5, picName: 'Jordan Patel', daypart: 'Breakfast', date: '2026-03-05', actualSales: 1100, actualProductivity: 31, targetProductivity: 30, performanceScore: 103.3, tier: 'Top 20', improvement: 1.8
   },
   {
     id: 6, picName: 'Casey Nguyen', daypart: 'Dinner', date: '2026-03-06', actualSales: 1700, actualProductivity: 24, targetProductivity: 26, performanceScore: 92.3, tier: 'Top 50', improvement: 0.5
   },
   {
-    id: 7, picName: 'Riley Kim', daypart: 'Lunch', date: '2026-03-07', actualSales: 2050, actualProductivity: 30, targetProductivity: 28, performanceScore: 107.1, tier: 'Top 25', improvement: 2.9
+    id: 7, picName: 'Riley Kim', daypart: 'Lunch', date: '2026-03-07', actualSales: 2050, actualProductivity: 30, targetProductivity: 28, performanceScore: 107.1, tier: 'Top 20', improvement: 2.9
   },
   {
     id: 8, picName: 'Sam Jordan', daypart: 'Breakfast', date: '2026-03-08', actualSales: 1250, actualProductivity: 29, targetProductivity: 30, performanceScore: 96.7, tier: 'Top 50', improvement: 0.0
   },
   {
-    id: 9, picName: 'Drew Parker', daypart: 'Dinner', date: '2026-03-09', actualSales: 1600, actualProductivity: 28, targetProductivity: 26, performanceScore: 107.7, tier: 'Top 25', improvement: 3.1
+    id: 9, picName: 'Drew Parker', daypart: 'Dinner', date: '2026-03-09', actualSales: 1600, actualProductivity: 28, targetProductivity: 26, performanceScore: 107.7, tier: 'Top 20', improvement: 3.1
   },
   {
     id: 10, picName: 'Avery Brooks', daypart: 'Lunch', date: '2026-03-10', actualSales: 2000, actualProductivity: 27, targetProductivity: 28, performanceScore: 96.4, tier: 'Top 50', improvement: 1.2
@@ -97,7 +97,7 @@ export default function ReportsPage({ isDemo = false, storeName: propStoreName }
           actualProductivity: Number(r.actual_productivity) || 0,
           targetProductivity: Number(r.target_productivity) || 0,
           performanceScore: r.target_productivity ? (Number(r.actual_productivity) / Number(r.target_productivity) * 100) : 0,
-          tier: r.target_productivity ? (Number(r.actual_productivity) >= (Number(r.target_productivity) - 2) ? "Top 25" : "Top 50") : "No Data",
+          tier: r.target_productivity ? (Number(r.actual_productivity) >= (Number(r.target_productivity) - 2) ? "Top 20" : "Top 50") : "No Data",
           improvement: calculateImprovementTrend(r.pic_name, r.daypart, data)
         })).filter(x => x.actualProductivity > 0)
         console.log('[ReportsPage] Transformed data:', transformed)

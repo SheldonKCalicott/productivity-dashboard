@@ -99,5 +99,12 @@ test('F: ambition tiers raise target benchmark as expected', () => {
     ambitionTier: 'Top 10',
   });
 
+  const top20 = calculateDaypartTargetPlan({
+    records: sparseRecords,
+    referenceDate: '2026-02-09',
+    ambitionTier: 'Top 20',
+  });
+
+  assert.ok(top20.dailyTargetProductivity > top50.dailyTargetProductivity);
   assert.ok(top10.dailyTargetProductivity > top50.dailyTargetProductivity);
 });

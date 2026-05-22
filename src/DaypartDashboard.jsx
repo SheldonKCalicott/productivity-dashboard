@@ -439,6 +439,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     
     // Tier selection state
     const [selectedTier, setSelectedTier] = useState('Top 50')
+    const [manualWeightOverride, setManualWeightOverride] = useState(false)
     
     // Adjustable daypart weights
     const [daypartWeights, setDaypartWeights] = useState({
@@ -757,11 +758,11 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         const tierMap = {
             Conservative: 'Top 50',
             Balanced: 'Top 50',
-            Ambitious: 'Top 25',
+            Ambitious: 'Top 20',
             Elite: 'Top 10',
             'Top 50%': 'Top 50',
             'Top 33%': 'Top 33',
-            'Top 20%': 'Top 25',
+            'Top 20%': 'Top 20',
             'Top 10%': 'Top 10',
         }
         return tierMap[tier] || tier || 'Top 50'
@@ -1283,7 +1284,12 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             const resp = await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ambition_tier: selectedTier, weights: daypartWeights, closed_weekdays: closedWeekdays })
+                body: JSON.stringify({
+                    ambition_tier: selectedTier,
+                    weights: daypartWeights,
+                    closed_weekdays: closedWeekdays,
+                    manual_weight_override: manualWeightOverride,
+                })
             });
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
@@ -1301,6 +1307,46 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     const showDemoMessage = () => showMessage('demo')
     const handleDemoAction = () => handleDataAction()
     const handleDemoExport = () => handleExportAction()
+
+    const persistStoreSettings = async ({
+        ambitionTier = selectedTier,
+        weights = daypartWeights,
+        closedDays = closedWeekdays,
+        manualOverride = manualWeightOverride,
+        successMessage = null,
+        successScope = 'data',
+    } = {}) => {
+        if (isDemo) {
+            return { success: true }
+        }
+
+        try {
+            const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
+            const response = await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ambition_tier: ambitionTier,
+                    weights,
+                    closed_weekdays: closedDays,
+                    manual_weight_override: manualOverride,
+                }),
+            })
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`)
+            }
+
+            if (successMessage) {
+                triggerBanner(successMessage, false, successScope)
+            }
+
+            return { success: true }
+        } catch (error) {
+            triggerBanner('Failed to save settings — check connection', true, 'data')
+            return { success: false }
+        }
+    }
     
     // Load data from database for selected date
     const loadDataForDate = async (selectedDate) => {
@@ -1590,6 +1636,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 if (storeInfo.settings?.ambition_tier) {
                     setSelectedTier(normalizeTierLabel(storeInfo.settings.ambition_tier));
                 }
+                setManualWeightOverride(!!storeInfo.manualOverride)
                 if (Array.isArray(storeInfo.settings?.closed_weekdays)) {
                     setClosedWeekdays(storeInfo.settings.closed_weekdays)
                 }
@@ -2306,7 +2353,21 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     </h6>
                                                     <select
                                                         value={selectedTier}
-                                                        onChange={(e) => setSelectedTier(e.target.value)}
+                                                        onChange={async (e) => {
+                                                            const nextTier = e.target.value
+                                                            const previousTier = selectedTier
+                                                            setSelectedTier(nextTier)
+
+                                                            const result = await persistStoreSettings({
+                                                                ambitionTier: nextTier,
+                                                                successMessage: 'Ambition tier saved!',
+                                                                successScope: 'data',
+                                                            })
+
+                                                            if (!result.success) {
+                                                                setSelectedTier(previousTier)
+                                                            }
+                                                        }}
                                                         style={{
                                                             ...dataControlBase,
                                                             marginBottom: 0,
@@ -2314,7 +2375,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                     >
                                                         <option value="Top 50">Top 50</option>
                                                         <option value="Top 33">Top 33</option>
-                                                        <option value="Top 25">Top 25</option>
+                                                        <option value="Top 20">Top 20</option>
                                                         <option value="Top 10">Top 10</option>
                                                     </select>
                                                 </div>
@@ -2324,19 +2385,15 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                         onClick={async () => {
                                                             if (isDemo) return;
                                                             try {
-                                                                const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
-                                                                const response = await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
-                                                                    method: 'PUT',
-                                                                    headers: { 'Content-Type': 'application/json' },
-                                                                    body: JSON.stringify({
-                                                                        ambition_tier: selectedTier,
-                                                                        weights: daypartWeights,
-                                                                        closed_weekdays: closedWeekdays,
-                                                                        manual_weight_override: true
-                                                                    })
-                                                                });
-                                                                if (!response.ok) throw new Error(`HTTP ${response.status}`)
-                                                                triggerBanner('Weights saved!', false, 'weights');
+                                                                const result = await persistStoreSettings({
+                                                                    manualOverride: true,
+                                                                    successMessage: 'Weights saved!',
+                                                                    successScope: 'weights',
+                                                                })
+                                                                if (!result.success) {
+                                                                    return
+                                                                }
+                                                                setManualWeightOverride(true)
                                                                 await loadSalesBaselines(dataDate)
                                                                 await loadWeekSnapshots(weekAnchorDate)
                                                             } catch (error) {
@@ -2365,21 +2422,18 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                         onClick={async () => {
                                                             if (isDemo) return;
                                                             try {
-                                                                const apiBase = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
                                                                 const recalculatedWeights = calculateAutoWeights(historicalRecords, dataDate)
-                                                                const response = await fetch(`${apiBase}/store/${effectiveStoreName}/settings`, {
-                                                                    method: 'PUT',
-                                                                    headers: { 'Content-Type': 'application/json' },
-                                                                    body: JSON.stringify({
-                                                                        ambition_tier: selectedTier,
-                                                                        weights: recalculatedWeights,
-                                                                        closed_weekdays: closedWeekdays,
-                                                                        manual_weight_override: false
-                                                                    })
-                                                                });
-                                                                if (!response.ok) throw new Error(`HTTP ${response.status}`)
+                                                                const result = await persistStoreSettings({
+                                                                    weights: recalculatedWeights,
+                                                                    manualOverride: false,
+                                                                    successMessage: 'Auto weights calculated!',
+                                                                    successScope: 'weights',
+                                                                })
+                                                                if (!result.success) {
+                                                                    return
+                                                                }
                                                                 setDaypartWeights(recalculatedWeights)
-                                                                triggerBanner('Auto weights calculated!', false, 'weights');
+                                                                setManualWeightOverride(false)
                                                                 await loadSalesBaselines(dataDate)
                                                                 await loadWeekSnapshots(weekAnchorDate)
                                                             } catch (error) {

@@ -100,7 +100,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     />
                     <text
                         x={labelX}
-                        y={labelY}
+                                        { value: 'Top 20', label: 'Top 20' },
                         fill={isTarget ? "#fff" : "#aaa"}
                         fontSize={isDayNight ? (isTarget ? "12" : "10") : (isTarget ? "16" : "14")}
                         fontWeight={isTarget ? "bold" : "normal"}
@@ -852,7 +852,7 @@ export default function SimplifiedDashboard({ onNavigateToReports }) {
                                     {[
                                         { value: 'Top 50', label: 'Top 50' },
                                         { value: 'Top 33', label: 'Top 33' },
-                                        { value: 'Top 25', label: 'Top 25' },
+                                        { value: 'Top 20', label: 'Top 20' },
                                         { value: 'Top 10', label: 'Top 10' }
                                     ].map(tier => (
                                         <label key={tier.value} style={{
