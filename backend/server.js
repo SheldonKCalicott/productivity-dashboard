@@ -69,6 +69,78 @@ function readOperationalWeights(weightsRow = {}) {
     };
 }
 
+function round1(value) {
+    return Math.round((Number(value) || 0) * 10) / 10;
+}
+
+async function recalculateStoredTargets(client, { storeId, ambitionTier, closedWeekdays, effectiveWeights }) {
+    const result = await client.query(`
+        SELECT id, record_date, daypart, sales_amount, actual_productivity, target_productivity
+        FROM productivity_records
+        WHERE store_id = $1
+        ORDER BY record_date ASC,
+            CASE daypart
+                WHEN 'breakfast' THEN 1
+                WHEN 'lunch' THEN 2
+                WHEN 'afternoon' THEN 3
+                WHEN 'dinner' THEN 4
+            END
+    `, [storeId]);
+
+    const rows = result.rows || [];
+    if (rows.length === 0) return 0;
+
+    const recordsByDate = rows.reduce((acc, row) => {
+        const dateKey = row.record_date;
+        if (!acc[dateKey]) acc[dateKey] = [];
+        acc[dateKey].push(row);
+        return acc;
+    }, {});
+
+    const dateKeys = Object.keys(recordsByDate).sort((a, b) => (a < b ? -1 : 1));
+    const historyRows = [];
+    const updates = [];
+
+    for (const dateKey of dateKeys) {
+        const plan = calculateDaypartTargetPlan({
+            records: historyRows,
+            referenceDate: dateKey,
+            closedWeekdays,
+            ambitionTier,
+        });
+
+        for (const row of recordsByDate[dateKey]) {
+            const baseTarget = plan?.daypartTargets?.[row.daypart] ?? row.target_productivity;
+            if (!Number.isFinite(Number(baseTarget))) continue;
+
+            const rawWeight = Number(effectiveWeights?.[row.daypart]);
+            const daypartWeight = Number.isFinite(rawWeight) ? Math.max(0.75, Math.min(1.25, rawWeight)) : 1;
+            const nextTarget = round1(Number(baseTarget) * daypartWeight);
+            updates.push({ id: row.id, target: nextTarget });
+        }
+
+        recordsByDate[dateKey].forEach((row) => {
+            historyRows.push({
+                record_date: row.record_date,
+                daypart: row.daypart,
+                sales_amount: row.sales_amount,
+                actual_productivity: row.actual_productivity,
+                target_productivity: row.target_productivity,
+            });
+        });
+    }
+
+    for (const update of updates) {
+        await client.query(`
+            UPDATE productivity_records
+            SET target_productivity = $1, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $2
+        `, [update.target, update.id]);
+    }
+
+    return updates.length;
+}
+
 async function getStoreId(storeName = 'simplified') {
     const result = await pool.query('SELECT id FROM stores WHERE name = $1', [storeName]);
     if (result.rows.length === 0) {
@@ -123,15 +195,18 @@ app.get('/api/store/:storeName?', async (req, res) => {
 });
 
 app.put('/api/store/:storeName/settings', async (req, res) => {
+    const client = await pool.connect();
     try {
-        await ensureAdaptiveSchema();
+        await ensureAdaptiveSchema(client);
         const { storeName } = req.params;
-        const { ambition_tier, weights, closed_weekdays, manual_weight_override } = req.body;
+        const { ambition_tier, weights, closed_weekdays, manual_weight_override, recalculate_existing_targets } = req.body;
 
         const storeId = await getStoreId(storeName);
         const closedWeekdays = parseClosedWeekdays(closed_weekdays);
 
-        await pool.query(`
+        await client.query('BEGIN');
+
+        await client.query(`
             INSERT INTO store_settings (store_id, ambition_tier, manual_weight_override, closed_weekdays, updated_at)
             VALUES ($1, $2, $3, $4::jsonb, CURRENT_TIMESTAMP)
             ON CONFLICT (store_id) DO UPDATE SET
@@ -141,9 +216,10 @@ app.put('/api/store/:storeName/settings', async (req, res) => {
                 updated_at = CURRENT_TIMESTAMP
         `, [storeId, ambition_tier || 'Top 50', !!manual_weight_override, JSON.stringify(closedWeekdays)]);
 
+        let nextWeights = null;
         if (weights) {
-            const existing = await pool.query('SELECT id FROM operational_weights WHERE store_id = $1', [storeId]);
-            const nextWeights = {
+            const existing = await client.query('SELECT id FROM operational_weights WHERE store_id = $1', [storeId]);
+            nextWeights = {
                 breakfast: Number(weights.breakfast) || DEFAULT_OPERATIONAL_WEIGHTS.breakfast,
                 lunch: Number(weights.lunch) || DEFAULT_OPERATIONAL_WEIGHTS.lunch,
                 afternoon: Number(weights.afternoon) || DEFAULT_OPERATIONAL_WEIGHTS.afternoon,
@@ -151,23 +227,43 @@ app.put('/api/store/:storeName/settings', async (req, res) => {
             };
 
             if (existing.rows.length > 0) {
-                await pool.query(`
+                await client.query(`
                     UPDATE operational_weights
                     SET breakfast = $1, lunch = $2, afternoon = $3, dinner = $4, updated_at = CURRENT_TIMESTAMP
                     WHERE store_id = $5
                 `, [nextWeights.breakfast, nextWeights.lunch, nextWeights.afternoon, nextWeights.dinner, storeId]);
             } else {
-                await pool.query(`
+                await client.query(`
                     INSERT INTO operational_weights (store_id, breakfast, lunch, afternoon, dinner)
                     VALUES ($1, $2, $3, $4, $5)
                 `, [storeId, nextWeights.breakfast, nextWeights.lunch, nextWeights.afternoon, nextWeights.dinner]);
             }
         }
 
-        res.json({ success: true, message: 'Settings saved', storeName });
+        let updatedRecordCount = 0;
+        if (recalculate_existing_targets) {
+            if (!nextWeights) {
+                const weightsResult = await client.query('SELECT * FROM operational_weights WHERE store_id = $1', [storeId]);
+                nextWeights = readOperationalWeights(weightsResult.rows[0] || {});
+            }
+
+            updatedRecordCount = await recalculateStoredTargets(client, {
+                storeId,
+                ambitionTier: ambition_tier || 'Top 50',
+                closedWeekdays,
+                effectiveWeights: nextWeights,
+            });
+        }
+
+        await client.query('COMMIT');
+
+        res.json({ success: true, message: 'Settings saved', storeName, updatedRecordCount });
     } catch (error) {
+        await client.query('ROLLBACK');
         console.error('Error saving store settings:', error);
         res.status(500).json({ error: 'Internal server error', message: error.message });
+    } finally {
+        client.release();
     }
 });
 

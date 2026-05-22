@@ -1293,7 +1293,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             });
             if (!resp.ok) {
                 const err = await resp.json().catch(() => ({}));
-                throw new Error(err.message || `HTTP ${resp.status}`);
+                throw new Error(err.message || `HTTP ${resp.status}`)
             }
             console.log('✅ Ambition & weights saved');
             triggerBanner('Ambition & weights saved!', false, 'data');
@@ -1313,8 +1313,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         weights = daypartWeights,
         closedDays = closedWeekdays,
         manualOverride = manualWeightOverride,
+        recalculateExistingTargets = false,
         successMessage = null,
         successScope = 'data',
+        errorScope = 'data',
     } = {}) => {
         if (isDemo) {
             return { success: true }
@@ -1330,6 +1332,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     weights,
                     closed_weekdays: closedDays,
                     manual_weight_override: manualOverride,
+                    recalculate_existing_targets: !!recalculateExistingTargets,
                 }),
             })
 
@@ -1343,7 +1346,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
 
             return { success: true }
         } catch (error) {
-            triggerBanner('Failed to save settings — check connection', true, 'data')
+            triggerBanner('Failed to save settings — check connection', true, errorScope)
             return { success: false }
         }
     }
@@ -1510,9 +1513,13 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         const lnSales = lunchSales ? parseInt(lunchSales.replace(/[^0-9]/g, '')) : 0
         const bfProd = parseFloat(actualProductivity.breakfast) || 0
         const lnProd = parseFloat(actualProductivity.lunch) || 0
-        
-        if (bfSales + lnSales === 0) return 0
-        return ((bfSales * bfProd) + (lnSales * lnProd)) / (bfSales + lnSales)
+
+        const totalSales = bfSales + lnSales
+        if (totalSales === 0 || bfProd <= 0 || lnProd <= 0) return 0
+
+        const totalHours = (bfSales / bfProd) + (lnSales / lnProd)
+        if (totalHours <= 0) return 0
+        return totalSales / totalHours
     }
 
     const getNightCombinedActual = () => {
@@ -1520,9 +1527,13 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         const dnSales = dinnerSales ? parseInt(dinnerSales.replace(/[^0-9]/g, '')) : 0
         const afProd = parseFloat(actualProductivity.afternoon) || 0
         const dnProd = parseFloat(actualProductivity.dinner) || 0
-        
-        if (afSales + dnSales === 0) return 0
-        return ((afSales * afProd) + (dnSales * dnProd)) / (afSales + dnSales)
+
+        const totalSales = afSales + dnSales
+        if (totalSales === 0 || afProd <= 0 || dnProd <= 0) return 0
+
+        const totalHours = (afSales / afProd) + (dnSales / dnProd)
+        if (totalHours <= 0) return 0
+        return totalSales / totalHours
     }
 
     const getTotalDayActual = () => {
@@ -1530,14 +1541,14 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             const enteredSales = getDaypartSales(daypart)
             const enteredProductivity = parseFloat(actualProductivity[daypart]) || 0
             if (enteredSales > 0 && enteredProductivity > 0) {
-                acc.weighted += enteredSales * enteredProductivity
                 acc.sales += enteredSales
+                acc.hours += (enteredSales / enteredProductivity)
             }
             return acc
-        }, { weighted: 0, sales: 0 })
+        }, { sales: 0, hours: 0 })
 
-        if (enteredTotals.sales <= 0) return 0
-        return enteredTotals.weighted / enteredTotals.sales
+        if (enteredTotals.sales <= 0 || enteredTotals.hours <= 0) return 0
+        return enteredTotals.sales / enteredTotals.hours
     }
 
     const getDayCombinedTarget = () => {
@@ -1573,6 +1584,15 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             const enteredSales = getDaypartSales(daypart)
             const enteredProductivity = parseFloat(actualProductivity[daypart]) || 0
             return enteredSales > 0 && enteredProductivity > 0
+        })
+    }
+
+    const hasAnyDaypartInputs = () => {
+        return orderedDayparts.some((daypart) => {
+            const enteredSales = getDaypartSales(daypart)
+            const enteredProductivity = parseFloat(actualProductivity[daypart]) || 0
+            const enteredPic = (picNames[daypart] || '').trim()
+            return enteredSales > 0 || enteredProductivity > 0 || enteredPic.length > 0
         })
     }
 
@@ -1767,7 +1787,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     value={selectValue}
                     onChange={(e) => {
                         const selected = e.target.value
-                        if (selected === '__placeholder__') return
+                        if (selected === '__placeholder__') {
+                            setPicNames(prev => ({ ...prev, [daypartKey]: '' }))
+                            return
+                        }
                         if (selected === '__new__') {
                             openPicModal(daypartKey)
                             return
@@ -1776,7 +1799,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     }}
                     style={{ ...tRowInput, ...dialStyles.picSelect }}
                 >
-                    <option value="__placeholder__" disabled>Select PIC</option>
+                    <option value="__placeholder__">Select PIC</option>
                     <option value="__new__">NEW PIC</option>
                     {selectableProfiles.map(name => (
                         <option key={name} value={name}>{name}</option>
@@ -1802,8 +1825,13 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 const dayLabel = tileDate.toLocaleDateString('en-US', { weekday: 'short' })
                 const dateLabel = tileDate.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
                 const isActiveDate = snapshot.date === dataDate
-                const variance = snapshot.actual - snapshot.target
-                const varianceColor = snapshot.hasData
+                const forceDataNeeded = isActiveDate && !snapshot.isClosed && !hasAnyDaypartInputs()
+                const displayHasData = forceDataNeeded ? false : snapshot.hasData
+                const displayActual = forceDataNeeded ? 0 : snapshot.actual
+                const displayTarget = forceDataNeeded ? 0 : snapshot.target
+
+                const variance = displayActual - displayTarget
+                const varianceColor = displayHasData
                     ? (variance >= 0 ? '#22c55e' : '#ef4444')
                     : tc.textMuted
 
@@ -1822,14 +1850,14 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                     >
                         <div style={dashboardStyles.weekTileHeader}>{dayLabel} {dateLabel}</div>
                         <div style={dashboardStyles.weekTileBody}>
-                            {snapshot.hasData ? (
+                            {displayHasData ? (
                                 <>
                                     <div style={dashboardStyles.weekTilePicLine}>
                                         PIC: {snapshot.pics.length > 0 ? snapshot.pics.slice(0, 2).join(', ') : 'No PIC'}
                                     </div>
-                                    <div style={dashboardStyles.weekTileLine}>Target: {snapshot.target ? snapshot.target.toFixed(1) : '--'}</div>
+                                    <div style={dashboardStyles.weekTileLine}>Target: {displayTarget ? displayTarget.toFixed(1) : '--'}</div>
                                     <div style={{ ...dashboardStyles.weekTileLine, color: varianceColor, fontWeight: '700' }}>
-                                        Actual: {snapshot.actual ? snapshot.actual.toFixed(1) : '--'}
+                                        Actual: {displayActual ? displayActual.toFixed(1) : '--'}
                                     </div>
                                 </>
                             ) : snapshot.isClosed ? (
@@ -2361,7 +2389,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                             const result = await persistStoreSettings({
                                                                 ambitionTier: nextTier,
                                                                 successMessage: 'Ambition tier saved!',
-                                                                successScope: 'data',
+                                                                successScope: 'ambition',
+                                                                errorScope: 'ambition',
                                                             })
 
                                                             if (!result.success) {
@@ -2387,6 +2416,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                             try {
                                                                 const result = await persistStoreSettings({
                                                                     manualOverride: true,
+                                                                    recalculateExistingTargets: true,
                                                                     successMessage: 'Weights saved!',
                                                                     successScope: 'weights',
                                                                 })
@@ -2426,6 +2456,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                                                 const result = await persistStoreSettings({
                                                                     weights: recalculatedWeights,
                                                                     manualOverride: false,
+                                                                    recalculateExistingTargets: true,
                                                                     successMessage: 'Auto weights calculated!',
                                                                     successScope: 'weights',
                                                                 })
