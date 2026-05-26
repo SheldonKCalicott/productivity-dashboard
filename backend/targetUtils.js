@@ -20,10 +20,10 @@ export const DEFAULT_DAYPART_AVERAGES = {
 
 // Legacy weights retained only for compatibility with existing settings UI/persistence.
 export const DEFAULT_OPERATIONAL_WEIGHTS = {
-  breakfast: 0.92,
-  lunch: 1.22,
-  afternoon: 1.08,
-  dinner: 0.94,
+  breakfast: 0.89,
+  lunch: 1.17,
+  afternoon: 1.04,
+  dinner: 0.90,
 };
 
 export const DEFAULT_BENCHMARK_MULTIPLIERS = {

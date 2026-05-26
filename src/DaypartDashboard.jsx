@@ -13,11 +13,6 @@ const themes = {
         inputBorder: '#3b4a5f', text: '#f3f7ff', textMuted: '#9aa8bc', textSubtle: '#dbe5f2',
         headerBg: '#232d3a', dialBg: '#1a2330', dialStroke: '#425068',
     },
-    light: {
-        bg: '#e8edf3', cardBg: '#f9fbfd', cardBorder: '#bcc8d8', inputBg: '#edf2f7',
-        inputBorder: '#a8b7ca', text: '#16212f', textMuted: '#4e6075', textSubtle: '#2f4258',
-        headerBg: '#dde6f1', dialBg: '#eaf1f8', dialStroke: '#95a9bf',
-    },
 }
 
 const defaultDaypartSales = {
@@ -134,7 +129,6 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     <text
                         x={labelX}
                         y={labelY}
-                        fill={isTarget ? tc.text : tc.textSubtle}
                         fontSize={compactMode ? (isDayNight ? (isTarget ? "12" : "11") : (isTarget ? "11" : "10")) : (isDayNight ? (isTarget ? "15" : "13") : (isTarget ? "14" : "12"))}
                         fontWeight={isTarget ? "bold" : "normal"}
                         textAnchor="middle"
@@ -443,10 +437,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
     
     // Adjustable daypart weights
     const [daypartWeights, setDaypartWeights] = useState({
-        'breakfast': 0.92,   // Prep-heavy startup shift
-        'lunch': 1.22,       // Peak throughput burden
-        'afternoon': 1.08,   // Transition and setup burden
-        'dinner': 0.94       // Close-down and stocking burden
+        'breakfast': 0.89,   // Prep-heavy startup shift
+        'lunch': 1.17,       // Peak throughput burden
+        'afternoon': 1.04,   // Transition and setup burden
+        'dinner': 0.90       // Close-down and stocking burden
     });
 
     // Guard: fix weights if any are out of range (e.g., 84 instead of 0.84)
@@ -475,14 +469,14 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         afternoon: '',
         dinner: ''
     })
-    
-    // Person In Charge (PIC) names for each daypart
-    const [picNames, setPicNames] = useState({
-        breakfast: '',
-        lunch: '',
-        afternoon: '',
-        dinner: ''
-    })
+
+        // Person In Charge (PIC) names for each daypart
+        const [picNames, setPicNames] = useState({
+            breakfast: '',
+            lunch: '',
+            afternoon: '',
+            dinner: ''
+        })
     const [picProfiles, setPicProfiles] = useState([])
     const [salesBaselines, setSalesBaselines] = useState(defaultDaypartSales)
     const [historicalRecords, setHistoricalRecords] = useState([])
@@ -804,12 +798,13 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return dates
     }
 
-    const applyOperationalWeightsToPlan = (basePlan) => {
+    const applyOperationalWeightsToPlan = (basePlan, baselineByDaypart = salesBaselines) => {
         if (!basePlan || basePlan.state === 'closed') {
             return basePlan
         }
 
-        const adjustedTargets = {}
+        const rawTargets = {}
+        const salesWeights = {}
 
         orderedDayparts.forEach((daypart) => {
             const baseTarget = basePlan.daypartTargets?.[daypart] || basePlan.dailyTargetProductivity || 0
@@ -817,7 +812,22 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             const clampedWeight = Math.max(0.5, Math.min(1.5, opWeight))
             // Lower weight should lower target; higher weight should raise it.
             const adjusted = baseTarget > 0 ? (baseTarget * clampedWeight) : 0
-            adjustedTargets[daypart] = adjusted
+            rawTargets[daypart] = adjusted
+            salesWeights[daypart] = Number(baselineByDaypart?.[daypart]) || defaultDaypartSales[daypart] || 0
+        })
+
+        const weightedAverage = orderedDayparts.reduce((sum, daypart) => {
+            const weight = salesWeights[daypart]
+            if (weight <= 0) return sum
+            return sum + (rawTargets[daypart] * weight)
+        }, 0) / Math.max(1, orderedDayparts.reduce((sum, daypart) => sum + Math.max(0, salesWeights[daypart]), 0))
+
+        const dailyTarget = Number(basePlan.dailyTargetProductivity) || 0
+        const correctionFactor = (weightedAverage > 0 && dailyTarget > 0) ? (dailyTarget / weightedAverage) : 1
+
+        const adjustedTargets = {}
+        orderedDayparts.forEach((daypart) => {
+            adjustedTargets[daypart] = round1(rawTargets[daypart] * correctionFactor)
         })
 
         return {
@@ -836,13 +846,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         const reference = new Date(`${referenceDate}T00:00:00`)
         const referenceWeekday = reference.getDay()
 
-        const byDaypart = {
-            breakfast: [],
-            lunch: [],
-            afternoon: [],
-            dinner: [],
-        }
-
+        const recordsByDate = {}
         records.forEach((record) => {
             const dateKey = new Date(record.record_date).toISOString().split('T')[0]
             const recordDate = new Date(`${dateKey}T00:00:00`)
@@ -857,50 +861,75 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             if (closedWeekdays.includes(weekday)) return
             if (sales <= 0 || actual <= 0) return
 
-            byDaypart[daypart].push({ sales, actual })
+            if (!recordsByDate[dateKey]) recordsByDate[dateKey] = []
+            recordsByDate[dateKey].push({ daypart, sales, actual })
         })
 
-        const productivityByDaypart = {}
-        let weightedTotal = 0
-        let totalSales = 0
+        const ratiosByDaypart = {
+            breakfast: [],
+            lunch: [],
+            afternoon: [],
+            dinner: [],
+        }
 
+        Object.values(recordsByDate).forEach((rows) => {
+            if (!Array.isArray(rows) || rows.length === 0) return
+
+            const daySales = rows.reduce((sum, row) => sum + row.sales, 0)
+            const dayHours = rows.reduce((sum, row) => sum + (row.sales / row.actual), 0)
+            if (daySales <= 0 || dayHours <= 0) return
+
+            const dayActual = daySales / dayHours
+            if (!Number.isFinite(dayActual) || dayActual <= 0) return
+
+            rows.forEach((row) => {
+                const ratio = row.actual / dayActual
+                if (Number.isFinite(ratio) && ratio > 0) {
+                    ratiosByDaypart[row.daypart].push(ratio)
+                }
+            })
+        })
+
+        const median = (values = []) => {
+            if (!values.length) return null
+            const sorted = [...values].sort((a, b) => a - b)
+            const mid = Math.floor(sorted.length / 2)
+            return sorted.length % 2 === 0
+                ? (sorted[mid - 1] + sorted[mid]) / 2
+                : sorted[mid]
+        }
+
+        const smoothed = {}
         orderedDayparts.forEach((daypart) => {
-            const rows = byDaypart[daypart]
-            const salesSum = rows.reduce((sum, row) => sum + row.sales, 0)
-            const weightedProd = rows.reduce((sum, row) => sum + (row.sales * row.actual), 0)
-
-            if (salesSum > 0) {
-                const avgProd = weightedProd / salesSum
-                productivityByDaypart[daypart] = avgProd
-                weightedTotal += weightedProd
-                totalSales += salesSum
+            const samples = ratiosByDaypart[daypart]
+            const med = median(samples)
+            if (!med) {
+                smoothed[daypart] = DEFAULT_OPERATIONAL_WEIGHTS[daypart]
+                return
             }
+
+            // Shrink toward defaults so sparse data cannot over-steer.
+            const confidence = samples.length / (samples.length + 4)
+            const blended = DEFAULT_OPERATIONAL_WEIGHTS[daypart] + ((med - DEFAULT_OPERATIONAL_WEIGHTS[daypart]) * confidence)
+            smoothed[daypart] = Math.max(0.85, Math.min(1.15, blended))
         })
 
-        if (totalSales <= 0) {
-            return { ...DEFAULT_OPERATIONAL_WEIGHTS }
-        }
-
-        const dayBenchmark = weightedTotal / totalSales
-        if (!Number.isFinite(dayBenchmark) || dayBenchmark <= 0) {
-            return { ...DEFAULT_OPERATIONAL_WEIGHTS }
-        }
-
-        const computed = {}
+        // Compress spread around 1.00 to keep dayparts more evenly distributed.
+        const compressed = {}
+        const spreadFactor = 0.65
         orderedDayparts.forEach((daypart) => {
-            const ratio = productivityByDaypart[daypart] ? (productivityByDaypart[daypart] / dayBenchmark) : DEFAULT_OPERATIONAL_WEIGHTS[daypart]
-            computed[daypart] = Math.max(0.75, Math.min(1.25, ratio))
+            compressed[daypart] = 1 + ((smoothed[daypart] - 1) * spreadFactor)
         })
 
-        // Keep total-day impact balanced by normalizing mean weight to 1.00.
-        const mean = orderedDayparts.reduce((sum, daypart) => sum + computed[daypart], 0) / orderedDayparts.length
+        // Normalize mean back to 1.00 so the set stays balanced.
+        const mean = orderedDayparts.reduce((sum, daypart) => sum + compressed[daypart], 0) / orderedDayparts.length
         if (!Number.isFinite(mean) || mean <= 0) {
             return { ...DEFAULT_OPERATIONAL_WEIGHTS }
         }
 
         const normalized = {}
         orderedDayparts.forEach((daypart) => {
-            normalized[daypart] = Math.max(0.75, Math.min(1.25, computed[daypart] / mean))
+            normalized[daypart] = Math.max(0.85, Math.min(1.15, compressed[daypart] / mean))
         })
 
         return normalized
@@ -916,21 +945,28 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             })
 
             const totalSales = dayRecords.reduce((sum, record) => sum + (Number(record.sales_amount) || 0), 0)
-            const weightedActual = dayRecords.reduce((sum, record) => sum + ((Number(record.sales_amount) || 0) * (Number(record.actual_productivity) || 0)), 0)
-            const weightedTarget = dayRecords.reduce((sum, record) => sum + ((Number(record.sales_amount) || 0) * (Number(record.target_productivity) || 0)), 0)
+            const totalHours = dayRecords.reduce((sum, record) => {
+                const sales = Number(record.sales_amount) || 0
+                const actual = Number(record.actual_productivity) || 0
+                if (sales > 0 && actual > 0) {
+                    return sum + (sales / actual)
+                }
+                return sum
+            }, 0)
             const uniquePics = [...new Set(dayRecords.map(record => (record.pic_name || '').trim()).filter(Boolean))]
                 .map((name) => normalizePicName(name))
                 .filter(Boolean)
 
-            const actual = totalSales > 0 ? (weightedActual / totalSales) : 0
+            const actual = (totalSales > 0 && totalHours > 0) ? (totalSales / totalHours) : 0
             const basePlanForDate = calculateDaypartTargetPlan({
-                records: records || [],
+                records: historicalRecords || [],
                 referenceDate: date,
                 closedWeekdays,
                 ambitionTier: selectedTier,
             })
-            const weightedPlanForDate = applyOperationalWeightsToPlan(basePlanForDate)
-            const target = weightedPlanForDate?.dailyTargetProductivity || (totalSales > 0 ? (weightedTarget / totalSales) : 0)
+            const stableForDate = getStableBenchmarks(historicalRecords || [], date, closedWeekdays)
+            const weightedPlanForDate = applyOperationalWeightsToPlan(basePlanForDate, stableForDate.daypartAverages || defaultDaypartSales)
+            const target = weightedPlanForDate?.dailyTargetProductivity || 0
 
             return {
                 date,
@@ -1488,7 +1524,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             ambitionTier: selectedTier,
             historicalAverages: salesBaselines,
         })
-        return applyOperationalWeightsToPlan(basePlan)
+        return applyOperationalWeightsToPlan(basePlan, salesBaselines)
     }, [historicalRecords, dataDate, closedWeekdays, selectedTier, salesBaselines, daypartWeights])
 
     const getTotalDayActionRows = () => {
@@ -1609,6 +1645,8 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         if (isNaN(numValue)) return '$0'
         return `$${Math.max(0, numValue).toLocaleString()}`
     }
+
+    const round1 = (value) => Math.round((Number(value) || 0) * 10) / 10
     
     // Set up midnight auto-save timer
     useEffect(() => {
@@ -1826,9 +1864,14 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 const dateLabel = tileDate.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
                 const isActiveDate = snapshot.date === dataDate
                 const forceDataNeeded = isActiveDate && !snapshot.isClosed && !hasAnyDaypartInputs()
-                const displayHasData = forceDataNeeded ? false : snapshot.hasData
-                const displayActual = forceDataNeeded ? 0 : snapshot.actual
-                const displayTarget = forceDataNeeded ? 0 : snapshot.target
+                const activeLiveMetrics = isActiveDate && hasEnteredAnyDaypart()
+
+                const displayPics = activeLiveMetrics
+                    ? Object.values(picNames).map((name) => (name || '').trim()).filter(Boolean)
+                    : snapshot.pics
+                const displayHasData = forceDataNeeded ? false : (activeLiveMetrics ? true : snapshot.hasData)
+                const displayActual = forceDataNeeded ? 0 : (activeLiveMetrics ? getTotalDayActual() : snapshot.actual)
+                const displayTarget = forceDataNeeded ? 0 : (activeLiveMetrics ? getTotalDayTarget() : snapshot.target)
 
                 const variance = displayActual - displayTarget
                 const varianceColor = displayHasData
@@ -1853,7 +1896,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                             {displayHasData ? (
                                 <>
                                     <div style={dashboardStyles.weekTilePicLine}>
-                                        PIC: {snapshot.pics.length > 0 ? snapshot.pics.slice(0, 2).join(', ') : 'No PIC'}
+                                        PIC: {displayPics.length > 0 ? displayPics.slice(0, 2).join(', ') : 'No PIC'}
                                     </div>
                                     <div style={dashboardStyles.weekTileLine}>Target: {displayTarget ? displayTarget.toFixed(1) : '--'}</div>
                                     <div style={{ ...dashboardStyles.weekTileLine, color: varianceColor, fontWeight: '700' }}>
@@ -2270,10 +2313,10 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                                     return (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '0 2px' }}>
                                             {[
-                                                { key: 'breakfast', name: 'Breakfast', defaultWeight: 0.92, note: 'prep-heavy startup burden' },
-                                                { key: 'lunch', name: 'Lunch', defaultWeight: 1.22, note: 'peak sales throughput' },
-                                                { key: 'afternoon', name: 'Afternoon', defaultWeight: 1.08, note: 'transition + setup' },
-                                                { key: 'dinner', name: 'Dinner', defaultWeight: 0.94, note: 'rush + close tasks' }
+                                                { key: 'breakfast', name: 'Breakfast', defaultWeight: 0.89, note: 'prep-heavy startup burden' },
+                                                { key: 'lunch', name: 'Lunch', defaultWeight: 1.17, note: 'peak sales throughput' },
+                                                { key: 'afternoon', name: 'Afternoon', defaultWeight: 1.04, note: 'transition + setup' },
+                                                { key: 'dinner', name: 'Dinner', defaultWeight: 0.90, note: 'rush + close tasks' }
                                             ].map(({ key, name, defaultWeight, note }) => {
                                                 const weight = daypartWeights[key];
                                                 const deviation = ((weight - 1.0) * 100);

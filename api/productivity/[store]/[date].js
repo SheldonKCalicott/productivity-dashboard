@@ -36,7 +36,7 @@ async function getStoreId(storeName = 'simplified') {
         
         await pool.query(
             'INSERT INTO operational_weights (store_id, breakfast, lunch, afternoon, dinner) VALUES ($1, $2, $3, $4, $5)',
-            [storeId, 0.92, 1.22, 1.08, 0.94]
+            [storeId, 0.89, 1.17, 1.04, 0.90]
         );
         
         await pool.query(

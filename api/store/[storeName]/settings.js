@@ -11,10 +11,10 @@ function parseClosedWeekdays(value) {
 
 function readOperationalWeights(weightsRow = {}) {
     return {
-        breakfast: Number(weightsRow.breakfast) || 0.92,
-        lunch: Number(weightsRow.lunch) || 1.22,
-        afternoon: Number(weightsRow.afternoon) || 1.08,
-        dinner: Number(weightsRow.dinner) || 0.94,
+        breakfast: Number(weightsRow.breakfast) || 0.89,
+        lunch: Number(weightsRow.lunch) || 1.17,
+        afternoon: Number(weightsRow.afternoon) || 1.04,
+        dinner: Number(weightsRow.dinner) || 0.90,
     };
 }
 
@@ -146,10 +146,10 @@ module.exports = async function handler(req, res) {
             [storeId]
         );
         const nextWeights = {
-            breakfast: weights.breakfast ?? 0.92,
-            lunch: weights.lunch ?? 1.22,
-            afternoon: weights.afternoon ?? 1.08,
-            dinner: weights.dinner ?? 0.94,
+            breakfast: weights.breakfast ?? 0.89,
+            lunch: weights.lunch ?? 1.17,
+            afternoon: weights.afternoon ?? 1.04,
+            dinner: weights.dinner ?? 0.90,
         };
 
         if (existingWeights.rows.length > 0) {
