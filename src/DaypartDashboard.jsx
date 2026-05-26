@@ -129,6 +129,7 @@ function SimplifiedProductivityDial({ title, salesInput, actualProductivity, tar
                     <text
                         x={labelX}
                         y={labelY}
+                        fill={isTarget ? tc.text : tc.textMuted}
                         fontSize={compactMode ? (isDayNight ? (isTarget ? "12" : "11") : (isTarget ? "11" : "10")) : (isDayNight ? (isTarget ? "15" : "13") : (isTarget ? "14" : "12"))}
                         fontWeight={isTarget ? "bold" : "normal"}
                         textAnchor="middle"
