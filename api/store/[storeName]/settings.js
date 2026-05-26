@@ -1,6 +1,50 @@
 // Vercel API route: /api/store/[storeName]/settings
 // Handles PUT to save ambition tier and operational weights for a store
 const { getPool, getStoreId } = require('../../_db.js');
+let schemaEnsured = false;
+
+async function ensureAdaptiveSchema(pool) {
+    if (schemaEnsured) return;
+
+    const columnExists = async (tableName, columnName) => {
+        const result = await pool.query(`
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = $1 AND column_name = $2
+            ) AS exists
+        `, [tableName, columnName]);
+        return !!result.rows?.[0]?.exists;
+    };
+
+    const hasManualWeightOverride = await columnExists('store_settings', 'manual_weight_override');
+    const hasClosedWeekdays = await columnExists('store_settings', 'closed_weekdays');
+
+    if (!hasManualWeightOverride || !hasClosedWeekdays) {
+        try {
+            if (!hasManualWeightOverride) {
+                await pool.query(`
+                    ALTER TABLE store_settings
+                    ADD COLUMN IF NOT EXISTS manual_weight_override BOOLEAN DEFAULT FALSE
+                `);
+            }
+
+            if (!hasClosedWeekdays) {
+                await pool.query(`
+                    ALTER TABLE store_settings
+                    ADD COLUMN IF NOT EXISTS closed_weekdays JSONB DEFAULT '[0]'::jsonb
+                `);
+            }
+        } catch (error) {
+            if (error?.code === '42501') {
+                throw new Error('Missing required store_settings columns and database user lacks ALTER TABLE permission. Run the database migration for manual_weight_override and closed_weekdays.');
+            }
+            throw error;
+        }
+    }
+
+    schemaEnsured = true;
+}
 
 function parseClosedWeekdays(value) {
     if (Array.isArray(value)) {
@@ -115,19 +159,10 @@ module.exports = async function handler(req, res) {
     const pool = getPool();
 
     try {
+        await ensureAdaptiveSchema(pool);
         const storeId = await getStoreId(storeName);
 
         const closedWeekdays = parseClosedWeekdays(closed_weekdays);
-
-        await pool.query(`
-            ALTER TABLE store_settings
-            ADD COLUMN IF NOT EXISTS manual_weight_override BOOLEAN DEFAULT FALSE
-        `);
-
-        await pool.query(`
-            ALTER TABLE store_settings
-            ADD COLUMN IF NOT EXISTS closed_weekdays JSONB DEFAULT '[0]'::jsonb
-        `);
 
         // Upsert ambition tier in store_settings
         await pool.query(`

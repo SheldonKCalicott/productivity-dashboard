@@ -27,15 +27,42 @@ function getPool() {
 async function ensureAdaptiveSchema(db) {
     if (schemaEnsured) return;
 
-    await db.query(`
-        ALTER TABLE store_settings
-        ADD COLUMN IF NOT EXISTS manual_weight_override BOOLEAN DEFAULT FALSE;
-    `);
+    const columnExists = async (tableName, columnName) => {
+        const result = await db.query(`
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = $1 AND column_name = $2
+            ) AS exists
+        `, [tableName, columnName]);
+        return !!result.rows?.[0]?.exists;
+    };
 
-    await db.query(`
-        ALTER TABLE store_settings
-        ADD COLUMN IF NOT EXISTS closed_weekdays JSONB DEFAULT '[0]'::jsonb;
-    `);
+    const hasManualWeightOverride = await columnExists('store_settings', 'manual_weight_override');
+    const hasClosedWeekdays = await columnExists('store_settings', 'closed_weekdays');
+
+    if (!hasManualWeightOverride || !hasClosedWeekdays) {
+        try {
+            if (!hasManualWeightOverride) {
+                await db.query(`
+                    ALTER TABLE store_settings
+                    ADD COLUMN IF NOT EXISTS manual_weight_override BOOLEAN DEFAULT FALSE;
+                `);
+            }
+
+            if (!hasClosedWeekdays) {
+                await db.query(`
+                    ALTER TABLE store_settings
+                    ADD COLUMN IF NOT EXISTS closed_weekdays JSONB DEFAULT '[0]'::jsonb;
+                `);
+            }
+        } catch (error) {
+            if (error?.code === '42501') {
+                throw new Error('Missing required store_settings columns and database user lacks ALTER TABLE permission. Run the database migration for manual_weight_override and closed_weekdays.');
+            }
+            throw error;
+        }
+    }
 
     schemaEnsured = true;
 }
