@@ -1646,7 +1646,9 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
         return `$${Math.max(0, numValue).toLocaleString()}`
     }
 
-    const round1 = (value) => Math.round((Number(value) || 0) * 10) / 10
+    function round1(value) {
+        return Math.round((Number(value) || 0) * 10) / 10
+    }
     
     // Set up midnight auto-save timer
     useEffect(() => {
