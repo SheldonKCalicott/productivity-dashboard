@@ -13,6 +13,11 @@ const themes = {
         inputBorder: '#3b4a5f', text: '#f3f7ff', textMuted: '#9aa8bc', textSubtle: '#dbe5f2',
         headerBg: '#232d3a', dialBg: '#1a2330', dialStroke: '#425068',
     },
+    light: {
+        bg: '#f0f4f8', cardBg: '#ffffff', cardBorder: '#d1dbe8', inputBg: '#f8fafc',
+        inputBorder: '#b0bfce', text: '#0f1923', textMuted: '#4a5c6e', textSubtle: '#1e2f3e',
+        headerBg: '#e4eaf1', dialBg: '#edf2f7', dialStroke: '#a0b0c0',
+    },
 }
 
 const defaultDaypartSales = {
@@ -419,7 +424,7 @@ function CombinedProductivityDial({ title, combinedSales, combinedActual, target
 // Main Dashboard Component
 export default function DaypartDashboard({ onNavigateToReports, storeNumber = null, storeName = null }) {
     const { theme } = useTheme()
-    const tc = themes[theme]
+    const tc = themes[theme] ?? themes.dark
     const [viewportSize, setViewportSize] = useState({
         width: typeof window !== 'undefined' ? window.innerWidth : 1366,
         height: typeof window !== 'undefined' ? window.innerHeight : 768,
@@ -656,6 +661,19 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
             })
             return merged.sort((a, b) => a.localeCompare(b))
         })
+    }
+
+    const getUniquePicNames = (names) => {
+        const source = Array.isArray(names) ? names : Object.values(names || {})
+        const deduped = []
+        source.forEach((name) => {
+            const normalized = normalizePicName(name)
+            if (!normalized) return
+            if (!deduped.some((existing) => existing.toLowerCase() === normalized.toLowerCase())) {
+                deduped.push(normalized)
+            }
+        })
+        return deduped
     }
 
     const openPicModal = (daypartKey) => {
@@ -1231,7 +1249,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 sales_amount: getTotalDaySales(),
                 actual_productivity: getTotalDayActual(),
                 target_productivity: getTotalDayTarget(),
-                pic_name: Object.values(picNames).filter(Boolean).join(' / '),
+                pic_name: getUniquePicNames(picNames).join(' / '),
             }
             setWeeklySnapshots(buildWeeklySnapshots(weekDates, [localSnapshot]))
             return
@@ -1870,7 +1888,7 @@ export default function DaypartDashboard({ onNavigateToReports, storeNumber = nu
                 const activeLiveMetrics = isActiveDate && hasEnteredAnyDaypart()
 
                 const displayPics = activeLiveMetrics
-                    ? Object.values(picNames).map((name) => (name || '').trim()).filter(Boolean)
+                    ? getUniquePicNames(picNames)
                     : snapshot.pics
                 const displayHasData = forceDataNeeded ? false : (activeLiveMetrics ? true : snapshot.hasData)
                 const displayActual = forceDataNeeded ? 0 : (activeLiveMetrics ? getTotalDayActual() : snapshot.actual)
