@@ -16,7 +16,7 @@ function getPool() {
             ssl: {
                 rejectUnauthorized: false,
             },
-            max: 3,
+            max: 1,
             idleTimeoutMillis: 10000,
             connectionTimeoutMillis: 5000,
         });
@@ -283,3 +283,4 @@ module.exports = async function handler(req, res) {
         return res.status(500).json({ error: 'Internal server error', message: error.message });
     }
 };
+
